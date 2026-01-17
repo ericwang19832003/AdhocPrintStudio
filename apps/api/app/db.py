@@ -1,0 +1,64 @@
+from __future__ import annotations
+
+import os
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
+from contextlib import contextmanager
+
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_database_url() -> str:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set.")
+    return url
+
+
+_ENGINE: Engine | None = None
+_SESSION_FACTORY: sessionmaker | None = None
+
+
+def get_engine() -> Engine:
+    global _ENGINE, _SESSION_FACTORY
+    if _ENGINE is None:
+        _ENGINE = create_engine(get_database_url(), pool_pre_ping=True)
+        _SESSION_FACTORY = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
+    return _ENGINE
+
+
+@contextmanager
+def get_session() -> Session:
+    if _SESSION_FACTORY is None:
+        get_engine()
+    if _SESSION_FACTORY is None:
+        raise RuntimeError("Database session factory is not initialized.")
+    session = _SESSION_FACTORY()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+def ping_db() -> None:
+    engine = get_engine()
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+
+
+def get_alembic_revision() -> str | None:
+    engine = get_engine()
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(text("SELECT version_num FROM alembic_version"))
+            row = result.first()
+            if row:
+                return str(row[0])
+    except Exception:
+        return None
+    return None
