@@ -8,14 +8,12 @@ build:
       - pip3 install --upgrade pip
       - pip3 install -r requirements.txt -t ./vendor
 run:
-  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  command: PYTHONPATH=/app/apps/api/vendor python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
   network:
     port: 8080
     env: PORT
   env:
     - name: PYTHONUNBUFFERED
       value: "1"
-    - name: PYTHONPATH
-      value: "/app/apps/api/vendor"
     - name: CORS_ORIGINS
       value: "*"
