@@ -7,7 +7,7 @@ build:
       - npm run build
   env:
     - name: NEXT_PUBLIC_API_BASE_URL
-      value: "https://REPLACE-WITH-YOUR-API-URL.us-east-1.awsapprunner.com"
+      value: "https://sr8etnwqym.us-east-1.awsapprunner.com"
 run:
   command: node .next/standalone/server.js
   network:
