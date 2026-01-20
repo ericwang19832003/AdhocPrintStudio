@@ -3,6 +3,7 @@ runtime: nodejs18
 build:
   commands:
     build:
+      - echo "Build v2 - forcing fresh build"
       - npm install
       - npm run build
   env:
