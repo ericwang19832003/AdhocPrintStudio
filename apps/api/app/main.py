@@ -4,19 +4,29 @@ from pathlib import Path
 import subprocess
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.env import load_env
 from app.db import get_alembic_revision, ping_db
 from app.assets import router as assets_router
 from app.jobs import router as jobs_router
 from app.runs import router as runs_router
+from app.print_output import router as print_output_router
 
 load_env()
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(assets_router)
 app.include_router(jobs_router)
 app.include_router(runs_router)
+app.include_router(print_output_router)
 
 
 @app.get("/health")
