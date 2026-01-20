@@ -6,7 +6,7 @@ build:
       - yum install -y libjpeg-turbo-devel zlib-devel
     build:
       - pip3 install --upgrade pip
-      - pip3 install -r requirements.txt
+      - pip3 install -r requirements.txt -t ./vendor
 run:
   command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
   network:
@@ -15,5 +15,7 @@ run:
   env:
     - name: PYTHONUNBUFFERED
       value: "1"
+    - name: PYTHONPATH
+      value: "/app/apps/api/vendor"
     - name: CORS_ORIGINS
       value: "*"
