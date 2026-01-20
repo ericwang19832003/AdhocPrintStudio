@@ -1443,9 +1443,8 @@ export default function BuilderClient() {
     <div className="builder">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark">APS</span>
           <div>
-            <h1>Template Builder</h1>
+            <h1>Adhoc Print Studio <span className="brand-suffix">By PSD</span></h1>
             <p>Compose letters from approved building blocks</p>
           </div>
         </div>
@@ -1856,6 +1855,12 @@ export default function BuilderClient() {
 
                   <div className="mail-window fixed" aria-hidden="true">
                     <div className="block-content">Reserved for recipient address</div>
+                    <div className="mailing-variables">
+                      <div>[mailing_name]</div>
+                      <div>[mailing_addr1]</div>
+                      <div>[mailing_addr2]</div>
+                      <div>[mailing_addr3]</div>
+                    </div>
                   </div>
                 </>
               )}
@@ -2589,10 +2594,25 @@ export default function BuilderClient() {
               <div className="preview-page">
                 {activePage === 0 && (
                   <>
-                    <div className="preview-return">
-                      <div>{returnLines[0]}</div>
-                      <div>{returnLines[1]}</div>
-                      <div>{returnLines[2]}</div>
+                    <div className="preview-header">
+                      <div className="preview-return">
+                        {returnLines[0] || returnLines[1] || returnLines[2] ? (
+                          <>
+                            <div>{returnLines[0]}</div>
+                            <div>{returnLines[1]}</div>
+                            <div>{returnLines[2]}</div>
+                          </>
+                        ) : (
+                          <div className="preview-placeholder">No return address</div>
+                        )}
+                      </div>
+                      <div className="preview-logo">
+                        {selectedLogo?.imageUrl ? (
+                          <img src={selectedLogo.imageUrl} alt={selectedLogo.label} />
+                        ) : (
+                          <div className="preview-placeholder">No logo</div>
+                        )}
+                      </div>
                     </div>
                     <div className="preview-mailing">
                       <div>{buildTleIndex().mailing_name}</div>

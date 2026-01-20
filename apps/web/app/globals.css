@@ -132,18 +132,16 @@ textarea:focus-visible {
   align-items: center;
 }
 
-.brand-mark {
-  font-weight: 700;
-  background: var(--accent);
-  color: white;
-  border-radius: 10px;
-  padding: 8px 10px;
-  letter-spacing: 1px;
-}
-
 .brand h1 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.brand-suffix {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .brand p {
@@ -1335,14 +1333,25 @@ textarea:focus-visible {
 }
 
 .mail-window {
-  margin-top: 12px;
+  margin-top: 4px;
+  margin-left: 96px;
   max-width: 220px;
-  height: 110px;
   background: #ffffff;
 }
 
 .mail-window .block-content {
   line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.mailing-variables {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.mailing-variables div {
+  white-space: nowrap;
 }
 
 .tagline-block {
@@ -1867,11 +1876,37 @@ textarea:focus-visible {
   position: relative;
 }
 
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
 .preview-return {
   font-size: 0.85rem;
-  color: var(--muted);
-  margin-bottom: 16px;
+  color: var(--ink);
   white-space: pre-line;
+  line-height: 1.4;
+}
+
+.preview-logo {
+  flex-shrink: 0;
+  max-width: 120px;
+  max-height: 60px;
+}
+
+.preview-logo img {
+  max-width: 100%;
+  max-height: 60px;
+  object-fit: contain;
+}
+
+.preview-placeholder {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
 }
 
 .preview-mailing {
