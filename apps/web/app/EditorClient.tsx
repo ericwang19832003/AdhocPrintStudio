@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Node as TiptapNode } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -284,24 +284,25 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
-  const toolbar = useMemo(() => {
+  // Toolbar rendered directly (not memoized) to prevent select flickering
+  const renderToolbar = () => {
     if (!editor) return null;
     return (
-      <div className="body-toolbar">
+      <div className="body-toolbar" onMouseDown={(e) => e.preventDefault()}>
         {/* Undo/Redo */}
         <div className="toolbar-group">
           <button
-            className={editor.can().undo() ? "" : "disabled"}
-            onClick={() => editor.chain().focus().undo().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().undo().run(); }}
             disabled={!editor.can().undo()}
+            className={!editor.can().undo() ? "disabled" : ""}
             title="Undo (⌘Z)"
           >
             ↩
           </button>
           <button
-            className={editor.can().redo() ? "" : "disabled"}
-            onClick={() => editor.chain().focus().redo().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().redo().run(); }}
             disabled={!editor.can().redo()}
+            className={!editor.can().redo() ? "disabled" : ""}
             title="Redo (⌘⇧Z)"
           >
             ↪
@@ -311,10 +312,12 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         {/* Font & Size */}
         <div className="toolbar-group">
           <select
+            onMouseDown={(e) => e.stopPropagation()}
             onChange={(event) => {
               const value = event.target.value;
               if (value) {
                 editor.chain().focus().setFontFamily(value).run();
+                event.target.value = "";
               }
             }}
             title="Font Family"
@@ -329,10 +332,12 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             <option value="Courier New">Courier New</option>
           </select>
           <select
+            onMouseDown={(e) => e.stopPropagation()}
             onChange={(event) => {
               const value = event.target.value;
               if (value) {
                 editor.chain().focus().setFontSize(value).run();
+                event.target.value = "";
               }
             }}
             title="Font Size"
@@ -354,28 +359,28 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         <div className="toolbar-group">
           <button
             className={editor.isActive("bold") ? "active" : ""}
-            onClick={() => editor.chain().focus().toggleBold().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
             title="Bold (⌘B)"
           >
             <strong>B</strong>
           </button>
           <button
             className={editor.isActive("italic") ? "active" : ""}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}
             title="Italic (⌘I)"
           >
             <em>I</em>
           </button>
           <button
             className={editor.isActive("underline") ? "active" : ""}
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleUnderline().run(); }}
             title="Underline (⌘U)"
           >
             <span style={{ textDecoration: "underline" }}>U</span>
           </button>
           <button
             className={editor.isActive("strike") ? "active" : ""}
-            onClick={() => editor.chain().focus().toggleStrike().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleStrike().run(); }}
             title="Strikethrough"
           >
             <span style={{ textDecoration: "line-through" }}>S</span>
@@ -387,7 +392,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
           <div className="color-picker-wrapper">
             <button
               className={showTextColorPicker ? "active" : ""}
-              onClick={() => {
+              onMouseDown={(e) => {
+                e.preventDefault();
                 setShowTextColorPicker(!showTextColorPicker);
                 setShowHighlightPicker(false);
               }}
@@ -402,7 +408,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
                     key={color.value}
                     className="color-swatch"
                     style={{ backgroundColor: color.value }}
-                    onClick={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
                       editor.chain().focus().setColor(color.value).run();
                       setShowTextColorPicker(false);
                     }}
@@ -415,7 +422,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
           <div className="color-picker-wrapper">
             <button
               className={showHighlightPicker ? "active" : ""}
-              onClick={() => {
+              onMouseDown={(e) => {
+                e.preventDefault();
                 setShowHighlightPicker(!showHighlightPicker);
                 setShowTextColorPicker(false);
               }}
@@ -430,7 +438,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
                     key={color.value || "none"}
                     className="color-swatch"
                     style={{ backgroundColor: color.value || "#ffffff", border: color.value ? "none" : "1px dashed #d1d5db" }}
-                    onClick={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
                       if (color.value) {
                         editor.chain().focus().toggleHighlight({ color: color.value }).run();
                       } else {
@@ -450,20 +459,20 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         <div className="toolbar-group">
           <button
             className={editor.isActive("bulletList") ? "active" : ""}
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
             title="Bullet List"
           >
             •≡
           </button>
           <button
             className={editor.isActive("orderedList") ? "active" : ""}
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); }}
             title="Numbered List"
           >
             1.
           </button>
           <button
-            onClick={() => editor.chain().focus().liftListItem("listItem").run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().liftListItem("listItem").run(); }}
             disabled={!editor.can().liftListItem("listItem")}
             className={!editor.can().liftListItem("listItem") ? "disabled" : ""}
             title="Decrease Indent"
@@ -471,7 +480,7 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             ⇤
           </button>
           <button
-            onClick={() => editor.chain().focus().sinkListItem("listItem").run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().sinkListItem("listItem").run(); }}
             disabled={!editor.can().sinkListItem("listItem")}
             className={!editor.can().sinkListItem("listItem") ? "disabled" : ""}
             title="Increase Indent"
@@ -484,21 +493,21 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         <div className="toolbar-group">
           <button
             className={editor.isActive({ textAlign: "left" }) ? "active" : ""}
-            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("left").run(); }}
             title="Align Left"
           >
             ≡
           </button>
           <button
             className={editor.isActive({ textAlign: "center" }) ? "active" : ""}
-            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("center").run(); }}
             title="Align Center"
           >
             ≡
           </button>
           <button
             className={editor.isActive({ textAlign: "right" }) ? "active" : ""}
-            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("right").run(); }}
             title="Align Right"
           >
             ≡
@@ -508,10 +517,12 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         {/* Line Spacing */}
         <div className="toolbar-group">
           <select
+            onMouseDown={(e) => e.stopPropagation()}
             onChange={(event) => {
               const value = event.target.value;
               if (value) {
                 editor.chain().focus().setLineHeight(value).run();
+                event.target.value = "";
               }
             }}
             title="Line Spacing"
@@ -528,19 +539,19 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         <div className="toolbar-group">
           <button
             className={editor.isActive("link") ? "active" : ""}
-            onClick={setLink}
+            onMouseDown={(e) => { e.preventDefault(); setLink(); }}
             title="Insert Link"
           >
             🔗
           </button>
           <button
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHorizontalRule().run(); }}
             title="Insert Horizontal Rule"
           >
             ―
           </button>
           <button
-            onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().unsetAllMarks().clearNodes().run(); }}
             title="Clear Formatting"
           >
             ⌫
@@ -548,7 +559,7 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         </div>
       </div>
     );
-  }, [editor, showTextColorPicker, showHighlightPicker, setLink]);
+  };
 
   const handleShellDrop = (event: React.DragEvent<HTMLDivElement>) => {
     const payload = event.dataTransfer.getData("text/plain");
@@ -619,7 +630,7 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       }}
       onDrop={handleShellDrop}
     >
-      {toolbar}
+      {renderToolbar()}
       <EditorContent editor={editor} className="body-editor" />
     </div>
   );
