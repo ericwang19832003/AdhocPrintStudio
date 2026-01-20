@@ -1808,7 +1808,7 @@ export default function BuilderClient() {
                         <div className="block-content">
                           {selectedReturn
                             ? selectedReturn.content ?? selectedReturn.label
-                            : "Drop a return address here"}
+                            : "Return address"}
                         </div>
                       </div>
                     </div>
@@ -1849,7 +1849,7 @@ export default function BuilderClient() {
                           ))}
                         </>
                       ) : (
-                        "Logo slot"
+                        "Logo"
                       )}
                     </div>
                   </div>
@@ -1896,7 +1896,7 @@ export default function BuilderClient() {
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
                 {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
-                  <div className="empty-state">Drop verbiage or full letters here</div>
+                  <div className="empty-state">Drop content here or start typing</div>
                 )}
                 {(blocksByPage[activePage] ?? []).map((block) => (
                   <div
@@ -1977,11 +1977,11 @@ export default function BuilderClient() {
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={handleTaglineDrop}
               >
-                <div className="block-title">Tagline (fixed)</div>
+                <div className="block-title">Tagline · Fixed position</div>
                 <div className="block-content">
                   {selectedTaglineByPage[activePage]
                     ? selectedTaglineByPage[activePage]?.label
-                    : "Drop a tagline here"}
+                    : "Tagline"}
                 </div>
               </div>
             </div>
