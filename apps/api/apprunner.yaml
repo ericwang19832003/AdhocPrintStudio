@@ -11,7 +11,7 @@ build:
       - pip3 install --no-cache-dir -r requirements.txt -t ./vendor
       - ls -la ./vendor
 run:
-  command: sh -c "python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080
   network:
     port: 8080
     env: PORT
