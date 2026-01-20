@@ -1494,6 +1494,80 @@ textarea:focus-visible {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.body-toolbar button.disabled,
+.body-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.body-toolbar button.disabled:hover,
+.body-toolbar button:disabled:hover {
+  background: transparent;
+  color: #6b7280;
+}
+
+/* Color Picker */
+.color-picker-wrapper {
+  position: relative;
+}
+
+.color-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  padding: 8px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+/* Editor Link Styles */
+.editor-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.editor-link:hover {
+  color: #1d4ed8;
+}
+
+/* List Styles in Editor */
+.body-editor ul,
+.body-editor ol {
+  padding-left: 24px;
+  margin: 0.5em 0;
+}
+
+.body-editor li {
+  margin: 0.25em 0;
+}
+
+/* Horizontal Rule */
+.body-editor hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 1em 0;
+}
+
 .body-editor {
   position: relative;
   z-index: 3;
