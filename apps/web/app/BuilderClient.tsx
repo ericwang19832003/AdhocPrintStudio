@@ -452,11 +452,11 @@ const librarySeed: Record<string, LibraryItem[]> = {
 
 const tabs = Object.keys(librarySeed);
 const libraryButtons = [
-  { label: "LOGO", tab: "Logos", icon: "" },
-  { label: "RETURN ADDRESS", tab: "Return Address", icon: "" },
-  { label: "VERBIAGE", tab: "Verbiage", icon: "" },
-  { label: "TAGLINE", tab: "Taglines", icon: "" },
-  { label: "LETTER TEMPLATE", tab: "Full Letters", icon: "" },
+  { label: "Logo", tab: "Logos", icon: "🏷️" },
+  { label: "Return Address", tab: "Return Address", icon: "📍" },
+  { label: "Verbiage", tab: "Verbiage", icon: "💬" },
+  { label: "Tagline", tab: "Taglines", icon: "✨" },
+  { label: "Letter Template", tab: "Full Letters", icon: "📄" },
 ] as const;
 
 function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | null {
@@ -1486,7 +1486,7 @@ export default function BuilderClient() {
               ))}
             </div>
             <button className="ghost admin" onClick={() => setShowAdmin(true)}>
-              Admin: manage library
+              ⚙️ Manage Library
             </button>
           </aside>
         </div>

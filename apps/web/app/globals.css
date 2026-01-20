@@ -174,10 +174,11 @@ textarea:focus-visible {
 
 .library {
   border-right: 1px solid var(--outline);
-  padding: 12px 8px;
+  padding: 8px;
   background: #f8fafc;
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   overflow: visible;
   min-height: 0;
   grid-template-rows: auto;
@@ -847,52 +848,55 @@ textarea:focus-visible {
 }
 
 .library-nav {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sidebar-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 10px 6px;
-  border-radius: 10px;
-  font-weight: 600;
+  gap: 2px;
+  padding: 8px 4px;
+  min-height: 52px;
+  border-radius: 8px;
+  font-weight: 500;
   text-align: center;
   width: 100%;
-  background: #f8fafc;
-  border: 1px solid var(--outline);
-  color: var(--ink);
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  display: grid;
-  gap: 4px;
-  align-content: center;
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
 }
 
 .sidebar-button:hover {
-  background: #eef2f6;
+  background: rgba(0, 0, 0, 0.04);
+  color: #374151;
 }
 
 .sidebar-button.active {
-  background: #2563eb;
-  color: white;
-  border-color: transparent;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
 }
 
 .tool-icon {
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .tool-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: inherit;
-  opacity: 0.7;
+  line-height: 1.2;
 }
 
 .sidebar-button.active .tool-label {
-  opacity: 0.9;
+  font-weight: 600;
 }
 
 .tab {
@@ -1122,7 +1126,20 @@ textarea:focus-visible {
 }
 
 .admin {
-  justify-self: start;
+  margin-top: auto;
+  padding: 8px 4px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #9ca3af;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #6b7280;
 }
 
 .canvas-panel {
