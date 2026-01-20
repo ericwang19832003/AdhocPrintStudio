@@ -3,9 +3,11 @@ runtime: nodejs18
 build:
   commands:
     build:
-      - echo "Build v2 - forcing fresh build"
+      - echo "Build v3 - with static files copy"
       - npm install
       - npm run build
+      - cp -r public .next/standalone/ || true
+      - cp -r .next/static .next/standalone/.next/
   env:
     - name: NEXT_PUBLIC_API_BASE_URL
       value: "https://2tpyxda24h.us-east-1.awsapprunner.com"
