@@ -557,6 +557,7 @@ export default function BuilderClient() {
     mailing_addr3: "",
   });
   const [showPreview, setShowPreview] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
@@ -970,26 +971,68 @@ export default function BuilderClient() {
   };
 
   const handleTaglineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    // Always stop propagation to prevent parent scroll
     event.stopPropagation();
-    if (!taglineListRef.current) return;
+
+    const list = taglineListRef.current;
+    if (!list) return;
+
     const target = event.target as Node;
-    if (taglineListRef.current.contains(target)) {
-      return;
+    const isInsideList = list.contains(target);
+
+    if (isInsideList) {
+      // Check if at scroll boundaries to prevent scroll chaining
+      const { scrollTop, scrollHeight, clientHeight } = list;
+      const atTop = scrollTop <= 0 && event.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight && event.deltaY > 0;
+
+      if (atTop || atBottom) {
+        event.preventDefault();
+      }
+    } else {
+      // Scrolling outside list (e.g., preview panel) - scroll the list
+      event.preventDefault();
+      list.scrollTop += event.deltaY;
     }
-    event.preventDefault();
-    taglineListRef.current.scrollTop += event.deltaY;
   };
 
   const handleFlyoutWheel = (event: React.WheelEvent<HTMLElement>) => {
+    // Always stop propagation to keep scroll within flyout
+    event.stopPropagation();
+
     const panel = event.currentTarget;
-    const scrollables = panel.querySelectorAll(
-      ".logo-grid, .return-list, .tagline-list, .verbiage-list, .full-letter-list, .flyout-list, .flyout-compact-list, .flyout-card-grid, .block-menu-list, .block-menu-preview-panel, .verbiage-preview-panel, .full-letter-preview-panel, .return-preview-panel, .tagline-preview-panel"
-    );
-    const canScroll = Array.from(scrollables).some(
-      (element) => element.scrollHeight > element.clientHeight
-    );
-    if (canScroll) {
-      event.stopPropagation();
+    const target = event.target as HTMLElement;
+
+    // Find the scrollable container the target is inside
+    const scrollableSelectors = [
+      ".logo-grid", ".return-list", ".tagline-list", ".verbiage-list",
+      ".full-letter-list", ".flyout-list", ".flyout-compact-list",
+      ".flyout-card-grid", ".block-menu-list", ".block-menu-preview-panel",
+      ".verbiage-preview-panel", ".full-letter-preview-panel",
+      ".return-preview-panel", ".tagline-preview-panel"
+    ];
+
+    let scrollableParent: HTMLElement | null = null;
+    for (const selector of scrollableSelectors) {
+      const container = target.closest(selector) as HTMLElement | null;
+      if (container && panel.contains(container)) {
+        scrollableParent = container;
+        break;
+      }
+    }
+
+    if (scrollableParent) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollableParent;
+      const atTop = scrollTop <= 0 && event.deltaY < 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight && event.deltaY > 0;
+
+      // Prevent scroll chaining at boundaries
+      if (atTop || atBottom) {
+        event.preventDefault();
+      }
+    } else {
+      // Not inside a scrollable area - prevent any scroll
+      event.preventDefault();
     }
   };
 
@@ -1048,25 +1091,54 @@ export default function BuilderClient() {
     return sampleValueForColumn(mappedColumn);
   };
 
-  const buildMergedHtml = () => {
+  // Parse all spreadsheet rows for preview
+  const spreadsheetRows = useMemo(() => {
+    if (!spreadsheetContent) return [];
+    const lines = spreadsheetContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    if (lines.length < 2) return [];
+    const [headerLine, ...dataLines] = lines;
+    const headers = headerLine.split(",").map((h) => h.trim());
+    return dataLines.map((line) => {
+      const values = line.split(",");
+      const rowMap: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        rowMap[header] = values[index]?.trim() ?? "";
+      });
+      return rowMap;
+    });
+  }, [spreadsheetContent]);
+
+  const getValueForRow = (rowIndex: number, column: string) => {
+    const row = spreadsheetRows[rowIndex];
+    if (!row) return sampleValueForColumn(column);
+    return row[column] ?? sampleValueForColumn(column);
+  };
+
+  const buildMergedHtmlForRow = (rowIndex: number) => {
     const bodyHtml = stripInlineControls(bodyContentByPage[activePage] ?? "");
-    const mergedBody = bodyHtml.replace(/\[([^\]]+)\]/g, (match) =>
-      resolvePlaceholderValue(match)
-    );
+    const mergedBody = bodyHtml.replace(/\[([^\]]+)\]/g, (match) => {
+      const key = match.replace(/^\[|\]$/g, "");
+      const mappedColumn = placeholderMap[match] || key;
+      return getValueForRow(rowIndex, mappedColumn);
+    });
     return mergedBody;
   };
 
-  const buildTleIndex = () => ({
-    mailing_name: sampleValueForColumn(normalizeMailingValue(mailingMap.mailing_name) || "mailing_name"),
-    mailing_addr1: sampleValueForColumn(normalizeMailingValue(mailingMap.mailing_addr1) || "mailing_addr1"),
-    mailing_addr2: sampleValueForColumn(normalizeMailingValue(mailingMap.mailing_addr2) || "mailing_addr2"),
+  const buildTleIndexForRow = (rowIndex: number) => ({
+    mailing_name: getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_name) || "mailing_name"),
+    mailing_addr1: getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_addr1) || "mailing_addr1"),
+    mailing_addr2: getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_addr2) || "mailing_addr2"),
     mailing_addr3: normalizeMailingValue(mailingMap.mailing_addr3)
-      ? sampleValueForColumn(normalizeMailingValue(mailingMap.mailing_addr3))
+      ? getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_addr3))
       : "",
     return_addr1: returnLines[0],
     return_addr2: returnLines[1],
     return_addr3: returnLines[2],
   });
+
+  const buildMergedHtml = () => buildMergedHtmlForRow(previewIndex);
+
+  const buildTleIndex = () => buildTleIndexForRow(previewIndex);
 
   const handleGenerate = async () => {
     if (!spreadsheetContent) return;
@@ -1124,22 +1196,8 @@ export default function BuilderClient() {
   };
 
   const handleMergePreview = () => {
-    const lines = spreadsheetContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    if (lines.length < 2) return;
-    const [header, ...rows] = lines;
-    const firstRow = rows[0]?.split(",") ?? [];
-    const columnsList = header.split(",").map((value) => value.trim());
-    const rowMap: Record<string, string> = {};
-    columnsList.forEach((column, index) => {
-      rowMap[column] = firstRow[index] ?? "";
-    });
-    const merged = stripInlineControls(bodyContentByPage[activePage] ?? "").replace(
-      /\[([^\]]+)\]/g,
-      (match, key) => {
-        return rowMap[key] ?? resolvePlaceholderValue(match);
-      }
-    );
-    updateBodyContent(activePage, merged);
+    if (spreadsheetRows.length === 0) return;
+    setPreviewIndex(0);
     setShowPreview(true);
   };
 
@@ -1831,7 +1889,7 @@ export default function BuilderClient() {
                 />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
-                {(blocksByPage[activePage] ?? []).length === 0 && (
+                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
                   <div className="empty-state">Drop verbiage or full letters here</div>
                 )}
                 {(blocksByPage[activePage] ?? []).map((block) => (
@@ -2504,6 +2562,25 @@ export default function BuilderClient() {
           <div className="modal preview-modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h3>Print Output Preview</h3>
+              <div className="preview-nav">
+                <button
+                  className="ghost"
+                  onClick={() => setPreviewIndex((i) => Math.max(0, i - 1))}
+                  disabled={previewIndex === 0}
+                >
+                  Previous
+                </button>
+                <span className="preview-counter">
+                  {previewIndex + 1} of {spreadsheetRows.length}
+                </span>
+                <button
+                  className="ghost"
+                  onClick={() => setPreviewIndex((i) => Math.min(spreadsheetRows.length - 1, i + 1))}
+                  disabled={previewIndex >= spreadsheetRows.length - 1}
+                >
+                  Next
+                </button>
+              </div>
               <button className="ghost" onClick={() => setShowPreview(false)}>
                 Close
               </button>
@@ -2531,7 +2608,7 @@ export default function BuilderClient() {
                 />
               </div>
               <div className="preview-meta">
-                <h4>TLE Index</h4>
+                <h4>TLE Index (Row {previewIndex + 1})</h4>
                 {Object.entries(buildTleIndex()).map(([key, value]) => (
                   <div key={key} className="preview-row">
                     <span>{key}</span>

@@ -137,6 +137,25 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+    editorProps: {
+      handleDrop: (view, event) => {
+        // Check if this is a library item drop - prevent ProseMirror's native text drop
+        const payload = event.dataTransfer?.getData("text/plain");
+        if (payload) {
+          try {
+            const item = JSON.parse(payload);
+            // For library items, prevent ProseMirror's native drop (which would insert raw JSON)
+            // The actual insertion is handled by editor-shell's onDrop
+            if (item && item.type && ["verbiage", "full-letter", "tagline", "logo", "return"].includes(item.type)) {
+              return true; // Prevent ProseMirror's native handling
+            }
+          } catch {
+            // Not JSON, let ProseMirror handle it
+          }
+        }
+        return false;
+      },
+    },
   });
 
   useEffect(() => {
@@ -275,31 +294,74 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
     );
   }, [editor]);
 
+  const handleShellDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    const payload = event.dataTransfer.getData("text/plain");
+    if (!payload || !editor) return;
+
+    try {
+      const item = JSON.parse(payload) as DroppedItem;
+      if (item && item.type && ["verbiage", "full-letter"].includes(item.type) && item.content) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Try to get drop position from coordinates
+        const coords = { left: event.clientX, top: event.clientY };
+        const posAtCoords = editor.view.posAtCoords(coords);
+
+        // Parse content into paragraphs
+        const lines = item.content
+          .split(/\n+/)
+          .map((line: string) => line.trim())
+          .filter(Boolean)
+          .map((line: string) => ({
+            type: "paragraph",
+            content: [{ type: "text", text: line }],
+          }));
+
+        // Set cursor position if we got valid coords, otherwise go to end
+        if (posAtCoords?.pos !== undefined) {
+          editor.chain().focus().setTextSelection(posAtCoords.pos).run();
+        } else {
+          editor.chain().focus("end").run();
+        }
+
+        // Insert the content
+        if (item.type === "verbiage") {
+          editor
+            .chain()
+            .insertContent({
+              type: "verbiageBlock",
+              attrs: {
+                verbiageId: item.id ?? null,
+                label: item.label ?? null,
+                sourceType: "verbiage",
+              },
+              content: lines.length > 0 ? lines : [{ type: "paragraph" }],
+            })
+            .run();
+        } else {
+          editor.chain().insertContent(lines.length > 0 ? lines : [{ type: "paragraph" }]).run();
+        }
+        return;
+      }
+      // For other types (tagline, logo, return), just prevent default
+      if (item && item.type && ["tagline", "logo", "return"].includes(item.type)) {
+        event.preventDefault();
+        return;
+      }
+    } catch {
+      // Not JSON, let native drop handle it
+    }
+  };
+
   return (
     <div
       className="editor-shell"
-      onDragOver={
-        onDropItem
-          ? (event) => {
-              event.preventDefault();
-            }
-          : undefined
-      }
-      onDrop={
-        onDropItem
-          ? (event) => {
-              event.preventDefault();
-              const payload = event.dataTransfer.getData("text/plain");
-              if (!payload) return;
-              try {
-                const item = JSON.parse(payload) as DroppedItem;
-                onDropItem(item, { x: event.clientX, y: event.clientY });
-              } catch {
-                // ignore invalid payloads
-              }
-            }
-          : undefined
-      }
+      onDragOver={(event) => {
+        // Always allow drop
+        event.preventDefault();
+      }}
+      onDrop={handleShellDrop}
     >
       {toolbar}
       <EditorContent editor={editor} className="body-editor" />
