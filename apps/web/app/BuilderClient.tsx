@@ -123,7 +123,7 @@ const FlyoutPanel = ({
     </div>
     <div className="flyout-body">{children}</div>
     <div className="flyout-footer">
-      <p className="flyout-footer-hint">Couldn't find what you need?</p>
+      <p className="flyout-footer-hint">Cannot find what you need?</p>
       <button className="secondary" onClick={onCreateClick}>
         Add your own
       </button>
