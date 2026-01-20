@@ -550,6 +550,7 @@ export default function BuilderClient() {
   const [generating, setGenerating] = useState(false);
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
   const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [mailingMap, setMailingMap] = useState<Record<string, string>>({
     mailing_name: "",
     mailing_addr1: "",
@@ -1993,10 +1994,13 @@ export default function BuilderClient() {
           <h3>Data</h3>
           <div className="property-group">
             <div
-              className="drop-zone"
-              onDragOver={(event) => event.preventDefault()}
+              className={`drop-zone${isDragging ? " dragging" : ""}`}
+              onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
               onDrop={(event) => {
                 event.preventDefault();
+                setIsDragging(false);
                 const file = event.dataTransfer.files?.[0];
                 if (file) {
                   handleSpreadsheetFile(file).catch((error) => {
@@ -2006,7 +2010,7 @@ export default function BuilderClient() {
               }}
             >
               <p>{spreadsheetName ? "Spreadsheet loaded" : "Drag spreadsheet here"}</p>
-              <span>{spreadsheetName ?? "CSV or XLSX"}</span>
+              <span>{spreadsheetName ?? "Upload spreadsheet here"}</span>
               <label className="file-input">
                 Upload file
                 <input
