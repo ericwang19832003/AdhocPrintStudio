@@ -309,8 +309,11 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         {/* Font & Size */}
         <div className="toolbar-group">
           <select
-            value=""
-            onChange={(event) => editor.chain().focus().setFontFamily(event.target.value).run()}
+            defaultValue=""
+            onChange={(event) => {
+              editor.chain().focus().setFontFamily(event.target.value).run();
+              event.target.value = "";
+            }}
             title="Font Family"
           >
             <option value="" disabled>
@@ -325,8 +328,11 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             <option value="Courier New">Courier New</option>
           </select>
           <select
-            value=""
-            onChange={(event) => editor.chain().focus().setFontSize(event.target.value).run()}
+            defaultValue=""
+            onChange={(event) => {
+              editor.chain().focus().setFontSize(event.target.value).run();
+              event.target.value = "";
+            }}
             title="Font Size"
           >
             <option value="" disabled>
@@ -502,8 +508,11 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         {/* Line Spacing */}
         <div className="toolbar-group">
           <select
-            value=""
-            onChange={(event) => editor.chain().focus().setLineHeight(event.target.value).run()}
+            defaultValue=""
+            onChange={(event) => {
+              editor.chain().focus().setLineHeight(event.target.value).run();
+              event.target.value = "";
+            }}
             title="Line Spacing"
           >
             <option value="" disabled>
