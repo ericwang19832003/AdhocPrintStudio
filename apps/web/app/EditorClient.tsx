@@ -70,8 +70,9 @@ const FontSize = Extension.create({
     return {
       setFontSize:
         (size: string) =>
-        ({ chain }) =>
-          chain().setMark("textStyle", { fontSize: size }).run(),
+        ({ commands }) => {
+          return commands.setMark("textStyle", { fontSize: size });
+        },
     };
   },
 });
@@ -97,8 +98,9 @@ const LineHeight = Extension.create({
     return {
       setLineHeight:
         (value: string) =>
-        ({ chain }) =>
-          chain().setNode("paragraph", { lineHeight: value }).run(),
+        ({ commands }) => {
+          return commands.updateAttributes("paragraph", { lineHeight: value });
+        },
     };
   },
 });
@@ -309,16 +311,15 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         {/* Font & Size */}
         <div className="toolbar-group">
           <select
-            defaultValue=""
             onChange={(event) => {
-              editor.chain().focus().setFontFamily(event.target.value).run();
-              event.target.value = "";
+              const value = event.target.value;
+              if (value) {
+                editor.chain().focus().setFontFamily(value).run();
+              }
             }}
             title="Font Family"
           >
-            <option value="" disabled>
-              Font
-            </option>
+            <option value="">Font</option>
             <option value="Times New Roman">Times New Roman</option>
             <option value="Georgia">Georgia</option>
             <option value="Garamond">Garamond</option>
@@ -328,16 +329,15 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             <option value="Courier New">Courier New</option>
           </select>
           <select
-            defaultValue=""
             onChange={(event) => {
-              editor.chain().focus().setFontSize(event.target.value).run();
-              event.target.value = "";
+              const value = event.target.value;
+              if (value) {
+                editor.chain().focus().setFontSize(value).run();
+              }
             }}
             title="Font Size"
           >
-            <option value="" disabled>
-              Size
-            </option>
+            <option value="">Size</option>
             <option value="9pt">9</option>
             <option value="10pt">10</option>
             <option value="11pt">11</option>
@@ -508,16 +508,15 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         {/* Line Spacing */}
         <div className="toolbar-group">
           <select
-            defaultValue=""
             onChange={(event) => {
-              editor.chain().focus().setLineHeight(event.target.value).run();
-              event.target.value = "";
+              const value = event.target.value;
+              if (value) {
+                editor.chain().focus().setLineHeight(value).run();
+              }
             }}
             title="Line Spacing"
           >
-            <option value="" disabled>
-              ↕
-            </option>
+            <option value="">↕</option>
             <option value="1">1.0</option>
             <option value="1.15">1.15</option>
             <option value="1.5">1.5</option>
