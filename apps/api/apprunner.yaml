@@ -12,3 +12,5 @@ run:
   env:
     - name: PYTHONUNBUFFERED
       value: "1"
+    - name: CORS_ORIGINS
+      value: "*"
