@@ -13,11 +13,9 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_database_url() -> str:
+def get_database_url() -> str | None:
     url = os.getenv("DATABASE_URL")
-    if not url:
-        raise RuntimeError("DATABASE_URL is not set.")
-    return url
+    return url if url else None
 
 
 _ENGINE: Engine | None = None
@@ -27,7 +25,10 @@ _SESSION_FACTORY: sessionmaker | None = None
 def get_engine() -> Engine:
     global _ENGINE, _SESSION_FACTORY
     if _ENGINE is None:
-        _ENGINE = create_engine(get_database_url(), pool_pre_ping=True)
+        db_url = get_database_url()
+        if not db_url:
+            raise RuntimeError("DATABASE_URL is not set.")
+        _ENGINE = create_engine(db_url, pool_pre_ping=True)
         _SESSION_FACTORY = sessionmaker(bind=_ENGINE, autoflush=False, autocommit=False)
     return _ENGINE
 
@@ -52,8 +53,10 @@ def ping_db() -> None:
 
 
 def get_alembic_revision() -> str | None:
-    engine = get_engine()
+    if not get_database_url():
+        return None
     try:
+        engine = get_engine()
         with engine.connect() as connection:
             result = connection.execute(text("SELECT version_num FROM alembic_version"))
             row = result.first()
