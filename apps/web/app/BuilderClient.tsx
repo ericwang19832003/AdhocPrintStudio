@@ -1173,8 +1173,8 @@ export default function BuilderClient() {
             types?: Array<{ description: string; accept: Record<string, string[]> }>;
           }) => Promise<FileSystemFileHandle>;
         }).showSaveFilePicker({
-          suggestedName: "print_output.zip",
-          types: [{ description: "Zip Archive", accept: { "application/zip": [".zip"] } }],
+          suggestedName: "print_output.afp",
+          types: [{ description: "AFP Document", accept: { "application/octet-stream": [".afp"] } }],
         });
         const writable = await picker.createWritable();
         await writable.write(blob);
@@ -1183,7 +1183,7 @@ export default function BuilderClient() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "print_output.zip";
+        link.download = "print_output.afp";
         link.click();
         URL.revokeObjectURL(url);
       }

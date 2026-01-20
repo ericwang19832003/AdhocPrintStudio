@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 from dataclasses import dataclass
 from typing import Any
-from zipfile import ZipFile
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from PIL import Image, ImageDraw, ImageFont
 
-from app.afp_generator import generate_page_segment
+from app.afp_document_generator import generate_afp_document
 from openpyxl import load_workbook
 
 router = APIRouter(prefix="/print-output", tags=["print-output"])
@@ -163,6 +161,19 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
 
 @router.post("/afp")
 def generate_afp(payload: dict[str, Any]) -> Response:
+    """
+    Generate a complete IBM AFP document with embedded TLE index records.
+
+    The AFP document contains:
+    - Document structure (BDT/EDT)
+    - Page structure with page descriptors
+    - TLE (Tag Logical Element) records for each page containing:
+      - mailing_name, mailing_addr1, mailing_addr2, mailing_addr3
+      - return_addr1, return_addr2, return_addr3
+    - Inline page segments with IOCA image data
+
+    Compatible with mainframe processing, reblocking, and AFP viewers.
+    """
     try:
         spreadsheet_csv = payload.get("spreadsheet_csv", "")
         if not spreadsheet_csv.strip():
@@ -178,8 +189,8 @@ def generate_afp(payload: dict[str, Any]) -> Response:
         mailing_map = payload.get("mailing_map", {})
         return_lines = payload.get("return_address", ["", "", ""])
 
-        tle_entries: list[dict[str, str]] = []
-        afp_segments: list[bytes] = []
+        # Build pages with image data and TLE information
+        pages: list[dict[str, Any]] = []
         for index, row in enumerate(rows, start=1):
             merged_body = _replace_placeholders(body_html, row, placeholder_map)
             merged_blocks = [
@@ -200,44 +211,42 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 return_lines,
             )
 
-            segment_name = f"ROW{index:05d}"[:8]
+            # Convert PNG to grayscale image data
             image = Image.open(io.BytesIO(image_bytes))
             if image.mode != "L":
                 image = image.convert("L")
             image_data = image.tobytes()
             width, height = image.size
-            afp_segments.append(
-                generate_page_segment(
-                    image_data=image_data,
-                    width=width,
-                    height=height,
-                    x_resolution=DPI,
-                    y_resolution=DPI,
-                    segment_name=segment_name,
-                )
-            )
 
-            tle_entries.append(
-                {
-                    "mailing_name": mailing_lines[0],
-                    "mailing_addr1": mailing_lines[1],
-                    "mailing_addr2": mailing_lines[2],
-                    "mailing_addr3": mailing_lines[3],
-                    "return_addr1": return_lines[0],
-                    "return_addr2": return_lines[1],
-                    "return_addr3": return_lines[2],
+            # Build page with TLE data
+            pages.append({
+                'image_data': image_data,
+                'width': width,
+                'height': height,
+                'tle_data': {
+                    'mailing_name': mailing_lines[0],
+                    'mailing_addr1': mailing_lines[1],
+                    'mailing_addr2': mailing_lines[2],
+                    'mailing_addr3': mailing_lines[3],
+                    'return_addr1': return_lines[0] if len(return_lines) > 0 else "",
+                    'return_addr2': return_lines[1] if len(return_lines) > 1 else "",
+                    'return_addr3': return_lines[2] if len(return_lines) > 2 else "",
                 }
-            )
+            })
 
-        zip_buffer = io.BytesIO()
-        with ZipFile(zip_buffer, "w") as archive:
-            archive.writestr("output.afp", b"".join(afp_segments))
-            archive.writestr("tle_index.json", json.dumps(tle_entries, indent=2))
+        # Generate complete AFP document with embedded TLE records
+        afp_document = generate_afp_document(
+            pages=pages,
+            document_name="MAILOUT",
+            resolution=DPI,
+            page_width=PAGE_WIDTH,
+            page_height=PAGE_HEIGHT
+        )
 
         return Response(
-            content=zip_buffer.getvalue(),
-            media_type="application/zip",
-            headers={"Content-Disposition": 'attachment; filename="print_output.zip"'},
+            content=afp_document,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="print_output.afp"'},
         )
     except HTTPException:
         raise
