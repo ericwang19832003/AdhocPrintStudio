@@ -8,7 +8,7 @@ build:
       - pip3 install --upgrade pip
       - pip3 install -r requirements.txt
 run:
-  command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
   network:
     port: 8080
     env: PORT
