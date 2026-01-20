@@ -5,10 +5,13 @@ build:
     pre-build:
       - yum install -y libjpeg-turbo-devel zlib-devel
     build:
+      - echo "Build timestamp v3 - forcing fresh build"
       - pip3 install --upgrade pip
-      - pip3 install -r requirements.txt -t ./vendor
+      - mkdir -p ./vendor
+      - pip3 install --no-cache-dir -r requirements.txt -t ./vendor
+      - ls -la ./vendor
 run:
-  command: PYTHONPATH=/app/apps/api/vendor python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
   network:
     port: 8080
     env: PORT
@@ -17,3 +20,5 @@ run:
       value: "1"
     - name: CORS_ORIGINS
       value: "*"
+    - name: PYTHONPATH
+      value: "/app/apps/api/vendor"
