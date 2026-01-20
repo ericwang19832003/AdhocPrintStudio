@@ -10,6 +10,17 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextStyle from "@tiptap/extension-text-style";
 import FontFamily from "@tiptap/extension-font-family";
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (size: string) => ReturnType;
+    };
+    lineHeight: {
+      setLineHeight: (height: string) => ReturnType;
+    };
+  }
+}
+
 type DroppedItem = {
   id?: string;
   label?: string;
