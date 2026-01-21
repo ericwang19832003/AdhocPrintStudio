@@ -1179,7 +1179,10 @@ export default function BuilderClient() {
   const buildTleIndex = () => buildTleIndexForRow(previewIndex);
 
   const handleGenerate = async () => {
-    if (!spreadsheetContent) return;
+    if (!spreadsheetContent) {
+      alert("Please upload a spreadsheet first.");
+      return;
+    }
     setGenerating(true);
     try {
       const response = await fetch(`${env.apiBaseUrl}/print-output/afp`, {
@@ -1228,6 +1231,8 @@ export default function BuilderClient() {
       setShowPreview(false);
     } catch (error) {
       console.error(error);
+      const message = error instanceof Error ? error.message : "Failed to generate AFP";
+      alert(`Error: ${message}\n\nMake sure the API server is running.`);
     } finally {
       setGenerating(false);
     }
