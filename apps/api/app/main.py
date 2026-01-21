@@ -16,23 +16,18 @@ from app.print_output import router as print_output_router
 
 load_env()
 
-# Build CORS origins list from environment or use defaults
+# Allow all origins for now (can be restricted later via CORS_ORIGINS env var)
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 if cors_origins_env:
     cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
 else:
-    cors_origins = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "https://yixc4j6mgj.us-east-2.awsapprunner.com",
-    ]
+    cors_origins = ["*"]  # Allow all origins by default
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,  # Must be False when using allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
