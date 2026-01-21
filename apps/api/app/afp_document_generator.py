@@ -451,15 +451,17 @@ def generate_afp_document(
         # TLE records for this page
         tle_data = page.get('tle_data', {})
 
-        # Write all TLE fields
+        # Write all TLE fields with fixed-length attribute names (13 chars)
+        # This ensures values align at a consistent column position
+        TLE_NAME_LENGTH = 13
         tle_fields = [
-            ('mailing_name', tle_data.get('mailing_name', '')),
-            ('mailing_addr1', tle_data.get('mailing_addr1', '')),
-            ('mailing_addr2', tle_data.get('mailing_addr2', '')),
-            ('mailing_addr3', tle_data.get('mailing_addr3', '')),
-            ('return_addr1', tle_data.get('return_addr1', '')),
-            ('return_addr2', tle_data.get('return_addr2', '')),
-            ('return_addr3', tle_data.get('return_addr3', '')),
+            ('mailing_name'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_name', '')),
+            ('mailing_addr1'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_addr1', '')),
+            ('mailing_addr2'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_addr2', '')),
+            ('mailing_addr3'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_addr3', '')),
+            ('return_addr1'.ljust(TLE_NAME_LENGTH), tle_data.get('return_addr1', '')),
+            ('return_addr2'.ljust(TLE_NAME_LENGTH), tle_data.get('return_addr2', '')),
+            ('return_addr3'.ljust(TLE_NAME_LENGTH), tle_data.get('return_addr3', '')),
         ]
 
         for field_name, field_value in tle_fields:
