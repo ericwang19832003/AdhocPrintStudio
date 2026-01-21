@@ -272,184 +272,132 @@ const SNAP_TOLERANCE = 6;
 const DEFAULT_BLOCK_HEIGHT = 80;
 const PAGE_PADDING = 20;
 
+// 15 Logo placeholders with varied styles and colors
 const logoPlaceholders: LibraryItem[] = [
-  {
-    id: "logo-1",
-    label: "APS Primary",
-    type: "logo",
-    imageUrl:
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23b84f2f'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='28' fill='white'>APS</text></svg>",
-  },
-  {
-    id: "logo-2",
-    label: "APS Monogram",
-    type: "logo",
-    imageUrl:
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%231f1c18'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='28' fill='%23f6f1ea'>A</text></svg>",
-  },
-  {
-    id: "logo-3",
-    label: "APS Light",
-    type: "logo",
-    imageUrl:
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23f6f1ea' stroke='%23b84f2f' stroke-width='2'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='24' fill='%238c2e15'>APS</text></svg>",
-  },
-  {
-    id: "logo-4",
-    label: "APS Serif",
-    type: "logo",
-    imageUrl:
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23ffffff' stroke='%23e6dbcf' stroke-width='2'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Georgia' font-size='24' fill='%231f1c18'>APS</text></svg>",
-  },
-  {
-    id: "logo-5",
-    label: "APS Outline",
-    type: "logo",
-    imageUrl:
-      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23ffffff' stroke='%231f1c18' stroke-width='2'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='22' fill='%231f1c18'>APS</text></svg>",
-  },
+  { id: "logo-1", label: "APS Primary", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23b84f2f'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='28' fill='white'>APS</text></svg>" },
+  { id: "logo-2", label: "APS Monogram", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%231f1c18'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='28' fill='%23f6f1ea'>A</text></svg>" },
+  { id: "logo-3", label: "APS Light", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23f6f1ea' stroke='%23b84f2f' stroke-width='2'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='24' fill='%238c2e15'>APS</text></svg>" },
+  { id: "logo-4", label: "APS Serif", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23ffffff' stroke='%23e6dbcf' stroke-width='2'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Georgia' font-size='24' fill='%231f1c18'>APS</text></svg>" },
+  { id: "logo-5", label: "APS Outline", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23ffffff' stroke='%231f1c18' stroke-width='2'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='22' fill='%231f1c18'>APS</text></svg>" },
+  { id: "logo-6", label: "Acme Corp Blue", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%232563eb'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='20' fill='white'>ACME CORP</text></svg>" },
+  { id: "logo-7", label: "Acme Corp Dark", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23111827'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='20' fill='%2360a5fa'>ACME</text></svg>" },
+  { id: "logo-8", label: "GlobalTech Green", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%2316a34a'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>GlobalTech</text></svg>" },
+  { id: "logo-9", label: "FinServ Gold", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23fbbf24'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Georgia' font-size='20' fill='%23451a03'>FinServ</text></svg>" },
+  { id: "logo-10", label: "HealthPlus Red", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23dc2626'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>Health+</text></svg>" },
+  { id: "logo-11", label: "InsureCo Purple", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%239333ea'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>InsureCo</text></svg>" },
+  { id: "logo-12", label: "BankFirst Navy", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%231e3a5f'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Georgia' font-size='18' fill='%23fcd34d'>BankFirst</text></svg>" },
+  { id: "logo-13", label: "TechStart Orange", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23ea580c'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>TechStart</text></svg>" },
+  { id: "logo-14", label: "EduLearn Teal", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%230d9488'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>EduLearn</text></svg>" },
+  { id: "logo-15", label: "RetailMax Pink", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23db2777'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='18' fill='white'>RetailMax</text></svg>" },
+];
+
+// 20 Taglines with varied lengths (short to long)
+const taglineSeed: LibraryItem[] = [
+  { id: "tag-1", label: "Trusted since 1998", type: "tagline", content: "Trusted since 1998" },
+  { id: "tag-2", label: "Delivering clarity", type: "tagline", content: "Delivering clarity" },
+  { id: "tag-3", label: "Excellence.", type: "tagline", content: "Excellence." },
+  { id: "tag-4", label: "Your success, our mission", type: "tagline", content: "Your success, our mission" },
+  { id: "tag-5", label: "Innovation forward", type: "tagline", content: "Innovation forward" },
+  { id: "tag-6", label: "Building tomorrow today", type: "tagline", content: "Building tomorrow today" },
+  { id: "tag-7", label: "Where quality meets reliability and customer service excellence", type: "tagline", content: "Where quality meets reliability and customer service excellence" },
+  { id: "tag-8", label: "Simply better", type: "tagline", content: "Simply better" },
+  { id: "tag-9", label: "Precision print, personal touch", type: "tagline", content: "Precision print, personal touch" },
+  { id: "tag-10", label: "Committed to your financial well-being since 1965", type: "tagline", content: "Committed to your financial well-being since 1965" },
+  { id: "tag-11", label: "Fast. Reliable. Secure.", type: "tagline", content: "Fast. Reliable. Secure." },
+  { id: "tag-12", label: "Empowering businesses worldwide with cutting-edge solutions", type: "tagline", content: "Empowering businesses worldwide with cutting-edge solutions" },
+  { id: "tag-13", label: "Care you can count on", type: "tagline", content: "Care you can count on" },
+  { id: "tag-14", label: "Leading the way", type: "tagline", content: "Leading the way" },
+  { id: "tag-15", label: "Your partner in progress, dedicated to delivering results that matter", type: "tagline", content: "Your partner in progress, dedicated to delivering results that matter" },
+  { id: "tag-16", label: "Think different", type: "tagline", content: "Think different" },
+  { id: "tag-17", label: "Service beyond expectations", type: "tagline", content: "Service beyond expectations" },
+  { id: "tag-18", label: "Connecting people, inspiring growth, transforming communities", type: "tagline", content: "Connecting people, inspiring growth, transforming communities" },
+  { id: "tag-19", label: "Made for your message", type: "tagline", content: "Made for your message" },
+  { id: "tag-20", label: "The trusted name in financial services for over five decades of excellence", type: "tagline", content: "The trusted name in financial services for over five decades of excellence" },
+];
+
+// 20 Return Addresses with varied formats (2-5 lines)
+const returnAddressSeed: LibraryItem[] = [
+  { id: "ret-1", label: "HQ - San Jose", type: "return", content: "APS HQ\n250 Market Street\nSan Jose, CA 95113" },
+  { id: "ret-2", label: "East Coast Ops", type: "return", content: "APS East Coast\n44 Hanover Ave\nBoston, MA 02116" },
+  { id: "ret-3", label: "Midwest Fulfillment", type: "return", content: "APS Midwest\n1200 Lakeview Dr\nChicago, IL 60601" },
+  { id: "ret-4", label: "Southwest Print Hub", type: "return", content: "APS Southwest\n815 Copper Road\nPhoenix, AZ 85004" },
+  { id: "ret-5", label: "Pacific NW Office", type: "return", content: "APS Pacific NW\n900 Rainier Blvd\nSeattle, WA 98104" },
+  { id: "ret-6", label: "NYC Corporate", type: "return", content: "Acme Corporation\nAttn: Customer Service\n350 Fifth Avenue, Suite 4500\nNew York, NY 10118" },
+  { id: "ret-7", label: "LA Branch", type: "return", content: "GlobalTech Inc.\n1000 Wilshire Blvd\nLos Angeles, CA 90017" },
+  { id: "ret-8", label: "Denver Regional", type: "return", content: "FinServ Partners\nRegional Processing Center\n1700 Broadway, Floor 12\nDenver, CO 80202" },
+  { id: "ret-9", label: "Atlanta Hub (Short)", type: "return", content: "HealthPlus\nAtlanta, GA 30301" },
+  { id: "ret-10", label: "Miami Operations", type: "return", content: "InsureCo of Florida\nClaims Department\n100 SE 2nd Street\nMiami, FL 33131" },
+  { id: "ret-11", label: "Dallas Center", type: "return", content: "BankFirst Texas\nP.O. Box 650001\nDallas, TX 75265-0001" },
+  { id: "ret-12", label: "Portland Office", type: "return", content: "TechStart LLC\n121 SW Morrison St\nSuite 500\nPortland, OR 97204" },
+  { id: "ret-13", label: "Minneapolis HQ", type: "return", content: "RetailMax Inc.\nCorporate Headquarters\n80 South 8th Street\nMinneapolis, MN 55402\nUSA" },
+  { id: "ret-14", label: "PO Box Simple", type: "return", content: "EduLearn Corp\nP.O. Box 12345\nAustin, TX 78711" },
+  { id: "ret-15", label: "Full Corporate (Long)", type: "return", content: "National Insurance Group\nCorporate Communications\nAttn: Policyholder Services\n500 Constitution Ave NW\nWashington, DC 20001" },
+  { id: "ret-16", label: "San Diego Branch", type: "return", content: "Pacific Financial\n401 B Street\nSan Diego, CA 92101" },
+  { id: "ret-17", label: "Philadelphia Center", type: "return", content: "Liberty Mutual Services\n1500 Market Street\nPhiladelphia, PA 19102" },
+  { id: "ret-18", label: "Detroit Office", type: "return", content: "AutoServ Inc.\nCustomer Relations\n300 Renaissance Center\nDetroit, MI 48243" },
+  { id: "ret-19", label: "Simple 2-Line", type: "return", content: "Quick Mail Co.\nOrlando, FL 32801" },
+  { id: "ret-20", label: "International (Long)", type: "return", content: "Global Enterprises Ltd.\nInternational Division\n1 World Trade Center\nFloor 85\nNew York, NY 10007\nUnited States" },
+];
+
+// 25 Verbiage blocks with varied lengths (1 sentence to 4 sentences)
+const verbiageSeed: LibraryItem[] = [
+  { id: "verb-1", label: "Privacy notice", type: "verbiage", content: "We value your privacy. Your information is used only for account servicing and will not be shared without consent." },
+  { id: "verb-2", label: "Late payment block", type: "verbiage", content: "Our records show an outstanding balance. Please remit payment within 10 days to avoid service interruption." },
+  { id: "verb-3", label: "Billing assistance", type: "verbiage", content: "Need help with your bill? Call 800-555-0199, Monday through Friday, 8am-6pm, and we will assist you." },
+  { id: "verb-4", label: "Opt-out instructions", type: "verbiage", content: "To opt out of paper delivery, visit your account settings or call customer care at 800-555-0177." },
+  { id: "verb-5", label: "Account update reminder", type: "verbiage", content: "Please review your contact details to ensure your statements are delivered to the correct address." },
+  { id: "verb-6", label: "Thank you (Short)", type: "verbiage", content: "Thank you for your business." },
+  { id: "verb-7", label: "Contact us", type: "verbiage", content: "Questions? Contact us at support@example.com or call 1-800-555-0123." },
+  { id: "verb-8", label: "Legal disclaimer (Long)", type: "verbiage", content: "This document contains confidential information intended only for the named recipient. If you have received this in error, please notify the sender immediately and delete all copies. Unauthorized use, disclosure, or distribution is prohibited and may be unlawful. The sender accepts no liability for any damages arising from the unauthorized use of this information." },
+  { id: "verb-9", label: "Payment due", type: "verbiage", content: "Payment is due within 30 days of the statement date." },
+  { id: "verb-10", label: "Autopay enrollment", type: "verbiage", content: "Enroll in AutoPay for worry-free payments. Your payment will be automatically deducted on the due date, ensuring you never miss a payment. Sign up online at myaccount.example.com or call our automated line at 800-555-0188." },
+  { id: "verb-11", label: "Rate change notice", type: "verbiage", content: "Please be advised that your interest rate may change based on market conditions. Review your account terms for details." },
+  { id: "verb-12", label: "Paperless invitation", type: "verbiage", content: "Go green with paperless statements! Switch to electronic delivery and receive your statements faster, reduce clutter, and help the environment." },
+  { id: "verb-13", label: "Fraud alert", type: "verbiage", content: "Protect yourself from fraud. Never share your account number, PIN, or password with anyone claiming to be from our company. We will never ask for this information via email or phone." },
+  { id: "verb-14", label: "Service hours", type: "verbiage", content: "Our customer service team is available Monday through Friday, 8:00 AM to 8:00 PM EST, and Saturday, 9:00 AM to 5:00 PM EST." },
+  { id: "verb-15", label: "Minimum payment", type: "verbiage", content: "Paying only the minimum amount due will result in higher interest charges and a longer time to pay off your balance." },
+  { id: "verb-16", label: "Credit score impact", type: "verbiage", content: "Late payments may be reported to credit bureaus and could negatively impact your credit score. Please ensure timely payment to maintain good standing." },
+  { id: "verb-17", label: "Rewards program", type: "verbiage", content: "Earn points on every purchase! Redeem for cash back, travel, merchandise, and more. Visit rewards.example.com to view your balance and redeem points." },
+  { id: "verb-18", label: "Address change", type: "verbiage", content: "Moving? Update your address online or call us to ensure uninterrupted service." },
+  { id: "verb-19", label: "Dispute instructions", type: "verbiage", content: "If you believe there is an error on your statement, write to us at the address shown within 60 days. Include your name, account number, the dollar amount of the suspected error, and a description of the problem." },
+  { id: "verb-20", label: "Security reminder", type: "verbiage", content: "For your security, always sign out of your online account when finished. Use strong, unique passwords and enable two-factor authentication when available." },
+  { id: "verb-21", label: "Grace period", type: "verbiage", content: "You have a 21-day grace period on new purchases when you pay your balance in full each month." },
+  { id: "verb-22", label: "Fee disclosure", type: "verbiage", content: "A late fee of up to $40 may be charged if your minimum payment is not received by the due date." },
+  { id: "verb-23", label: "Balance transfer offer", type: "verbiage", content: "Transfer your high-interest balances and enjoy 0% APR for 12 months. A 3% transfer fee applies. Offer expires December 31, 2026." },
+  { id: "verb-24", label: "Annual fee notice", type: "verbiage", content: "Your annual membership fee of $95 will appear on your next statement." },
+  { id: "verb-25", label: "HIPAA notice (Long)", type: "verbiage", content: "This notice describes how medical information about you may be used and disclosed and how you can get access to this information. Please review it carefully. We are required by law to maintain the privacy of your protected health information, provide you with notice of our legal duties and privacy practices, and notify you following a breach of unsecured protected health information." },
+];
+
+// 20 Full Letters with varied lengths (2 paragraphs to 6 paragraphs)
+const fullLetterSeed: LibraryItem[] = [
+  { id: "full-1", label: "Dunning Letter A", type: "full-letter", content: "Hello [Customer Name],\n\nOur records indicate your account has an overdue balance. Please submit payment at your earliest convenience to avoid any disruption.\n\nIf you have already sent payment, please disregard this notice." },
+  { id: "full-2", label: "Welcome Letter", type: "full-letter", content: "Welcome to APS!\n\nWe are pleased to have you with us. This letter confirms your enrollment and provides information about how to manage your account online." },
+  { id: "full-3", label: "Policy Update Notice", type: "full-letter", content: "We are writing to inform you of updates to our service terms. These changes take effect on the first of next month. Please review the enclosed summary for details." },
+  { id: "full-4", label: "Service Confirmation", type: "full-letter", content: "This letter confirms your recent service request. Our team will process your request within 3 business days and notify you once complete." },
+  { id: "full-5", label: "Annual Statement Cover", type: "full-letter", content: "Enclosed is your annual statement. Please review it carefully and contact us if any information appears incorrect." },
+  { id: "full-6", label: "Account Closure Confirmation", type: "full-letter", content: "Dear Valued Customer,\n\nThis letter confirms that your account has been closed as requested. Any remaining balance has been refunded to your original payment method.\n\nWe appreciate the opportunity to serve you and hope you will consider us again in the future.\n\nThank you for your business." },
+  { id: "full-7", label: "Payment Plan Offer", type: "full-letter", content: "Dear [Customer Name],\n\nWe understand that financial circumstances can change. If you are having difficulty paying your balance, we want to help.\n\nWe are pleased to offer you a payment plan that allows you to pay your balance over time. Please call us at 800-555-0199 to discuss your options.\n\nOur goal is to work with you to find a solution that fits your budget." },
+  { id: "full-8", label: "Rate Increase Notice (Long)", type: "full-letter", content: "Important Notice Regarding Your Account\n\nDear [Customer Name],\n\nWe are writing to inform you of changes to your account terms. Effective [Date], your Annual Percentage Rate (APR) will increase from [Current Rate] to [New Rate].\n\nThis change is being made due to market conditions and applies to new purchases made after the effective date. Your current balance will continue to accrue interest at your existing rate.\n\nYou have the right to reject this change by notifying us in writing before [Opt-Out Date]. If you reject, you may use your account under the current terms until the end of your current membership year, but your account will be closed for future transactions.\n\nIf you have questions about this notice, please call us at 800-555-0199.\n\nThank you for being a valued customer." },
+  { id: "full-9", label: "Renewal Notice", type: "full-letter", content: "Dear Member,\n\nYour membership is up for renewal. To continue enjoying your benefits, please renew by [Date].\n\nYou can renew online at myaccount.example.com or by calling 800-555-0199." },
+  { id: "full-10", label: "Collections Final Notice", type: "full-letter", content: "FINAL NOTICE\n\nDear [Customer Name],\n\nDespite our previous attempts to contact you, your account remains seriously past due. The total amount owed is [Amount].\n\nUnless we receive payment in full or hear from you within 10 days of this letter, we will have no choice but to refer your account to a collection agency. This action may negatively impact your credit score.\n\nPlease contact us immediately at 800-555-0199 to discuss your options.\n\nWe hope to resolve this matter without further action." },
+  { id: "full-11", label: "Thank You Letter", type: "full-letter", content: "Dear [Customer Name],\n\nThank you for your recent purchase. We truly appreciate your business and hope you are satisfied with your order.\n\nIf you have any questions or concerns, please don't hesitate to reach out. We're here to help." },
+  { id: "full-12", label: "Insurance Claim Acknowledgment", type: "full-letter", content: "Re: Claim Number [Claim ID]\n\nDear [Policyholder Name],\n\nWe have received your claim dated [Date] and it is currently being reviewed. A claims adjuster will contact you within 5-7 business days.\n\nIn the meantime, please gather any additional documentation that may support your claim, including photos, receipts, and police reports if applicable.\n\nThank you for your patience during this process." },
+  { id: "full-13", label: "Benefits Enrollment Reminder", type: "full-letter", content: "Important: Open Enrollment Ends Soon\n\nDear Employee,\n\nThis is a reminder that open enrollment for employee benefits ends on [Date]. If you wish to make changes to your health insurance, dental, vision, or retirement plans, you must do so before the deadline.\n\nTo review your options and make elections, visit benefits.company.com or contact HR at ext. 4500.\n\nIf you do not make any changes, your current elections will continue for the next plan year.\n\nPlease take action before the deadline to ensure your coverage meets your needs." },
+  { id: "full-14", label: "Address Verification Request", type: "full-letter", content: "Dear [Customer Name],\n\nWe recently attempted to deliver important documents to your address on file, but they were returned as undeliverable.\n\nPlease verify and update your mailing address by calling 800-555-0199 or logging into your account online.\n\nUntil we receive your updated information, we may be unable to send you important account notices." },
+  { id: "full-15", label: "Loan Approval Letter", type: "full-letter", content: "Congratulations!\n\nDear [Applicant Name],\n\nWe are pleased to inform you that your loan application has been approved. The details of your loan are as follows:\n\nLoan Amount: [Amount]\nInterest Rate: [Rate]\nTerm: [Term]\nMonthly Payment: [Payment]\n\nPlease review the enclosed documents carefully and sign where indicated. Return the signed documents within 10 business days to finalize your loan.\n\nIf you have any questions, please contact your loan officer at [Phone].\n\nThank you for choosing us for your financial needs." },
+  { id: "full-16", label: "Service Interruption Notice", type: "full-letter", content: "Service Interruption Notice\n\nDear Customer,\n\nDue to scheduled maintenance, your service will be temporarily unavailable on [Date] from [Start Time] to [End Time].\n\nWe apologize for any inconvenience this may cause and appreciate your patience." },
+  { id: "full-17", label: "Referral Program Invitation", type: "full-letter", content: "Share the Savings!\n\nDear [Customer Name],\n\nWe hope you're enjoying your experience with us. Did you know you can earn rewards by referring friends and family?\n\nFor every new customer you refer, you'll receive a $50 credit on your account, and your friend will receive $25 off their first purchase.\n\nSimply share your unique referral code [CODE] or visit referrals.example.com to get started.\n\nThere's no limit to how much you can earn. Start referring today!" },
+  { id: "full-18", label: "Privacy Policy Update (Long)", type: "full-letter", content: "Notice of Privacy Policy Changes\n\nDear [Customer Name],\n\nWe are committed to protecting your personal information. This notice is to inform you of updates to our Privacy Policy, effective [Date].\n\nKey changes include:\n\n• How we collect and use your information\n• Your choices regarding data sharing\n• Enhanced security measures we have implemented\n• Your rights under applicable privacy laws\n\nThe updated policy is available at privacy.example.com or by calling 800-555-0199 to request a printed copy.\n\nThese changes reflect our ongoing commitment to transparency and your privacy rights. No action is required on your part, but we encourage you to review the updated policy.\n\nIf you have questions or concerns, please contact our Privacy Office at privacy@example.com.\n\nThank you for trusting us with your information." },
+  { id: "full-19", label: "Appointment Reminder", type: "full-letter", content: "Appointment Reminder\n\nDear [Patient Name],\n\nThis is a reminder of your upcoming appointment:\n\nDate: [Date]\nTime: [Time]\nLocation: [Address]\n\nPlease arrive 15 minutes early to complete any necessary paperwork. Remember to bring your insurance card and photo ID.\n\nIf you need to reschedule, please call us at least 24 hours in advance." },
+  { id: "full-20", label: "Warranty Expiration Notice", type: "full-letter", content: "Warranty Expiration Notice\n\nDear [Customer Name],\n\nThe warranty on your [Product Name] (Serial: [Serial Number]) will expire on [Date].\n\nTo continue protecting your investment, consider purchasing an extended warranty. Our extended coverage plans offer:\n\n• Full parts and labor coverage\n• No deductibles\n• 24/7 customer support\n• Transferable coverage if you sell the product\n\nVisit warranty.example.com or call 800-555-0199 before your warranty expires to take advantage of special pricing available only to existing customers.\n\nDon't wait until it's too late to protect your purchase." },
 ];
 
 const librarySeed: Record<string, LibraryItem[]> = {
   Logos: [...logoPlaceholders],
-  Taglines: [
-    {
-      id: "tag-1",
-      label: "Trusted since 1998",
-      type: "tagline",
-      content: "Trusted since 1998",
-    },
-    {
-      id: "tag-2",
-      label: "Delivering clarity",
-      type: "tagline",
-      content: "Delivering clarity",
-    },
-    {
-      id: "tag-3",
-      label: "Precision print, personal touch",
-      type: "tagline",
-      content: "Precision print, personal touch",
-    },
-    {
-      id: "tag-4",
-      label: "Reliable mail, every time",
-      type: "tagline",
-      content: "Reliable mail, every time",
-    },
-    {
-      id: "tag-5",
-      label: "Made for your message",
-      type: "tagline",
-      content: "Made for your message",
-    },
-  ],
-  "Return Address": [
-    {
-      id: "ret-1",
-      label: "HQ - San Jose",
-      type: "return",
-      content: "APS HQ\n250 Market Street\nSan Jose, CA 95113",
-    },
-    {
-      id: "ret-2",
-      label: "East Coast Ops",
-      type: "return",
-      content: "APS East Coast\n44 Hanover Ave\nBoston, MA 02116",
-    },
-    {
-      id: "ret-3",
-      label: "Midwest Fulfillment",
-      type: "return",
-      content: "APS Midwest\n1200 Lakeview Dr\nChicago, IL 60601",
-    },
-    {
-      id: "ret-4",
-      label: "Southwest Print Hub",
-      type: "return",
-      content: "APS Southwest\n815 Copper Road\nPhoenix, AZ 85004",
-    },
-    {
-      id: "ret-5",
-      label: "Pacific NW Office",
-      type: "return",
-      content: "APS Pacific NW\n900 Rainier Blvd\nSeattle, WA 98104",
-    },
-  ],
-  Verbiage: [
-    {
-      id: "verb-1",
-      label: "Privacy notice",
-      type: "verbiage",
-      content:
-        "We value your privacy. Your information is used only for account servicing and will not be shared without consent.",
-    },
-    {
-      id: "verb-2",
-      label: "Late payment block",
-      type: "verbiage",
-      content:
-        "Our records show an outstanding balance. Please remit payment within 10 days to avoid service interruption.",
-    },
-    {
-      id: "verb-3",
-      label: "Billing assistance",
-      type: "verbiage",
-      content:
-        "Need help with your bill? Call 800-555-0199, Monday through Friday, 8am-6pm, and we will assist you.",
-    },
-    {
-      id: "verb-4",
-      label: "Opt-out instructions",
-      type: "verbiage",
-      content:
-        "To opt out of paper delivery, visit your account settings or call customer care at 800-555-0177.",
-    },
-    {
-      id: "verb-5",
-      label: "Account update reminder",
-      type: "verbiage",
-      content:
-        "Please review your contact details to ensure your statements are delivered to the correct address.",
-    },
-  ],
-  "Full Letters": [
-    {
-      id: "full-1",
-      label: "Dunning Letter A",
-      type: "full-letter",
-      content:
-        "Hello [Customer Name],\n\nOur records indicate your account has an overdue balance. Please submit payment at your earliest convenience to avoid any disruption.\n\nIf you have already sent payment, please disregard this notice.",
-    },
-    {
-      id: "full-2",
-      label: "Welcome Letter",
-      type: "full-letter",
-      content:
-        "Welcome to APS!\n\nWe are pleased to have you with us. This letter confirms your enrollment and provides information about how to manage your account online.",
-    },
-    {
-      id: "full-3",
-      label: "Policy Update Notice",
-      type: "full-letter",
-      content:
-        "We are writing to inform you of updates to our service terms. These changes take effect on the first of next month. Please review the enclosed summary for details.",
-    },
-    {
-      id: "full-4",
-      label: "Service Confirmation",
-      type: "full-letter",
-      content:
-        "This letter confirms your recent service request. Our team will process your request within 3 business days and notify you once complete.",
-    },
-    {
-      id: "full-5",
-      label: "Annual Statement Cover",
-      type: "full-letter",
-      content:
-        "Enclosed is your annual statement. Please review it carefully and contact us if any information appears incorrect.",
-    },
-  ],
+  Taglines: [...taglineSeed],
+  "Return Address": [...returnAddressSeed],
+  Verbiage: [...verbiageSeed],
+  "Full Letters": [...fullLetterSeed],
 };
 
 const tabs = Object.keys(librarySeed);
