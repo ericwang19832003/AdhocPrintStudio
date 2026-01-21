@@ -1230,6 +1230,7 @@ textarea:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  flex-direction: column;
 }
 
 .fixed {
@@ -1391,9 +1392,11 @@ textarea:focus-visible {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  border-radius: 16px;
+  border-radius: 0 0 12px 12px;
   background: #f8fafc;
   padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-top: none;
 }
 
 .page-surface {
@@ -1426,15 +1429,17 @@ textarea:focus-visible {
   background-position: -1px -1px;
 }
 
-.body-toolbar {
-  z-index: 4;
+/* Editor Toolbar Bar - Fixed above canvas */
+.editor-toolbar-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   align-items: center;
-  padding: 6px;
-  border-radius: 10px;
-  background: #f3f4f6;
+  padding: 8px 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
 }
 
 .toolbar-group {
@@ -1449,7 +1454,7 @@ textarea:focus-visible {
   border-left: 1px solid #e5e7eb;
 }
 
-.body-toolbar select {
+.editor-toolbar-bar select {
   min-width: 90px;
   padding: 6px 8px;
   border: none;
@@ -1461,17 +1466,17 @@ textarea:focus-visible {
   transition: background 0.15s ease;
 }
 
-.body-toolbar select:hover {
+.editor-toolbar-bar select:hover {
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.body-toolbar select:focus {
+.editor-toolbar-bar select:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
-.body-toolbar button {
+.editor-toolbar-bar button {
   padding: 6px 10px;
   border: none;
   border-radius: 6px;
@@ -1483,25 +1488,25 @@ textarea:focus-visible {
   transition: all 0.15s ease;
 }
 
-.body-toolbar button:hover {
+.editor-toolbar-bar button:hover {
   background: white;
   color: #374151;
 }
 
-.body-toolbar button.active {
+.editor-toolbar-bar button.active {
   background: white;
   color: #2563eb;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.body-toolbar button.disabled,
-.body-toolbar button:disabled {
+.editor-toolbar-bar button.disabled,
+.editor-toolbar-bar button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.body-toolbar button.disabled:hover,
-.body-toolbar button:disabled:hover {
+.editor-toolbar-bar button.disabled:hover,
+.editor-toolbar-bar button:disabled:hover {
   background: transparent;
   color: #6b7280;
 }

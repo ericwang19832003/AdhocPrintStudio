@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { EditorClientHandle } from "./EditorClient";
+import { EditorToolbar } from "./EditorClient";
+import type { Editor } from "@tiptap/react";
 
 import { env } from "@/lib/env";
 
@@ -562,6 +564,7 @@ export default function BuilderClient() {
 
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
+  const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const inlineDraftsRef = useRef(new Map<string, string>());
   const flyoutSearchRef = useRef<HTMLInputElement | null>(null);
@@ -581,6 +584,20 @@ export default function BuilderClient() {
   useEffect(() => {
     activePageRef.current = activePage;
   }, [activePage]);
+
+  // Track editor instance for toolbar
+  useEffect(() => {
+    const checkEditor = () => {
+      const editor = editorRef.current?.getEditor();
+      if (editor && editor !== editorInstance) {
+        setEditorInstance(editor);
+      }
+    };
+    // Check immediately and then poll until editor is available
+    checkEditor();
+    const interval = setInterval(checkEditor, 100);
+    return () => clearInterval(interval);
+  }, [editorInstance]);
 
   const escapeHtml = (value: string) =>
     value
@@ -1867,6 +1884,7 @@ export default function BuilderClient() {
               )}
 
               <div className="letter-body">
+                <EditorToolbar editor={editorInstance} />
                 <div className="body-zone">
               <div
                 className={`page-surface ${showGrid ? "with-grid" : ""}`}

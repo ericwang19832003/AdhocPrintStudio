@@ -32,6 +32,8 @@ type DroppedItem = {
   imageUrl?: string;
 };
 
+import type { Editor } from "@tiptap/react";
+
 export type EditorClientHandle = {
   insertText: (text: string) => void;
   insertLibraryItem: (
@@ -40,6 +42,7 @@ export type EditorClientHandle = {
   ) => void;
   focusAtPoint: (x: number, y: number) => void;
   focusEnd: () => void;
+  getEditor: () => Editor | null;
 };
 
 type EditorClientProps = {
@@ -241,325 +244,10 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         if (!editor) return;
         editor.chain().focus("end").run();
       },
+      getEditor: () => editor,
     }),
     [editor]
   );
-
-  const [showTextColorPicker, setShowTextColorPicker] = useState(false);
-  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
-
-  const textColors = [
-    { name: "Black", value: "#000000" },
-    { name: "Dark Gray", value: "#4b5563" },
-    { name: "Gray", value: "#6b7280" },
-    { name: "Red", value: "#dc2626" },
-    { name: "Orange", value: "#ea580c" },
-    { name: "Yellow", value: "#ca8a04" },
-    { name: "Green", value: "#16a34a" },
-    { name: "Blue", value: "#2563eb" },
-    { name: "Purple", value: "#9333ea" },
-    { name: "Pink", value: "#db2777" },
-  ];
-
-  const highlightColors = [
-    { name: "None", value: "" },
-    { name: "Yellow", value: "#fef08a" },
-    { name: "Green", value: "#bbf7d0" },
-    { name: "Cyan", value: "#a5f3fc" },
-    { name: "Pink", value: "#fbcfe8" },
-    { name: "Purple", value: "#e9d5ff" },
-    { name: "Orange", value: "#fed7aa" },
-    { name: "Gray", value: "#e5e7eb" },
-  ];
-
-  const setLink = useCallback(() => {
-    if (!editor) return;
-    const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("Enter URL:", previousUrl || "https://");
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  }, [editor]);
-
-  // Toolbar rendered directly (not memoized) to prevent select flickering
-  const renderToolbar = () => {
-    if (!editor) return null;
-    return (
-      <div className="body-toolbar" onMouseDown={(e) => e.preventDefault()}>
-        {/* Undo/Redo */}
-        <div className="toolbar-group">
-          <button
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().undo().run(); }}
-            disabled={!editor.can().undo()}
-            className={!editor.can().undo() ? "disabled" : ""}
-            title="Undo (⌘Z)"
-          >
-            ↩
-          </button>
-          <button
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().redo().run(); }}
-            disabled={!editor.can().redo()}
-            className={!editor.can().redo() ? "disabled" : ""}
-            title="Redo (⌘⇧Z)"
-          >
-            ↪
-          </button>
-        </div>
-
-        {/* Font & Size */}
-        <div className="toolbar-group">
-          <select
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value) {
-                editor.chain().focus().setFontFamily(value).run();
-                event.target.value = "";
-              }
-            }}
-            title="Font Family"
-          >
-            <option value="">Font</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Garamond">Garamond</option>
-            <option value="Arial">Arial</option>
-            <option value="Helvetica">Helvetica</option>
-            <option value="Verdana">Verdana</option>
-            <option value="Courier New">Courier New</option>
-          </select>
-          <select
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value) {
-                editor.chain().focus().setFontSize(value).run();
-                event.target.value = "";
-              }
-            }}
-            title="Font Size"
-          >
-            <option value="">Size</option>
-            <option value="9pt">9</option>
-            <option value="10pt">10</option>
-            <option value="11pt">11</option>
-            <option value="12pt">12</option>
-            <option value="14pt">14</option>
-            <option value="16pt">16</option>
-            <option value="18pt">18</option>
-            <option value="24pt">24</option>
-            <option value="36pt">36</option>
-          </select>
-        </div>
-
-        {/* Text Formatting */}
-        <div className="toolbar-group">
-          <button
-            className={editor.isActive("bold") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
-            title="Bold (⌘B)"
-          >
-            <strong>B</strong>
-          </button>
-          <button
-            className={editor.isActive("italic") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}
-            title="Italic (⌘I)"
-          >
-            <em>I</em>
-          </button>
-          <button
-            className={editor.isActive("underline") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleUnderline().run(); }}
-            title="Underline (⌘U)"
-          >
-            <span style={{ textDecoration: "underline" }}>U</span>
-          </button>
-          <button
-            className={editor.isActive("strike") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleStrike().run(); }}
-            title="Strikethrough"
-          >
-            <span style={{ textDecoration: "line-through" }}>S</span>
-          </button>
-        </div>
-
-        {/* Colors */}
-        <div className="toolbar-group">
-          <div className="color-picker-wrapper">
-            <button
-              className={showTextColorPicker ? "active" : ""}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setShowTextColorPicker(!showTextColorPicker);
-                setShowHighlightPicker(false);
-              }}
-              title="Text Color"
-            >
-              <span style={{ borderBottom: "2px solid currentColor" }}>A</span>
-            </button>
-            {showTextColorPicker && (
-              <div className="color-picker-dropdown">
-                {textColors.map((color) => (
-                  <button
-                    key={color.value}
-                    className="color-swatch"
-                    style={{ backgroundColor: color.value }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      editor.chain().focus().setColor(color.value).run();
-                      setShowTextColorPicker(false);
-                    }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="color-picker-wrapper">
-            <button
-              className={showHighlightPicker ? "active" : ""}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                setShowHighlightPicker(!showHighlightPicker);
-                setShowTextColorPicker(false);
-              }}
-              title="Highlight Color"
-            >
-              <span style={{ backgroundColor: "#fef08a", padding: "0 2px" }}>H</span>
-            </button>
-            {showHighlightPicker && (
-              <div className="color-picker-dropdown">
-                {highlightColors.map((color) => (
-                  <button
-                    key={color.value || "none"}
-                    className="color-swatch"
-                    style={{ backgroundColor: color.value || "#ffffff", border: color.value ? "none" : "1px dashed #d1d5db" }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      if (color.value) {
-                        editor.chain().focus().toggleHighlight({ color: color.value }).run();
-                      } else {
-                        editor.chain().focus().unsetHighlight().run();
-                      }
-                      setShowHighlightPicker(false);
-                    }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Lists */}
-        <div className="toolbar-group">
-          <button
-            className={editor.isActive("bulletList") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
-            title="Bullet List"
-          >
-            •≡
-          </button>
-          <button
-            className={editor.isActive("orderedList") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); }}
-            title="Numbered List"
-          >
-            1.
-          </button>
-          <button
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().liftListItem("listItem").run(); }}
-            disabled={!editor.can().liftListItem("listItem")}
-            className={!editor.can().liftListItem("listItem") ? "disabled" : ""}
-            title="Decrease Indent"
-          >
-            ⇤
-          </button>
-          <button
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().sinkListItem("listItem").run(); }}
-            disabled={!editor.can().sinkListItem("listItem")}
-            className={!editor.can().sinkListItem("listItem") ? "disabled" : ""}
-            title="Increase Indent"
-          >
-            ⇥
-          </button>
-        </div>
-
-        {/* Alignment */}
-        <div className="toolbar-group">
-          <button
-            className={editor.isActive({ textAlign: "left" }) ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("left").run(); }}
-            title="Align Left"
-          >
-            ≡
-          </button>
-          <button
-            className={editor.isActive({ textAlign: "center" }) ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("center").run(); }}
-            title="Align Center"
-          >
-            ≡
-          </button>
-          <button
-            className={editor.isActive({ textAlign: "right" }) ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("right").run(); }}
-            title="Align Right"
-          >
-            ≡
-          </button>
-        </div>
-
-        {/* Line Spacing */}
-        <div className="toolbar-group">
-          <select
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value) {
-                editor.chain().focus().setLineHeight(value).run();
-                event.target.value = "";
-              }
-            }}
-            title="Line Spacing"
-          >
-            <option value="">↕</option>
-            <option value="1">1.0</option>
-            <option value="1.15">1.15</option>
-            <option value="1.5">1.5</option>
-            <option value="2">2.0</option>
-          </select>
-        </div>
-
-        {/* Insert */}
-        <div className="toolbar-group">
-          <button
-            className={editor.isActive("link") ? "active" : ""}
-            onMouseDown={(e) => { e.preventDefault(); setLink(); }}
-            title="Insert Link"
-          >
-            🔗
-          </button>
-          <button
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHorizontalRule().run(); }}
-            title="Insert Horizontal Rule"
-          >
-            ―
-          </button>
-          <button
-            onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().unsetAllMarks().clearNodes().run(); }}
-            title="Clear Formatting"
-          >
-            ⌫
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   const handleShellDrop = (event: React.DragEvent<HTMLDivElement>) => {
     const payload = event.dataTransfer.getData("text/plain");
@@ -630,7 +318,6 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       }}
       onDrop={handleShellDrop}
     >
-      {renderToolbar()}
       <EditorContent editor={editor} className="body-editor" />
     </div>
   );
@@ -638,5 +325,322 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
 );
 
 EditorClient.displayName = "EditorClient";
+
+// Separate toolbar component that can be rendered outside the canvas
+export function EditorToolbar({ editor }: { editor: Editor | null }) {
+  const [showTextColorPicker, setShowTextColorPicker] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+
+  const textColors = [
+    { name: "Black", value: "#000000" },
+    { name: "Dark Gray", value: "#4b5563" },
+    { name: "Gray", value: "#6b7280" },
+    { name: "Red", value: "#dc2626" },
+    { name: "Orange", value: "#ea580c" },
+    { name: "Yellow", value: "#ca8a04" },
+    { name: "Green", value: "#16a34a" },
+    { name: "Blue", value: "#2563eb" },
+    { name: "Purple", value: "#9333ea" },
+    { name: "Pink", value: "#db2777" },
+  ];
+
+  const highlightColors = [
+    { name: "None", value: "" },
+    { name: "Yellow", value: "#fef08a" },
+    { name: "Green", value: "#bbf7d0" },
+    { name: "Cyan", value: "#a5f3fc" },
+    { name: "Pink", value: "#fbcfe8" },
+    { name: "Purple", value: "#e9d5ff" },
+    { name: "Orange", value: "#fed7aa" },
+    { name: "Gray", value: "#e5e7eb" },
+  ];
+
+  const setLink = useCallback(() => {
+    if (!editor) return;
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("Enter URL:", previousUrl || "https://");
+    if (url === null) return;
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }, [editor]);
+
+  if (!editor) return null;
+
+  return (
+    <div className="editor-toolbar-bar" onMouseDown={(e) => e.preventDefault()}>
+      {/* Undo/Redo */}
+      <div className="toolbar-group">
+        <button
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().undo().run(); }}
+          disabled={!editor.can().undo()}
+          className={!editor.can().undo() ? "disabled" : ""}
+          title="Undo (⌘Z)"
+        >
+          ↩
+        </button>
+        <button
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().redo().run(); }}
+          disabled={!editor.can().redo()}
+          className={!editor.can().redo() ? "disabled" : ""}
+          title="Redo (⌘⇧Z)"
+        >
+          ↪
+        </button>
+      </div>
+
+      {/* Font & Size */}
+      <div className="toolbar-group">
+        <select
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value) {
+              editor.chain().focus().setFontFamily(value).run();
+              event.target.value = "";
+            }
+          }}
+          title="Font Family"
+        >
+          <option value="">Font</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Garamond">Garamond</option>
+          <option value="Arial">Arial</option>
+          <option value="Helvetica">Helvetica</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Courier New">Courier New</option>
+        </select>
+        <select
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value) {
+              editor.chain().focus().setFontSize(value).run();
+              event.target.value = "";
+            }
+          }}
+          title="Font Size"
+        >
+          <option value="">Size</option>
+          <option value="9pt">9</option>
+          <option value="10pt">10</option>
+          <option value="11pt">11</option>
+          <option value="12pt">12</option>
+          <option value="14pt">14</option>
+          <option value="16pt">16</option>
+          <option value="18pt">18</option>
+          <option value="24pt">24</option>
+          <option value="36pt">36</option>
+        </select>
+      </div>
+
+      {/* Text Formatting */}
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive("bold") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
+          title="Bold (⌘B)"
+        >
+          <strong>B</strong>
+        </button>
+        <button
+          className={editor.isActive("italic") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}
+          title="Italic (⌘I)"
+        >
+          <em>I</em>
+        </button>
+        <button
+          className={editor.isActive("underline") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleUnderline().run(); }}
+          title="Underline (⌘U)"
+        >
+          <span style={{ textDecoration: "underline" }}>U</span>
+        </button>
+        <button
+          className={editor.isActive("strike") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleStrike().run(); }}
+          title="Strikethrough"
+        >
+          <span style={{ textDecoration: "line-through" }}>S</span>
+        </button>
+      </div>
+
+      {/* Colors */}
+      <div className="toolbar-group">
+        <div className="color-picker-wrapper">
+          <button
+            className={showTextColorPicker ? "active" : ""}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowTextColorPicker(!showTextColorPicker);
+              setShowHighlightPicker(false);
+            }}
+            title="Text Color"
+          >
+            <span style={{ borderBottom: "2px solid currentColor" }}>A</span>
+          </button>
+          {showTextColorPicker && (
+            <div className="color-picker-dropdown">
+              {textColors.map((color) => (
+                <button
+                  key={color.value}
+                  className="color-swatch"
+                  style={{ backgroundColor: color.value }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor.chain().focus().setColor(color.value).run();
+                    setShowTextColorPicker(false);
+                  }}
+                  title={color.name}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="color-picker-wrapper">
+          <button
+            className={showHighlightPicker ? "active" : ""}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowHighlightPicker(!showHighlightPicker);
+              setShowTextColorPicker(false);
+            }}
+            title="Highlight Color"
+          >
+            <span style={{ backgroundColor: "#fef08a", padding: "0 2px" }}>H</span>
+          </button>
+          {showHighlightPicker && (
+            <div className="color-picker-dropdown">
+              {highlightColors.map((color) => (
+                <button
+                  key={color.value || "none"}
+                  className="color-swatch"
+                  style={{ backgroundColor: color.value || "#ffffff", border: color.value ? "none" : "1px dashed #d1d5db" }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (color.value) {
+                      editor.chain().focus().toggleHighlight({ color: color.value }).run();
+                    } else {
+                      editor.chain().focus().unsetHighlight().run();
+                    }
+                    setShowHighlightPicker(false);
+                  }}
+                  title={color.name}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Lists */}
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive("bulletList") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
+          title="Bullet List"
+        >
+          •≡
+        </button>
+        <button
+          className={editor.isActive("orderedList") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); }}
+          title="Numbered List"
+        >
+          1.
+        </button>
+        <button
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().liftListItem("listItem").run(); }}
+          disabled={!editor.can().liftListItem("listItem")}
+          className={!editor.can().liftListItem("listItem") ? "disabled" : ""}
+          title="Decrease Indent"
+        >
+          ⇤
+        </button>
+        <button
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().sinkListItem("listItem").run(); }}
+          disabled={!editor.can().sinkListItem("listItem")}
+          className={!editor.can().sinkListItem("listItem") ? "disabled" : ""}
+          title="Increase Indent"
+        >
+          ⇥
+        </button>
+      </div>
+
+      {/* Alignment */}
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive({ textAlign: "left" }) ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("left").run(); }}
+          title="Align Left"
+        >
+          ≡
+        </button>
+        <button
+          className={editor.isActive({ textAlign: "center" }) ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("center").run(); }}
+          title="Align Center"
+        >
+          ≡
+        </button>
+        <button
+          className={editor.isActive({ textAlign: "right" }) ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("right").run(); }}
+          title="Align Right"
+        >
+          ≡
+        </button>
+      </div>
+
+      {/* Line Spacing */}
+      <div className="toolbar-group">
+        <select
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value) {
+              editor.chain().focus().setLineHeight(value).run();
+              event.target.value = "";
+            }
+          }}
+          title="Line Spacing"
+        >
+          <option value="">↕</option>
+          <option value="1">1.0</option>
+          <option value="1.15">1.15</option>
+          <option value="1.5">1.5</option>
+          <option value="2">2.0</option>
+        </select>
+      </div>
+
+      {/* Insert */}
+      <div className="toolbar-group">
+        <button
+          className={editor.isActive("link") ? "active" : ""}
+          onMouseDown={(e) => { e.preventDefault(); setLink(); }}
+          title="Insert Link"
+        >
+          🔗
+        </button>
+        <button
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHorizontalRule().run(); }}
+          title="Insert Horizontal Rule"
+        >
+          ―
+        </button>
+        <button
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().unsetAllMarks().clearNodes().run(); }}
+          title="Clear Formatting"
+        >
+          ⌫
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default EditorClient;
