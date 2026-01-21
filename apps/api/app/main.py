@@ -25,6 +25,7 @@ else:
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
+        "https://yixc4j6mgj.us-east-2.awsapprunner.com",
     ]
 
 app = FastAPI()
