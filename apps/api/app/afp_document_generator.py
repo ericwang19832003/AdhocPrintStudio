@@ -14,9 +14,8 @@ import struct
 from datetime import datetime
 from typing import List, Dict, Optional
 
-# Carriage control and line ending
+# Carriage control (Machine Carriage Control for AFP)
 CC = 0x5A
-CRLF = b'\x0d\x0a'
 
 # Structured Field Identifiers
 SF_BDT = bytes([0xD3, 0xA8, 0xA7])  # Begin Document
@@ -46,9 +45,10 @@ SF_IPS = bytes([0xD3, 0xAF, 0x5F])  # Include Page Segment
 
 
 def _sf(sf_id: bytes, data: bytes = b'') -> bytes:
-    """Build structured field with carriage control and CRLF suffix."""
+    """Build structured field with carriage control (MCC format)."""
+    # Length = 2 (length field) + 3 (SF ID) + len(data)
     length = 5 + len(data)
-    return bytes([CC]) + struct.pack('>H', length) + sf_id + data + CRLF
+    return bytes([CC]) + struct.pack('>H', length) + sf_id + data
 
 
 def _to_ebcdic(text: str, length: int = 8) -> bytes:
