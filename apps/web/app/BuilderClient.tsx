@@ -1760,26 +1760,49 @@ export default function BuilderClient() {
               </div>
 
           <section className="canvas">
-            <div className="letter-page">
-              {activePage === 0 && (
-                <>
-                  <div className="letter-header">
+            {/* Toolbar above the page */}
+            <EditorToolbar editor={editorInstance} />
+
+            {/* Unified page surface - everything on one "paper" */}
+            <div className="page-wrapper">
+              <div
+                className={`page-surface ${showGrid ? "with-grid" : ""}`}
+                ref={bodyZoneRef}
+                onDrop={handleDrop}
+                onDragEnter={() => setShowGrid(true)}
+                onDragLeave={() => setShowGrid(false)}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }}
+                onMouseDown={(event) => {
+                  const target = event.target as HTMLElement;
+                  if (target.closest(".inline-remove")) return;
+                  if (target.closest(".block")) return;
+                  if (target.closest(".ProseMirror")) return;
+                  if (target.closest(".page-header")) return;
+                  if (target.closest(".mail-window")) return;
+                  event.preventDefault();
+                  setEditorSelectionAtPoint(event.clientX, event.clientY);
+                }}
+              >
+                {/* Page header: Return address + Logo */}
+                {activePage === 0 && (
+                  <div className="page-header">
                     <div
-                      className="return-block fixed"
+                      className="return-block"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={handleReturnDrop}
                     >
-                      <div className="return-info">
-                        <div className="block-content">
-                          {selectedReturn
-                            ? selectedReturn.content ?? selectedReturn.label
-                            : "Return address"}
-                        </div>
+                      <div className="return-content">
+                        {selectedReturn
+                          ? selectedReturn.content ?? selectedReturn.label
+                          : "Return address"}
                       </div>
                     </div>
 
                     <div
-                      className="logo-top-right resizable"
+                      className="logo-block resizable"
                       style={{ width: logoBox.width, height: logoBox.height }}
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={handleLogoDrop}
@@ -1814,13 +1837,16 @@ export default function BuilderClient() {
                           ))}
                         </>
                       ) : (
-                        "Logo"
+                        <span className="logo-placeholder">Logo</span>
                       )}
                     </div>
                   </div>
+                )}
 
-                  <div className="mail-window fixed" aria-hidden="true">
-                    <div className="block-content">Reserved for recipient address</div>
+                {/* Mailing window */}
+                {activePage === 0 && (
+                  <div className="mail-window" aria-hidden="true">
+                    <div className="mail-label">Recipient address</div>
                     <div className="mailing-variables">
                       <div>[mailing_name]</div>
                       <div>[mailing_addr1]</div>
@@ -1828,37 +1854,16 @@ export default function BuilderClient() {
                       <div>[mailing_addr3]</div>
                     </div>
                   </div>
-                </>
-              )}
+                )}
 
-              <div className="letter-body">
-                <EditorToolbar editor={editorInstance} />
-                <div className="body-zone">
-              <div
-                className={`page-surface ${showGrid ? "with-grid" : ""}`}
-                ref={bodyZoneRef}
-                onDrop={handleDrop}
-                onDragEnter={() => setShowGrid(true)}
-                onDragLeave={() => setShowGrid(false)}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "copy";
-                }}
-                onMouseDown={(event) => {
-                  const target = event.target as HTMLElement;
-                  if (target.closest(".inline-remove")) return;
-                  if (target.closest(".block")) return;
-                  if (target.closest(".ProseMirror")) return;
-                  event.preventDefault();
-                  setEditorSelectionAtPoint(event.clientX, event.clientY);
-                }}
-              >
-                <EditorClient
-                  ref={editorRef}
-                  value={bodyContentByPage[activePage] ?? ""}
-                  onChange={(html) => updateBodyContent(activePageRef.current, html)}
-                  placeholder="Start typing your letter..."
-                />
+                {/* Letter body content */}
+                <div className="page-body">
+                  <EditorClient
+                    ref={editorRef}
+                    value={bodyContentByPage[activePage] ?? ""}
+                    onChange={(html) => updateBodyContent(activePageRef.current, html)}
+                    placeholder="Start typing your letter..."
+                  />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
                 {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
@@ -1934,20 +1939,19 @@ export default function BuilderClient() {
                   )}
                   </div>
                 ))}
-              </div>
-              </div>
-              </div>
+                </div>
 
-              <div
-                className="tagline-block fixed"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={handleTaglineDrop}
-              >
-                <div className="block-title">Tagline · Fixed position</div>
-                <div className="block-content">
-                  {selectedTaglineByPage[activePage]
-                    ? selectedTaglineByPage[activePage]?.label
-                    : "Tagline"}
+                {/* Tagline at bottom of page */}
+                <div
+                  className="tagline-block"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={handleTaglineDrop}
+                >
+                  <div className="tagline-content">
+                    {selectedTaglineByPage[activePage]
+                      ? selectedTaglineByPage[activePage]?.label
+                      : "Tagline"}
+                  </div>
                 </div>
               </div>
             </div>
