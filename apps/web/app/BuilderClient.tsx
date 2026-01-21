@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { EditorClientHandle } from "./EditorClient";
 import { EditorToolbar } from "./EditorClient";
 import type { Editor } from "@tiptap/react";
+import * as XLSX from "xlsx";
 
 import { env } from "@/lib/env";
 
@@ -957,24 +958,29 @@ export default function BuilderClient() {
     setSpreadsheetError(null);
     try {
       if (file.name.toLowerCase().endsWith(".xlsx")) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const response = await fetch(`${env.apiBaseUrl}/print-output/columns`, {
-          method: "POST",
-          body: formData,
-        });
-        if (!response.ok) {
-          const message = await response.text();
-          throw new Error(message || "Failed to parse spreadsheet");
-        }
-        const data = (await response.json()) as { columns: string[]; csv: string };
-        setSpreadsheetContent(data.csv);
+        // Parse XLSX client-side using xlsx library
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        // Convert to CSV
+        const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+
+        // Extract columns from first row
+        const [headerLine] = csvContent.split(/\r?\n/);
+        const parsedColumns = headerLine
+          ? headerLine.split(",").map((value) => value.trim()).filter(Boolean)
+          : [];
+
+        setSpreadsheetContent(csvContent);
         setSpreadsheetName(file.name);
-        setColumns(data.columns ?? []);
+        setColumns(parsedColumns.length > 0 ? parsedColumns : []);
         setSpreadsheetLoading(false);
         return;
       }
 
+      // Handle CSV files
       const reader = new FileReader();
       reader.onload = () => {
         const text = typeof reader.result === "string" ? reader.result : "";
