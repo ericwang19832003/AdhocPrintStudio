@@ -2104,7 +2104,7 @@ export default function BuilderClient() {
               <h4>Variables mapping</h4>
               {unmappedMailing.length > 0 && (
                 <div className="alert warning">
-                  Unmapped mailing fields: {unmappedMailing.join(", ")}
+                  Please map mailing address fields to address columns in the data sheet
                 </div>
               )}
               <div className="mapping-table">
