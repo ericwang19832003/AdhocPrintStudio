@@ -2007,6 +2007,8 @@ textarea:focus-visible {
 
 .preview-modal {
   width: min(960px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
 }
 
 .preview-modal .modal-header {
@@ -2117,6 +2119,9 @@ textarea:focus-visible {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--outline);
 }
 
 @media (max-width: 900px) {
