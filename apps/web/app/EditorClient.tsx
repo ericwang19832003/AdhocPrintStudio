@@ -367,7 +367,40 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
-  if (!editor) return null;
+  // Show loading state if editor not ready
+  if (!editor) {
+    return (
+      <div className="editor-toolbar-bar editor-toolbar-loading">
+        <div className="toolbar-group">
+          <button disabled className="disabled">↩</button>
+          <button disabled className="disabled">↪</button>
+        </div>
+        <div className="toolbar-group">
+          <select disabled><option>Font</option></select>
+          <select disabled><option>Size</option></select>
+        </div>
+        <div className="toolbar-group">
+          <button disabled className="disabled"><strong>B</strong></button>
+          <button disabled className="disabled"><em>I</em></button>
+          <button disabled className="disabled"><span style={{ textDecoration: "underline" }}>U</span></button>
+          <button disabled className="disabled"><span style={{ textDecoration: "line-through" }}>S</span></button>
+        </div>
+        <div className="toolbar-group">
+          <button disabled className="disabled">A</button>
+          <button disabled className="disabled">H</button>
+        </div>
+        <div className="toolbar-group">
+          <button disabled className="disabled">•≡</button>
+          <button disabled className="disabled">1.</button>
+        </div>
+        <div className="toolbar-group">
+          <button disabled className="disabled">≡</button>
+          <button disabled className="disabled">≡</button>
+          <button disabled className="disabled">≡</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="editor-toolbar-bar" onMouseDown={(e) => e.preventDefault()}>
