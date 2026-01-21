@@ -814,6 +814,7 @@ export default function BuilderClient() {
     // Get current letter content
     const bodyContent = bodyContentByPage[activePage] ?? "";
     const returnAddress = selectedReturn?.content ?? selectedReturn?.label ?? "";
+    const selectedTagline = selectedTaglineByPage[activePage];
     const tagline = selectedTagline?.content ?? selectedTagline?.label ?? "";
 
     // Build Word-compatible HTML
