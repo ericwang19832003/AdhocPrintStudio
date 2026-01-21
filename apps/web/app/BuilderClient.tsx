@@ -2128,6 +2128,13 @@ export default function BuilderClient() {
                   </div>
                 ))}
               </div>
+              {placeholders.length === 0 && (
+                <div className="hint-box">
+                  <p>No variables found in your letter.</p>
+                  <p>Type text in [brackets] to create variables that map to spreadsheet columns.</p>
+                  <p className="hint-example">Example: Dear [FirstName], ...</p>
+                </div>
+              )}
               {placeholders.length > 0 && (
                 <>
                   {unmappedPlaceholders.length > 0 && (

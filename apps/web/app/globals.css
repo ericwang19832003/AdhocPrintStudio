@@ -2151,6 +2151,33 @@ textarea:focus-visible {
   font-size: 0.9rem;
 }
 
+.hint-box {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.hint-box p {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.hint-box p:last-child {
+  margin-bottom: 0;
+}
+
+.hint-box .hint-example {
+  font-family: "SF Mono", Monaco, monospace;
+  background: #e5e7eb;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 4px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
