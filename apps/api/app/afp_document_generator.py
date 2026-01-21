@@ -43,6 +43,10 @@ SF_OBP = bytes([0xD3, 0xAC, 0x6B])  # Object Area Position
 # Include Page Segment
 SF_IPS = bytes([0xD3, 0xAF, 0x5F])  # Include Page Segment
 
+# Active Environment Group
+SF_BAG = bytes([0xD3, 0xA8, 0xAD])  # Begin Active Environment Group
+SF_EAG = bytes([0xD3, 0xA9, 0xAD])  # End Active Environment Group
+
 
 def _sf(sf_id: bytes, data: bytes = b'') -> bytes:
     """Build structured field with carriage control (MCC format)."""
@@ -203,6 +207,24 @@ def _build_ips(segment_name: str) -> bytes:
     """
     data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(segment_name, 8)
     return _sf(SF_IPS, data)
+
+
+def _build_bag() -> bytes:
+    """
+    Build Begin Active Environment Group (BAG) structured field.
+
+    The AEG contains resource mappings and environment settings for the page.
+    """
+    data = bytes([0x00, 0x00, 0x00])
+    return _sf(SF_BAG, data)
+
+
+def _build_eag() -> bytes:
+    """
+    Build End Active Environment Group (EAG) structured field.
+    """
+    data = bytes([0x00, 0x00, 0x00])
+    return _sf(SF_EAG, data)
 
 
 # ============== Image/Page Segment Building Functions ==============
@@ -445,10 +467,16 @@ def generate_afp_document(
         # Begin Page
         result.extend(_build_bpg(page_name))
 
+        # Begin Active Environment Group (required by many AFP viewers)
+        result.extend(_build_bag())
+
         # Page Descriptor
         result.extend(_build_pgd(page_width, page_height, resolution))
 
-        # TLE records for this page
+        # End Active Environment Group
+        result.extend(_build_eag())
+
+        # TLE records for this page (outside AEG, as per AFP spec)
         tle_data = page.get('tle_data', {})
 
         # Write all TLE fields with fixed-length attribute names (13 chars)
@@ -474,6 +502,7 @@ def generate_afp_document(
         height = page.get('height', page_height)
 
         if image_data:
+            # Define the page segment inline
             result.extend(generate_inline_page_segment(
                 image_data=image_data,
                 width=width,
@@ -481,6 +510,8 @@ def generate_afp_document(
                 segment_name=segment_name,
                 resolution=resolution
             ))
+            # Include the page segment on the page (renders it)
+            result.extend(_build_ips(segment_name))
 
         # End Page
         result.extend(_build_epg(page_name))
