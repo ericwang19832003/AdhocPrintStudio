@@ -513,6 +513,7 @@ export default function BuilderClient() {
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const inlineDraftsRef = useRef(new Map<string, string>());
   const flyoutSearchRef = useRef<HTMLInputElement | null>(null);
@@ -2101,6 +2102,14 @@ export default function BuilderClient() {
               <select
                 value={insertPlaceholder}
                 onChange={(event) => setInsertPlaceholder(event.target.value)}
+                onFocus={() => {
+                  // Save cursor position when dropdown gets focus
+                  const editor = editorRef.current?.getEditor();
+                  if (editor) {
+                    const { from, to } = editor.state.selection;
+                    lastSelectionRef.current = { from, to };
+                  }
+                }}
               >
                 <option value="" disabled>
                   Select column
@@ -2115,7 +2124,19 @@ export default function BuilderClient() {
                 className="secondary"
                 onClick={() => {
                   if (!insertPlaceholder) return;
-                  editorRef.current?.insertText(`[${insertPlaceholder}]`);
+                  const editor = editorRef.current?.getEditor();
+                  if (editor && lastSelectionRef.current) {
+                    // Restore cursor position and insert
+                    editor
+                      .chain()
+                      .focus()
+                      .setTextSelection(lastSelectionRef.current.from)
+                      .insertContent(`[${insertPlaceholder}]`)
+                      .run();
+                  } else {
+                    // Fallback to default insert
+                    editorRef.current?.insertText(`[${insertPlaceholder}]`);
+                  }
                 }}
               >
                 Insert
