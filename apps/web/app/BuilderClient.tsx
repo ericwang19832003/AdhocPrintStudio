@@ -495,7 +495,6 @@ export default function BuilderClient() {
   const [spreadsheetName, setSpreadsheetName] = useState<string | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
   const [placeholderMap, setPlaceholderMap] = useState<Record<string, string>>({});
-  const [insertPlaceholder, setInsertPlaceholder] = useState("");
   const [spreadsheetContent, setSpreadsheetContent] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
@@ -513,7 +512,6 @@ export default function BuilderClient() {
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
-  const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const inlineDraftsRef = useRef(new Map<string, string>());
   const flyoutSearchRef = useRef<HTMLInputElement | null>(null);
@@ -2096,53 +2094,6 @@ export default function BuilderClient() {
               )}
             </div>
           )}
-          <div className="property-group">
-            <h4>Insert placeholder</h4>
-            <div className="placeholder-row">
-              <select
-                value={insertPlaceholder}
-                onChange={(event) => setInsertPlaceholder(event.target.value)}
-                onFocus={() => {
-                  // Save cursor position when dropdown gets focus
-                  const editor = editorRef.current?.getEditor();
-                  if (editor) {
-                    const { from, to } = editor.state.selection;
-                    lastSelectionRef.current = { from, to };
-                  }
-                }}
-              >
-                <option value="" disabled>
-                  Select column
-                </option>
-                {columns.map((column) => (
-                  <option key={column} value={column}>
-                    [{column}]
-                  </option>
-                ))}
-              </select>
-              <button
-                className="secondary"
-                onClick={() => {
-                  if (!insertPlaceholder) return;
-                  const editor = editorRef.current?.getEditor();
-                  if (editor && lastSelectionRef.current) {
-                    // Restore cursor position and insert
-                    editor
-                      .chain()
-                      .focus()
-                      .setTextSelection(lastSelectionRef.current.from)
-                      .insertContent(`[${insertPlaceholder}]`)
-                      .run();
-                  } else {
-                    // Fallback to default insert
-                    editorRef.current?.insertText(`[${insertPlaceholder}]`);
-                  }
-                }}
-              >
-                Insert
-              </button>
-            </div>
-          </div>
           {columns.length > 0 && (
             <div className="property-group">
               <h4>Variables mapping</h4>
