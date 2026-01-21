@@ -88,6 +88,10 @@ button.ghost:hover {
   background: #eef2f6;
 }
 
+button.full-width {
+  width: 100%;
+}
+
 input,
 select,
 textarea {

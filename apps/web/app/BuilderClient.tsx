@@ -490,7 +490,6 @@ export default function BuilderClient() {
   const [bodyContentByPage, setBodyContentByPage] = useState<Record<number, string>>({
     0: "",
   });
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [spreadsheetName, setSpreadsheetName] = useState<string | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
@@ -1415,20 +1414,7 @@ export default function BuilderClient() {
           </div>
         </div>
         <div className="topbar-actions">
-          <button className="ghost" onClick={handleAddPage}>+ Add page</button>
           <button className="primary">Save</button>
-          <div className="menu">
-            <button className="secondary" onClick={() => setShowActionsMenu((prev) => !prev)}>
-              More ▾
-            </button>
-            {showActionsMenu && (
-              <div className="menu-panel">
-                <button className="ghost">Preview</button>
-                <button className="ghost">Export</button>
-              </div>
-            )}
-          </div>
-          <button className="ghost">User ▾</button>
         </div>
       </header>
 
@@ -1939,6 +1925,13 @@ export default function BuilderClient() {
         </main>
 
         <aside className="properties">
+          <h3>Document</h3>
+          <div className="property-group">
+            <button className="ghost full-width" onClick={handleAddPage}>
+              + Add page
+            </button>
+          </div>
+
           <h3>Data</h3>
           <div className="property-group">
             <div
