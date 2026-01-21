@@ -809,6 +809,73 @@ export default function BuilderClient() {
     setSelectedBlockId(null);
   };
 
+  const handleExportWord = () => {
+    // Get current letter content
+    const bodyContent = bodyContentByPage[activePage] ?? "";
+    const returnAddress = selectedReturn?.content ?? selectedReturn?.label ?? "";
+    const tagline = selectedTagline?.content ?? selectedTagline?.label ?? "";
+
+    // Build Word-compatible HTML
+    const wordContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: "Times New Roman", Times, serif; font-size: 12pt; line-height: 1.5; margin: 1in; }
+          .return-address { margin-bottom: 24pt; }
+          .body-content { margin-bottom: 24pt; }
+          .tagline { font-style: italic; color: #666; }
+        </style>
+      </head>
+      <body>
+        ${returnAddress ? `<div class="return-address">${returnAddress.replace(/\n/g, "<br>")}</div>` : ""}
+        <div class="body-content">${bodyContent}</div>
+        ${tagline ? `<div class="tagline">${tagline}</div>` : ""}
+      </body>
+      </html>
+    `;
+
+    // Create and download file
+    const blob = new Blob([wordContent], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "letter-template.doc";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSaveToLibrary = () => {
+    const bodyContent = bodyContentByPage[activePage] ?? "";
+    if (!bodyContent.trim()) {
+      alert("Cannot save empty letter. Please add some content first.");
+      return;
+    }
+
+    // Strip HTML tags for plain text content
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = bodyContent;
+    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+
+    // Create a new full letter item
+    const newLetter: LibraryItem = {
+      id: `letter-saved-${Date.now()}`,
+      label: `Saved Letter ${new Date().toLocaleDateString()}`,
+      type: "full-letter",
+      content: plainText.trim(),
+    };
+
+    // Add to library
+    setLibrary((prev) => ({
+      ...prev,
+      "full-letter": [...(prev["full-letter"] ?? []), newLetter],
+    }));
+
+    alert("Letter saved to Full Letters library!");
+  };
+
   const handleRemoveBlock = (blockId: string) => {
     setBlocksByPage((prev) => ({
       ...prev,
@@ -1414,7 +1481,8 @@ export default function BuilderClient() {
           </div>
         </div>
         <div className="topbar-actions">
-          <button className="primary">Save</button>
+          <button className="ghost" onClick={handleExportWord}>Export</button>
+          <button className="primary" onClick={handleSaveToLibrary}>Save</button>
         </div>
       </header>
 
