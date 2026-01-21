@@ -1415,7 +1415,7 @@ export default function BuilderClient() {
           </div>
         </div>
         <div className="topbar-actions">
-          <button className="ghost">New template</button>
+          <button className="ghost" onClick={handleAddPage}>+ Add page</button>
           <button className="primary">Save</button>
           <div className="menu">
             <button className="secondary" onClick={() => setShowActionsMenu((prev) => !prev)}>
@@ -1737,28 +1737,6 @@ export default function BuilderClient() {
         <main className="canvas-panel">
           <div className="workspace">
             <div className="canvas-area" onMouseDown={() => setOpenMenuTab(null)}>
-              <div className="canvas-header">
-                <div className="page-controls">
-                  <button className="ghost" onClick={handleAddPage}>
-                    + Add page
-                  </button>
-                  <div className="page-tabs">
-                    {pages.map((label, index) => (
-                      <button
-                        key={label}
-                        className={index === activePage ? "tab active" : "tab"}
-                        onClick={() => {
-                          setActivePage(index);
-                          setSelectedBlockId(null);
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
           <section className="canvas">
             {/* Toolbar above the page */}
             <EditorToolbar editor={editorInstance} />
