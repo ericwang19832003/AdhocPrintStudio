@@ -3,9 +3,9 @@ runtime: nodejs18
 build:
   commands:
     build:
-      - echo "Build v3 - with static files copy"
+      - echo "Build v4 - force API URL in build"
       - npm install
-      - npm run build
+      - NEXT_PUBLIC_API_BASE_URL=https://2tpyxda24h.us-east-1.awsapprunner.com npm run build
       - cp -r public .next/standalone/ || true
       - cp -r .next/static .next/standalone/.next/
   env:
