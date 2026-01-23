@@ -39,6 +39,7 @@ SF_BOG = bytes([0xD3, 0xA8, 0xC7])  # Begin Object Environment Group
 SF_EOG = bytes([0xD3, 0xA9, 0xC7])  # End Object Environment Group
 SF_OBD = bytes([0xD3, 0xA6, 0x6B])  # Object Area Descriptor
 SF_OBP = bytes([0xD3, 0xAC, 0x6B])  # Object Area Position
+SF_IID = bytes([0xD3, 0xAB, 0xFB])  # Image Input Descriptor
 
 # Include Page Segment
 SF_IPS = bytes([0xD3, 0xAF, 0x5F])  # Include Page Segment
@@ -47,10 +48,18 @@ SF_IPS = bytes([0xD3, 0xAF, 0x5F])  # Include Page Segment
 SF_BAG = bytes([0xD3, 0xA8, 0xAD])  # Begin Active Environment Group
 SF_EAG = bytes([0xD3, 0xA9, 0xAD])  # End Active Environment Group
 
+# Medium Map (Crawford format uses this instead of BDT/EDT)
+SF_BMM = bytes([0xD3, 0xA8, 0xC6])  # Begin Medium Map
+SF_EMM = bytes([0xD3, 0xA9, 0xC6])  # End Medium Map
+
 
 def _sf(sf_id: bytes, data: bytes = b'') -> bytes:
-    """Build structured field with carriage control (MCC format)."""
-    # Length = 2 (length field) + 3 (SF ID) + len(data)
+    """Build structured field with carriage control (MCC format).
+
+    Per AFP specification, the length field contains the count of bytes
+    in the structured field, EXCLUDING the carriage control character.
+    Length = length_field(2) + SF_ID(3) + data = 5 + len(data)
+    """
     length = 5 + len(data)
     return bytes([CC]) + struct.pack('>H', length) + sf_id + data
 
@@ -78,6 +87,27 @@ def _build_edt(document_name: str = "DOCUMENT") -> bytes:
     """
     data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(document_name, 8)
     return _sf(SF_EDT, data)
+
+
+def _build_bmm(map_name: str = "") -> bytes:
+    """
+    Build Begin Medium Map (BMM) structured field.
+    Used by Crawford format instead of BDT.
+
+    Format: 3 flag bytes + 8-char EBCDIC name (spaces if empty)
+    """
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(map_name, 8)
+    return _sf(SF_BMM, data)
+
+
+def _build_emm(map_name: str = "") -> bytes:
+    """
+    Build End Medium Map (EMM) structured field.
+
+    Format: 3 flag bytes + 8-char EBCDIC name (spaces if empty)
+    """
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(map_name, 8)
+    return _sf(SF_EMM, data)
 
 
 def _build_bpg(page_name: str = "PAGE0001") -> bytes:
@@ -141,49 +171,42 @@ def _build_tle(attribute_name: str, attribute_value: str) -> bytes:
     TLE is used for indexing and can be extracted by mainframe tools
     for sorting, selecting, and routing print jobs.
 
-    Format:
-    - 3 flag bytes (0x00 0x00 0x00)
-    - Attribute qualifier triplet (0x02 - fully qualified name)
-    - Attribute name (variable length, EBCDIC)
-    - Attribute value triplet
-    - Attribute value (variable length, EBCDIC or character)
+    Column layout after reblocking:
+    - Bytes 1-6:   CC + Length + SF_ID (fixed)
+    - Bytes 7-9:   Flags (fixed)
+    - Byte 10+:    Name triplet (0x02) - variable length based on name
+    - After name:  Value triplet (0x36)
 
-    Simplified format used here:
-    - 3 flag bytes
-    - Triplet 0x02: FQN Type
-    - Triplet 0x36: Attribute name
-    - Triplet 0x36: Attribute value
+    Args:
+        attribute_name: The TLE attribute name
+        attribute_value: The TLE attribute value (can be empty string)
     """
     data = bytearray()
 
-    # Flag bytes
+    # Flag bytes (columns 7-9)
     data.extend([0x00, 0x00, 0x00])
 
-    # Attribute name in EBCDIC (max 250 chars for TLE)
+    # Name triplet (0x02) - Crawford format
+    # Structure: length(1) + ID(1) + FQN_type(1) + format(1) + name(N)
     name_ebcdic = attribute_name[:250].encode('cp500')
-    value_ebcdic = attribute_value[:250].encode('cp500')
+    name_triplet_len = 4 + len(name_ebcdic)  # 4 bytes overhead + name
 
-    # Triplet 0x02 - Fully Qualified Name (FQN)
-    # Length + ID + Type + GID
-    fqn_triplet = bytearray()
-    fqn_triplet.append(0x04)  # Length
-    fqn_triplet.append(0x02)  # Triplet ID - FQN
-    fqn_triplet.append(0x0B)  # FQN Type - Attribute GID
-    fqn_triplet.append(0x00)  # Format
-    data.extend(fqn_triplet)
-
-    # Triplet 0x36 - Attribute Qualifier
-    # Contains the attribute name
     name_triplet = bytearray()
-    name_triplet.append(len(name_ebcdic) + 2)  # Length (data + triplet header)
-    name_triplet.append(0x36)  # Triplet ID - Attribute Qualifier
+    name_triplet.append(name_triplet_len)  # Length of triplet
+    name_triplet.append(0x02)  # Triplet ID - FQN
+    name_triplet.append(0x0B)  # FQN Type - Attribute GID
+    name_triplet.append(0x00)  # Format
     name_triplet.extend(name_ebcdic)
     data.extend(name_triplet)
 
-    # Triplet 0x35 - Attribute Value
+    # Value triplet (0x36) - Crawford format
+    # Structure: length(1) + ID(1) + reserved(2) + value(N)
+    # Always include value triplet even if value is empty
+    value_ebcdic = attribute_value[:250].encode('cp500') if attribute_value else b''
     value_triplet = bytearray()
-    value_triplet.append(len(value_ebcdic) + 2)  # Length
-    value_triplet.append(0x35)  # Triplet ID - Attribute Value
+    value_triplet.append(len(value_ebcdic) + 4)  # Length (4 bytes overhead + value)
+    value_triplet.append(0x36)  # Triplet ID - Attribute Value
+    value_triplet.extend([0x00, 0x00])  # Reserved bytes (Crawford format)
     value_triplet.extend(value_ebcdic)
     data.extend(value_triplet)
 
@@ -298,6 +321,19 @@ def _build_idd(width: int, height: int, resolution: int = 240) -> bytes:
     return _sf(SF_IDD, bytes(data))
 
 
+def _build_iid() -> bytes:
+    """Image Input Descriptor (IID) - specifies IOCA image format.
+
+    Crawford format: 0005030410
+    - Triplet 0x03 (Set Extended Bilevel Image Color)
+    - Data: 0x04 0x10 (IOCA FS10 format indicator)
+    """
+    data = bytearray()
+    data.extend([0x00, 0x00, 0x00])  # Flags
+    data.extend([0x00, 0x05, 0x03, 0x04, 0x10])  # Triplet for IOCA FS10
+    return _sf(SF_IID, bytes(data))
+
+
 def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: int = 240) -> bytes:
     """Build Image Picture Data (IPD) records with IOCA self-defining fields."""
     result = bytearray()
@@ -409,6 +445,7 @@ def generate_inline_page_segment(
     result.extend(_build_bog())
     result.extend(_build_obd(width, height, resolution))
     result.extend(_build_obp())
+    result.extend(_build_iid())  # Image Input Descriptor (required by some viewers)
     result.extend(_build_idd(width, height, resolution))
     result.extend(_build_eog())
     result.extend(_build_ipd_records(bilevel_data, width, height, resolution))
@@ -451,13 +488,8 @@ def generate_afp_document(
     """
     result = bytearray()
 
-    # Document header comment
-    now = datetime.now()
-    comment = f"Generated by IBM Adhoc Print Studio - {now.strftime('%Y-%m-%d %H:%M:%S')}"
-    result.extend(_build_nop_comment(comment))
-
-    # Begin Document
-    result.extend(_build_bdt(document_name))
+    # Begin Medium Map (Crawford format - no BDT/EDT document wrapper)
+    result.extend(_build_bmm())
 
     # Generate each page
     for page_num, page in enumerate(pages, start=1):
@@ -467,11 +499,10 @@ def generate_afp_document(
         # Begin Page
         result.extend(_build_bpg(page_name))
 
-        # Begin Active Environment Group (required by many AFP viewers)
+        # Begin Active Environment Group
         result.extend(_build_bag())
 
-        # Page Descriptor
-        result.extend(_build_pgd(page_width, page_height, resolution))
+        # No PGD - Crawford format doesn't use Page Descriptor
 
         # End Active Environment Group
         result.extend(_build_eag())
@@ -479,22 +510,23 @@ def generate_afp_document(
         # TLE records for this page (outside AEG, as per AFP spec)
         tle_data = page.get('tle_data', {})
 
-        # Write all TLE fields with fixed-length attribute names (13 chars)
-        # This ensures values align at a consistent column position
-        TLE_NAME_LENGTH = 13
+        # TLE fields with original names
+        # Name triplet sized for 13-char names: 4 (overhead) + 13 (name) = 17 bytes
+        # Value starts at column: 6 (header) + 3 (flags) + 17 (name) = column 26
+        # But user wants around column 10, so we'll use variable-length names
         tle_fields = [
-            ('mailing_name'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_name', '')),
-            ('mailing_addr1'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_addr1', '')),
-            ('mailing_addr2'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_addr2', '')),
-            ('mailing_addr3'.ljust(TLE_NAME_LENGTH), tle_data.get('mailing_addr3', '')),
-            ('return_addr1'.ljust(TLE_NAME_LENGTH), tle_data.get('return_addr1', '')),
-            ('return_addr2'.ljust(TLE_NAME_LENGTH), tle_data.get('return_addr2', '')),
-            ('return_addr3'.ljust(TLE_NAME_LENGTH), tle_data.get('return_addr3', '')),
+            ('mailing_name', tle_data.get('mailing_name', '')),
+            ('mailing_addr1', tle_data.get('mailing_addr1', '')),
+            ('mailing_addr2', tle_data.get('mailing_addr2', '')),
+            ('mailing_addr3', tle_data.get('mailing_addr3', '')),
+            ('return_addr1', tle_data.get('return_addr1', '')),
+            ('return_addr2', tle_data.get('return_addr2', '')),
+            ('return_addr3', tle_data.get('return_addr3', '')),
         ]
 
         for field_name, field_value in tle_fields:
-            if field_value:  # Only write non-empty TLE fields
-                result.extend(_build_tle(field_name, field_value))
+            # Always write TLE records, even when value is empty
+            result.extend(_build_tle(field_name, field_value))
 
         # Inline page segment with image
         image_data = page.get('image_data', b'')
@@ -516,8 +548,8 @@ def generate_afp_document(
         # End Page
         result.extend(_build_epg(page_name))
 
-    # End Document
-    result.extend(_build_edt(document_name))
+    # End Medium Map (Crawford format - no BDT/EDT document wrapper)
+    result.extend(_build_emm())
 
     return bytes(result)
 
