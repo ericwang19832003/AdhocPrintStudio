@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Node as TiptapNode } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -50,6 +50,7 @@ type EditorClientProps = {
   onChange: (html: string) => void;
   placeholder?: string;
   onDropItem?: (item: DroppedItem, coords: { x: number; y: number }) => void;
+  columns?: string[];
 };
 
 const FontSize = Extension.create({
@@ -139,7 +140,22 @@ const VerbiageBlock = TiptapNode.create({
 });
 
 const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
-  ({ value, onChange, placeholder, onDropItem }, ref) => {
+  ({ value, onChange, placeholder, onDropItem, columns = [] }, ref) => {
+  // Placeholder picker state
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerPosition, setPickerPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const bracketStartPosRef = useRef<number | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Filter columns based on query
+  const filteredColumns = useMemo(() => {
+    if (!pickerQuery) return columns;
+    const query = pickerQuery.toLowerCase();
+    return columns.filter((col) => col.toLowerCase().includes(query));
+  }, [columns, pickerQuery]);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -193,6 +209,128 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       editor.commands.setContent(value, false);
     }
   }, [editor, value]);
+
+  // Listen for text changes to detect [ character and track query
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleUpdate = () => {
+      const { state } = editor;
+      const { from } = state.selection;
+      const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, "");
+
+      // Find the last unmatched [ bracket
+      const lastBracketIndex = textBefore.lastIndexOf("[");
+      const hasClosingBracket = lastBracketIndex >= 0 && textBefore.slice(lastBracketIndex).includes("]");
+
+      if (lastBracketIndex >= 0 && !hasClosingBracket && columns.length > 0) {
+        // We have an open bracket - show picker
+        const query = textBefore.slice(lastBracketIndex + 1);
+        const bracketPos = from - textBefore.length + lastBracketIndex;
+
+        if (!pickerOpen || bracketStartPosRef.current !== bracketPos) {
+          // Get cursor coordinates for positioning
+          const coords = editor.view.coordsAtPos(from);
+          setPickerPosition({ top: coords.bottom + 4, left: coords.left });
+          bracketStartPosRef.current = bracketPos;
+        }
+
+        setPickerQuery(query);
+        setPickerOpen(true);
+        setSelectedIndex(0);
+      } else if (pickerOpen) {
+        // Close picker if no open bracket
+        setPickerOpen(false);
+        setPickerQuery("");
+        bracketStartPosRef.current = null;
+      }
+    };
+
+    editor.on("update", handleUpdate);
+    editor.on("selectionUpdate", handleUpdate);
+
+    return () => {
+      editor.off("update", handleUpdate);
+      editor.off("selectionUpdate", handleUpdate);
+    };
+  }, [editor, columns.length, pickerOpen]);
+
+  // Handle keyboard navigation for picker
+  useEffect(() => {
+    if (!pickerOpen || !editor) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!pickerOpen) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setSelectedIndex((prev) => Math.min(prev + 1, filteredColumns.length - 1));
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+      } else if (event.key === "Enter" && filteredColumns.length > 0) {
+        event.preventDefault();
+        const selectedColumn = filteredColumns[selectedIndex];
+        if (selectedColumn && bracketStartPosRef.current !== null) {
+          // Delete from bracket start to current position and insert [columnName]
+          const from = bracketStartPosRef.current;
+          const to = editor.state.selection.from;
+          editor
+            .chain()
+            .focus()
+            .deleteRange({ from, to })
+            .insertContent(`[${selectedColumn}]`)
+            .run();
+        }
+        setPickerOpen(false);
+        setPickerQuery("");
+        bracketStartPosRef.current = null;
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setPickerOpen(false);
+        setPickerQuery("");
+        bracketStartPosRef.current = null;
+      } else if (event.key === "Tab" && filteredColumns.length > 0) {
+        event.preventDefault();
+        const selectedColumn = filteredColumns[selectedIndex];
+        if (selectedColumn && bracketStartPosRef.current !== null) {
+          const from = bracketStartPosRef.current;
+          const to = editor.state.selection.from;
+          editor
+            .chain()
+            .focus()
+            .deleteRange({ from, to })
+            .insertContent(`[${selectedColumn}]`)
+            .run();
+        }
+        setPickerOpen(false);
+        setPickerQuery("");
+        bracketStartPosRef.current = null;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [pickerOpen, editor, filteredColumns, selectedIndex]);
+
+  // Select placeholder column from picker
+  const selectColumn = useCallback(
+    (column: string) => {
+      if (!editor || bracketStartPosRef.current === null) return;
+      const from = bracketStartPosRef.current;
+      const to = editor.state.selection.from;
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from, to })
+        .insertContent(`[${column}]`)
+        .run();
+      setPickerOpen(false);
+      setPickerQuery("");
+      bracketStartPosRef.current = null;
+    },
+    [editor]
+  );
 
   useImperativeHandle(
     ref,
@@ -319,6 +457,38 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       onDrop={handleShellDrop}
     >
       <EditorContent editor={editor} className="body-editor" />
+
+      {/* Placeholder Picker Dropdown */}
+      {pickerOpen && columns.length > 0 && (
+        <div
+          ref={pickerRef}
+          className="placeholder-picker"
+          style={{ top: pickerPosition.top, left: pickerPosition.left }}
+        >
+          {filteredColumns.length > 0 ? (
+            filteredColumns.slice(0, 10).map((column, index) => (
+              <div
+                key={column}
+                className={`placeholder-picker-item${index === selectedIndex ? " selected" : ""}`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectColumn(column);
+                }}
+                onMouseEnter={() => setSelectedIndex(index)}
+              >
+                {column}
+              </div>
+            ))
+          ) : (
+            <div className="placeholder-picker-empty">No matching columns</div>
+          )}
+          {filteredColumns.length > 10 && (
+            <div className="placeholder-picker-more">
+              +{filteredColumns.length - 10} more
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
   }

@@ -1121,6 +1121,69 @@ export default function BuilderClient() {
     return extractPlaceholders(`${plainText} ${blockText}`);
   }, [activePage, bodyContentByPage, blocksByPage]);
 
+  // Auto-match: compute suggested mappings between placeholders and columns
+  const autoMatchSuggestions = useMemo(() => {
+    if (placeholders.length === 0 || columns.length === 0) return [];
+
+    const normalizeString = (str: string) =>
+      str.replace(/[_\-\s]/g, "").toLowerCase();
+
+    const suggestions: Array<{
+      placeholder: string;
+      column: string;
+      confidence: "high" | "medium";
+    }> = [];
+
+    for (const placeholder of placeholders) {
+      // Skip if already mapped
+      if (placeholderMap[placeholder]) continue;
+
+      const key = placeholder.replace(/^\[|\]$/g, "");
+
+      // 1. Exact match (high confidence)
+      if (columns.includes(key)) {
+        suggestions.push({ placeholder, column: key, confidence: "high" });
+        continue;
+      }
+
+      // 2. Case-insensitive match (high confidence)
+      const caseMatch = columns.find(
+        (col) => col.toLowerCase() === key.toLowerCase()
+      );
+      if (caseMatch) {
+        suggestions.push({ placeholder, column: caseMatch, confidence: "high" });
+        continue;
+      }
+
+      // 3. Normalized match - handles underscore/camelCase/hyphen differences (medium confidence)
+      const normalizedKey = normalizeString(key);
+      const normalizedMatch = columns.find(
+        (col) => normalizeString(col) === normalizedKey
+      );
+      if (normalizedMatch) {
+        suggestions.push({ placeholder, column: normalizedMatch, confidence: "medium" });
+      }
+    }
+
+    return suggestions;
+  }, [placeholders, columns, placeholderMap]);
+
+  // Apply a single auto-match suggestion
+  const applyAutoMatch = (placeholder: string, column: string) => {
+    setPlaceholderMap((prev) => ({ ...prev, [placeholder]: column }));
+  };
+
+  // Apply all auto-match suggestions
+  const applyAllAutoMatches = () => {
+    setPlaceholderMap((prev) => {
+      const next = { ...prev };
+      for (const suggestion of autoMatchSuggestions) {
+        next[suggestion.placeholder] = suggestion.column;
+      }
+      return next;
+    });
+  };
+
   const bodyIsEmpty = useMemo(() => {
     const htmlText = stripInlineControls(bodyContentByPage[activePage] ?? "");
     return htmlText.replace(/<[^>]*>/g, "").trim().length === 0;
@@ -1931,6 +1994,7 @@ export default function BuilderClient() {
                     value={bodyContentByPage[activePage] ?? ""}
                     onChange={(html) => updateBodyContent(activePageRef.current, html)}
                     placeholder="Start typing your letter..."
+                    columns={columns}
                   />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
@@ -2170,6 +2234,40 @@ export default function BuilderClient() {
                   {unmappedPlaceholders.length > 0 && (
                     <div className="alert warning">
                       Unmapped placeholders: {unmappedPlaceholders.join(", ")}
+                    </div>
+                  )}
+                  {autoMatchSuggestions.length > 0 && (
+                    <div className="auto-match-banner">
+                      <div className="auto-match-header">
+                        <span className="auto-match-icon">✨</span>
+                        <span className="auto-match-title">
+                          {autoMatchSuggestions.length} auto-match{autoMatchSuggestions.length > 1 ? "es" : ""} found
+                        </span>
+                        <button
+                          className="auto-match-apply-all"
+                          onClick={applyAllAutoMatches}
+                        >
+                          Apply All
+                        </button>
+                      </div>
+                      <div className="auto-match-list">
+                        {autoMatchSuggestions.map((suggestion) => (
+                          <div key={suggestion.placeholder} className="auto-match-row">
+                            <span className="auto-match-placeholder">{suggestion.placeholder}</span>
+                            <span className="auto-match-arrow">→</span>
+                            <span className="auto-match-column">{suggestion.column}</span>
+                            <span className={`auto-match-confidence ${suggestion.confidence}`}>
+                              {suggestion.confidence === "high" ? "●●" : "●○"}
+                            </span>
+                            <button
+                              className="auto-match-apply"
+                              onClick={() => applyAutoMatch(suggestion.placeholder, suggestion.column)}
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div className="mapping-table">
