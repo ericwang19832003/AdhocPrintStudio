@@ -465,6 +465,10 @@ def generate_afp_document(
     """
     Generate a complete AFP document with TLE index data.
 
+    Each page is wrapped in its own BDT/EDT (Begin/End Document) structure
+    so that mainframe tools like Enrichment One can detect document boundaries
+    based on TLE records.
+
     Args:
         pages: List of page dictionaries, each containing:
             - image_data: bytes - grayscale image data
@@ -488,13 +492,15 @@ def generate_afp_document(
     """
     result = bytearray()
 
-    # Begin Medium Map (Crawford format - no BDT/EDT document wrapper)
-    result.extend(_build_bmm())
-
-    # Generate each page
+    # Generate each page as a separate document (BDT/EDT wrapper)
+    # This allows Enrichment One to detect document boundaries via TLE records
     for page_num, page in enumerate(pages, start=1):
+        doc_name = f"DOC{page_num:05d}"
         page_name = f"P{page_num:07d}"
         segment_name = f"S{page_num:07d}"
+
+        # Begin Document - each letter is its own document
+        result.extend(_build_bdt(doc_name))
 
         # Begin Page
         result.extend(_build_bpg(page_name))
@@ -502,18 +508,13 @@ def generate_afp_document(
         # Begin Active Environment Group
         result.extend(_build_bag())
 
-        # No PGD - Crawford format doesn't use Page Descriptor
-
         # End Active Environment Group
         result.extend(_build_eag())
 
-        # TLE records for this page (outside AEG, as per AFP spec)
+        # TLE records for this page (critical for document detection)
+        # Enrichment One uses these to identify document boundaries
         tle_data = page.get('tle_data', {})
 
-        # TLE fields with original names
-        # Name triplet sized for 13-char names: 4 (overhead) + 13 (name) = 17 bytes
-        # Value starts at column: 6 (header) + 3 (flags) + 17 (name) = column 26
-        # But user wants around column 10, so we'll use variable-length names
         tle_fields = [
             ('mailing_name', tle_data.get('mailing_name', '')),
             ('mailing_addr1', tle_data.get('mailing_addr1', '')),
@@ -548,8 +549,8 @@ def generate_afp_document(
         # End Page
         result.extend(_build_epg(page_name))
 
-    # End Medium Map (Crawford format - no BDT/EDT document wrapper)
-    result.extend(_build_emm())
+        # End Document - closes this letter's document boundary
+        result.extend(_build_edt(doc_name))
 
     return bytes(result)
 
