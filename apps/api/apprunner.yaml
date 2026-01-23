@@ -22,3 +22,5 @@ run:
       value: "*"
     - name: PYTHONPATH
       value: "/app/apps/api/vendor"
+    - name: DATABASE_URL
+      value: "postgresql://***REMOVED***"
