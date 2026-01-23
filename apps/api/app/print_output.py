@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
 
@@ -135,17 +136,181 @@ def _csv_from_rows(rows: list[list[Any]]) -> str:
     return buffer.getvalue()
 
 
+def _flatten_xml_element(element: ET.Element, prefix: str = "") -> dict[str, str]:
+    """
+    Flatten an XML element into a dictionary with dot-notation keys.
+
+    Example:
+        <Address><Line1>123 Main</Line1><City>NYC</City></Address>
+        becomes: {"Address.Line1": "123 Main", "Address.City": "NYC"}
+    """
+    result: dict[str, str] = {}
+
+    # Build the current key
+    current_key = f"{prefix}.{element.tag}" if prefix else element.tag
+
+    # Get element text (strip whitespace)
+    text = (element.text or "").strip()
+
+    # Check if this element has children
+    children = list(element)
+
+    if children:
+        # Has children - recurse into them
+        for child in children:
+            child_data = _flatten_xml_element(child, current_key)
+            result.update(child_data)
+    else:
+        # Leaf node - add the text value
+        if text:
+            result[current_key] = text
+        else:
+            result[current_key] = ""
+
+    # Also extract attributes as separate columns
+    for attr_name, attr_value in element.attrib.items():
+        attr_key = f"{current_key}@{attr_name}"
+        result[attr_key] = attr_value
+
+    return result
+
+
+def _detect_repeating_element(root: ET.Element) -> tuple[str, list[ET.Element]]:
+    """
+    Auto-detect the repeating element (records) in an XML structure.
+
+    Looks for the first level of children that have multiple siblings with the same tag.
+    Returns the tag name and list of record elements.
+    """
+    # Count children by tag
+    tag_counts: dict[str, list[ET.Element]] = {}
+    for child in root:
+        tag = child.tag
+        if tag not in tag_counts:
+            tag_counts[tag] = []
+        tag_counts[tag].append(child)
+
+    # Find the tag with multiple occurrences (likely the record element)
+    for tag, elements in tag_counts.items():
+        if len(elements) > 1:
+            return tag, elements
+
+    # If no repeating element at first level, check if root has single child with repeating grandchildren
+    if len(list(root)) == 1:
+        single_child = list(root)[0]
+        grandchild_counts: dict[str, list[ET.Element]] = {}
+        for grandchild in single_child:
+            tag = grandchild.tag
+            if tag not in grandchild_counts:
+                grandchild_counts[tag] = []
+            grandchild_counts[tag].append(grandchild)
+
+        for tag, elements in grandchild_counts.items():
+            if len(elements) > 1:
+                return tag, elements
+
+    # Fallback: treat all direct children as records
+    children = list(root)
+    if children:
+        return children[0].tag, children
+
+    return "", []
+
+
+def _parse_xml_to_records(xml_content: str) -> tuple[list[str], list[dict[str, str]]]:
+    """
+    Parse XML content and extract columns and records.
+
+    Returns:
+        tuple of (columns list, records list)
+        - columns: list of all unique column names (dot-notation for nested)
+        - records: list of dictionaries, each representing one record
+    """
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError as e:
+        raise ValueError(f"Invalid XML: {e}")
+
+    # Detect the repeating element
+    record_tag, record_elements = _detect_repeating_element(root)
+
+    if not record_elements:
+        raise ValueError("Could not find repeating records in XML")
+
+    # Extract all records
+    records: list[dict[str, str]] = []
+    all_columns: set[str] = set()
+
+    for record_elem in record_elements:
+        # Flatten this record (don't include the record tag itself in the path)
+        record_data: dict[str, str] = {}
+
+        for child in record_elem:
+            child_data = _flatten_xml_element(child)
+            record_data.update(child_data)
+
+        # Also get attributes of the record element itself
+        for attr_name, attr_value in record_elem.attrib.items():
+            record_data[f"@{attr_name}"] = attr_value
+
+        records.append(record_data)
+        all_columns.update(record_data.keys())
+
+    # Sort columns for consistent ordering
+    columns = sorted(list(all_columns))
+
+    # Ensure all records have all columns (fill missing with empty string)
+    for record in records:
+        for col in columns:
+            if col not in record:
+                record[col] = ""
+
+    return columns, records
+
+
+def _xml_records_to_csv(columns: list[str], records: list[dict[str, str]]) -> str:
+    """
+    Convert XML records to CSV format.
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+
+    # Write header
+    writer.writerow(columns)
+
+    # Write data rows
+    for record in records:
+        row = [record.get(col, "") for col in columns]
+        writer.writerow(row)
+
+    return buffer.getvalue()
+
+
 @router.post("/columns")
 async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
+    """
+    Parse uploaded file and extract columns.
+
+    Supports:
+    - CSV files (.csv)
+    - Excel files (.xlsx)
+    - XML files (.xml) - auto-detects repeating elements as records
+
+    Returns:
+        - columns: list of column/field names
+        - csv: data in CSV format (for uniform processing)
+    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing file name")
     filename = file.filename.lower()
     data = await file.read()
+
     if filename.endswith(".csv"):
         text = data.decode("utf-8", errors="ignore")
         header = text.splitlines()[0] if text.splitlines() else ""
         columns = [value.strip() for value in header.split(",") if value.strip()]
         return {"columns": columns, "csv": text}
+
     if filename.endswith(".xlsx"):
         workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
         sheet = workbook.active
@@ -156,7 +321,19 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail="Spreadsheet has no rows")
         columns = [str(value).strip() for value in rows[0] if value is not None]
         return {"columns": columns, "csv": _csv_from_rows(rows)}
-    raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    if filename.endswith(".xml"):
+        try:
+            xml_text = data.decode("utf-8", errors="ignore")
+            columns, records = _parse_xml_to_records(xml_text)
+            if not records:
+                raise HTTPException(status_code=400, detail="XML file has no records")
+            csv_text = _xml_records_to_csv(columns, records)
+            return {"columns": columns, "csv": csv_text}
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    raise HTTPException(status_code=400, detail="Unsupported file type. Supported: .csv, .xlsx, .xml")
 
 
 @router.post("/afp")

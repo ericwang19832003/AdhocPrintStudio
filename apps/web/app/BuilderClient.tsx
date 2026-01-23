@@ -957,7 +957,9 @@ export default function BuilderClient() {
     setSpreadsheetLoading(true);
     setSpreadsheetError(null);
     try {
-      if (file.name.toLowerCase().endsWith(".xlsx")) {
+      const fileName = file.name.toLowerCase();
+
+      if (fileName.endsWith(".xlsx")) {
         // Parse XLSX client-side using xlsx library
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
@@ -976,6 +978,29 @@ export default function BuilderClient() {
         setSpreadsheetContent(csvContent);
         setSpreadsheetName(file.name);
         setColumns(parsedColumns.length > 0 ? parsedColumns : []);
+        setSpreadsheetLoading(false);
+        return;
+      }
+
+      if (fileName.endsWith(".xml")) {
+        // Send XML to backend for parsing (handles complex nested structures)
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/print-output/columns", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Failed to parse XML file");
+        }
+
+        const result = await response.json();
+        setSpreadsheetContent(result.csv || "");
+        setSpreadsheetName(file.name);
+        setColumns(result.columns || []);
         setSpreadsheetLoading(false);
         return;
       }
@@ -2029,13 +2054,13 @@ export default function BuilderClient() {
                 }
               }}
             >
-              <p>{spreadsheetName ? "Spreadsheet loaded" : "Drag spreadsheet here"}</p>
-              <span>{spreadsheetName ?? "Upload spreadsheet here"}</span>
+              <p>{spreadsheetName ? "Data file loaded" : "Drag data file here"}</p>
+              <span>{spreadsheetName ?? "Upload CSV, Excel, or XML file"}</span>
               <label className="file-input">
                 Upload file
                 <input
                   type="file"
-                  accept=".csv,.xlsx"
+                  accept=".csv,.xlsx,.xml"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
