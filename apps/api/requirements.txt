@@ -10,3 +10,7 @@ boto3==1.35.24
 pillow==10.4.0
 openpyxl==3.1.5
 python-multipart==0.0.9
+# Security packages
+defusedxml==0.7.1
+slowapi==0.1.9
+python-magic==0.4.27

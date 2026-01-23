@@ -6,6 +6,7 @@ import type { EditorClientHandle } from "./EditorClient";
 import { EditorToolbar } from "./EditorClient";
 import type { Editor } from "@tiptap/react";
 import * as XLSX from "xlsx";
+import DOMPurify from "isomorphic-dompurify";
 
 import { env } from "@/lib/env";
 
@@ -3331,7 +3332,7 @@ export default function BuilderClient() {
                 )}
                 <div
                   className="preview-body"
-                  dangerouslySetInnerHTML={{ __html: buildMergedHtml() }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(buildMergedHtml()) }}
                 />
                 {(() => {
                   const previewTagline = getTaglineForRow(previewIndex);

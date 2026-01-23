@@ -4,11 +4,12 @@ import uuid
 from enum import Enum
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.aws import get_s3_client
 from app.db import get_session
 from app.models import Asset
+from app.security import sanitize_filename
 
 
 class AssetType(str, Enum):
@@ -24,6 +25,20 @@ class PresignUploadRequest(BaseModel):
     filename: str
     content_type: str
     asset_type: AssetType
+
+    @field_validator('filename')
+    @classmethod
+    def validate_filename(cls, v: str) -> str:
+        """Sanitize filename to prevent path traversal."""
+        return sanitize_filename(v)
+
+    @field_validator('content_type')
+    @classmethod
+    def validate_content_type(cls, v: str) -> str:
+        """Validate content type format."""
+        if not v or '/' not in v or len(v) > 256:
+            raise ValueError('Invalid content type')
+        return v
 
 
 class PresignUploadResponse(BaseModel):

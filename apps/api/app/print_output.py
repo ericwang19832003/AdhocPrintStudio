@@ -3,16 +3,22 @@ from __future__ import annotations
 import csv
 import io
 import json
-import xml.etree.ElementTree as ET
+import logging
 from dataclasses import dataclass
 from typing import Any
+
+# Use defusedxml to prevent XXE attacks
+import defusedxml.ElementTree as ET
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from PIL import Image, ImageDraw, ImageFont
 
 from app.afp_document_generator import generate_afp_document
+from app.security import validate_file_size, validate_file_content, MAX_UPLOAD_SIZE
 from openpyxl import load_workbook
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/print-output", tags=["print-output"])
 
@@ -394,16 +400,56 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing file name")
-    filename = file.filename.lower()
-    data = await file.read()
 
+    # Validate file size before reading
+    if file.size is not None:
+        validate_file_size(file.size)
+
+    filename = file.filename.lower()
+
+    # Read file with size limit
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024 * 1024)} MB",
+        )
+
+    # Determine expected file type and validate content
     if filename.endswith(".csv"):
+        expected_type = "csv"
+    elif filename.endswith(".xlsx"):
+        expected_type = "xlsx"
+    elif filename.endswith(".xml"):
+        expected_type = "xml"
+    elif filename.endswith(".json"):
+        expected_type = "json"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Supported: .csv, .xlsx, .xml, .json",
+        )
+
+    # Validate file content matches extension
+    try:
+        validate_file_content(data, expected_type)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"File content validation failed: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match the file extension",
+        )
+
+    # Parse based on file type
+    if expected_type == "csv":
         text = data.decode("utf-8", errors="ignore")
         header = text.splitlines()[0] if text.splitlines() else ""
         columns = [value.strip() for value in header.split(",") if value.strip()]
         return {"columns": columns, "csv": text}
 
-    if filename.endswith(".xlsx"):
+    if expected_type == "xlsx":
         workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
         sheet = workbook.active
         rows = []
@@ -414,7 +460,7 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
         columns = [str(value).strip() for value in rows[0] if value is not None]
         return {"columns": columns, "csv": _csv_from_rows(rows)}
 
-    if filename.endswith(".xml"):
+    if expected_type == "xml":
         try:
             xml_text = data.decode("utf-8", errors="ignore")
             columns, records = _parse_xml_to_records(xml_text)
@@ -425,7 +471,7 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    if filename.endswith(".json"):
+    if expected_type == "json":
         try:
             json_text = data.decode("utf-8", errors="ignore")
             columns, records = _parse_json_to_records(json_text)
@@ -438,7 +484,8 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    raise HTTPException(status_code=400, detail="Unsupported file type. Supported: .csv, .xlsx, .xml, .json")
+    # This should never be reached due to earlier validation
+    raise HTTPException(status_code=400, detail="Unsupported file type")
 
 
 @router.post("/afp")
