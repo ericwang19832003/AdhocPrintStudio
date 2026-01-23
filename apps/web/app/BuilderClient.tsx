@@ -441,6 +441,20 @@ export default function BuilderClient() {
   >({
     0: null,
   });
+
+  // Dynamic asset selection state
+  const [logoMode, setLogoMode] = useState<"static" | "dynamic">("static");
+  const [logoColumn, setLogoColumn] = useState<string>("");
+  const [logoValueMap, setLogoValueMap] = useState<Record<string, string>>({});
+
+  const [taglineMode, setTaglineMode] = useState<"static" | "dynamic">("static");
+  const [taglineColumn, setTaglineColumn] = useState<string>("");
+  const [taglineValueMap, setTaglineValueMap] = useState<Record<string, string>>({});
+
+  const [returnMode, setReturnMode] = useState<"static" | "dynamic">("static");
+  const [returnColumn, setReturnColumn] = useState<string>("");
+  const [returnValueMap, setReturnValueMap] = useState<Record<string, string>>({});
+
   const [pages, setPages] = useState(["Page 1"]);
   const [activePage, setActivePage] = useState(0);
   const [blocksByPage, setBlocksByPage] = useState<Record<number, PlacedBlock[]>>({
@@ -1281,6 +1295,14 @@ export default function BuilderClient() {
     return [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
   }, [selectedReturn]);
 
+  // Get return lines for a specific row (for preview)
+  const getReturnLinesForRow = (rowIndex: number): string[] => {
+    const returnItem = getReturnForRow(rowIndex);
+    const content = returnItem?.content ?? "";
+    const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
+    return [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
+  };
+
   const normalizeMailingValue = (value: string) => (value === "__empty__" ? "" : value);
 
   const unmappedMailing = useMemo(
@@ -1319,6 +1341,130 @@ export default function BuilderClient() {
       return rowMap;
     });
   }, [spreadsheetContent]);
+
+  // Extract unique values for dynamic asset columns
+  const getUniqueValuesForColumn = (column: string) => {
+    if (!column || !spreadsheetRows.length) return [];
+    const values = new Set<string>();
+    for (const row of spreadsheetRows) {
+      const val = row[column]?.trim();
+      if (val) values.add(val);
+    }
+    return Array.from(values).sort();
+  };
+
+  const uniqueLogoValues = useMemo(
+    () => getUniqueValuesForColumn(logoColumn),
+    [logoColumn, spreadsheetRows]
+  );
+
+  const uniqueTaglineValues = useMemo(
+    () => getUniqueValuesForColumn(taglineColumn),
+    [taglineColumn, spreadsheetRows]
+  );
+
+  const uniqueReturnValues = useMemo(
+    () => getUniqueValuesForColumn(returnColumn),
+    [returnColumn, spreadsheetRows]
+  );
+
+  // Auto-match function for library items
+  const autoMatchAssets = (
+    uniqueValues: string[],
+    libraryItems: LibraryItem[]
+  ): Record<string, string> => {
+    const matches: Record<string, string> = {};
+    const normalizeStr = (s: string) => s.toLowerCase().replace(/[_\-\s]/g, "");
+
+    for (const value of uniqueValues) {
+      const normalizedValue = normalizeStr(value);
+
+      // Strategy 1: Exact match (case-insensitive)
+      let match = libraryItems.find(
+        (item) => item.label.toLowerCase() === value.toLowerCase()
+      );
+
+      // Strategy 2: Normalized match
+      if (!match) {
+        match = libraryItems.find(
+          (item) => normalizeStr(item.label) === normalizedValue
+        );
+      }
+
+      // Strategy 3: Contains match
+      if (!match) {
+        match = libraryItems.find(
+          (item) =>
+            normalizeStr(item.label).includes(normalizedValue) ||
+            normalizedValue.includes(normalizeStr(item.label))
+        );
+      }
+
+      if (match) matches[value] = match.id;
+    }
+
+    return matches;
+  };
+
+  // Auto-compute matches when column or library changes
+  const autoMatchedLogos = useMemo(
+    () => autoMatchAssets(uniqueLogoValues, library.Logos ?? []),
+    [uniqueLogoValues, library.Logos]
+  );
+
+  const autoMatchedTaglines = useMemo(
+    () => autoMatchAssets(uniqueTaglineValues, library.Taglines ?? []),
+    [uniqueTaglineValues, library.Taglines]
+  );
+
+  const autoMatchedReturns = useMemo(
+    () => autoMatchAssets(uniqueReturnValues, library["Return Address"] ?? []),
+    [uniqueReturnValues, library]
+  );
+
+  // Apply auto-matches when column changes
+  useEffect(() => {
+    if (logoColumn && uniqueLogoValues.length > 0) {
+      setLogoValueMap((prev) => ({ ...autoMatchedLogos, ...prev }));
+    }
+  }, [logoColumn, autoMatchedLogos]);
+
+  useEffect(() => {
+    if (taglineColumn && uniqueTaglineValues.length > 0) {
+      setTaglineValueMap((prev) => ({ ...autoMatchedTaglines, ...prev }));
+    }
+  }, [taglineColumn, autoMatchedTaglines]);
+
+  useEffect(() => {
+    if (returnColumn && uniqueReturnValues.length > 0) {
+      setReturnValueMap((prev) => ({ ...autoMatchedReturns, ...prev }));
+    }
+  }, [returnColumn, autoMatchedReturns]);
+
+  // Get dynamic asset for a specific row
+  const getLogoForRow = (rowIndex: number): LibraryItem | null => {
+    if (logoMode === "static") return selectedLogo;
+    const row = spreadsheetRows[rowIndex];
+    const value = row?.[logoColumn];
+    const logoId = logoValueMap[value];
+    return (library.Logos ?? []).find((logo) => logo.id === logoId) ?? null;
+  };
+
+  const getTaglineForRow = (rowIndex: number): LibraryItem | null => {
+    if (taglineMode === "static") return selectedTaglineByPage[activePage];
+    const row = spreadsheetRows[rowIndex];
+    const value = row?.[taglineColumn];
+    const taglineId = taglineValueMap[value];
+    return (library.Taglines ?? []).find((t) => t.id === taglineId) ?? null;
+  };
+
+  const getReturnForRow = (rowIndex: number): LibraryItem | null => {
+    if (returnMode === "static") return selectedReturn;
+    const row = spreadsheetRows[rowIndex];
+    const value = row?.[returnColumn];
+    const returnId = returnValueMap[value];
+    return (library["Return Address"] ?? []).find((r) => r.id === returnId) ?? null;
+  };
 
   const getValueForRow = (rowIndex: number, column: string) => {
     const row = spreadsheetRows[rowIndex];
@@ -1359,6 +1505,41 @@ export default function BuilderClient() {
     }
     setGenerating(true);
     try {
+      // Build dynamic asset mappings (value -> content/URL)
+      const buildDynamicLogoMap = () => {
+        if (logoMode === "static") return null;
+        const map: Record<string, string> = {};
+        for (const [value, logoId] of Object.entries(logoValueMap)) {
+          const logo = (library.Logos ?? []).find((l) => l.id === logoId);
+          if (logo?.imageUrl) map[value] = logo.imageUrl;
+        }
+        return map;
+      };
+
+      const buildDynamicTaglineMap = () => {
+        if (taglineMode === "static") return null;
+        const map: Record<string, string> = {};
+        for (const [value, taglineId] of Object.entries(taglineValueMap)) {
+          const tagline = (library.Taglines ?? []).find((t) => t.id === taglineId);
+          if (tagline) map[value] = tagline.content ?? tagline.label;
+        }
+        return map;
+      };
+
+      const buildDynamicReturnMap = () => {
+        if (returnMode === "static") return null;
+        const map: Record<string, string[]> = {};
+        for (const [value, returnId] of Object.entries(returnValueMap)) {
+          const ret = (library["Return Address"] ?? []).find((r) => r.id === returnId);
+          if (ret) {
+            const content = ret.content ?? "";
+            const lines = content.split("\n").map((l) => l.trim()).filter(Boolean);
+            map[value] = [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
+          }
+        }
+        return map;
+      };
+
       const endpoint = format === "pdf" ? "pdf" : "afp";
       const response = await fetch(`${env.apiBaseUrl}/print-output/${endpoint}`, {
         method: "POST",
@@ -1375,6 +1556,22 @@ export default function BuilderClient() {
           },
           return_address: returnLines,
           spreadsheet_csv: spreadsheetContent,
+          // Dynamic asset configuration
+          dynamic_logo: logoMode === "dynamic" ? {
+            column: logoColumn,
+            map: buildDynamicLogoMap(),
+            default: selectedLogo?.imageUrl ?? null,
+          } : null,
+          dynamic_tagline: taglineMode === "dynamic" ? {
+            column: taglineColumn,
+            map: buildDynamicTaglineMap(),
+            default: selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null,
+          } : null,
+          dynamic_return: returnMode === "dynamic" ? {
+            column: returnColumn,
+            map: buildDynamicReturnMap(),
+            default: returnLines,
+          } : null,
         }),
       });
       if (!response.ok) {
@@ -2389,6 +2586,291 @@ export default function BuilderClient() {
               )}
             </div>
           )}
+
+          {/* Dynamic Asset Selection */}
+          {columns.length > 0 && (
+            <div className="property-group">
+              <h4>Dynamic Assets</h4>
+              <p className="hint">Use different logos, taglines, or return addresses based on data values.</p>
+
+              {/* Logo Selection */}
+              <div className="dynamic-asset-section">
+                <div className="dynamic-asset-header">
+                  <span className="dynamic-asset-label">Logo</span>
+                </div>
+                <div className="dynamic-asset-mode">
+                  <label className={`mode-option${logoMode === "static" ? " active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="logoMode"
+                      checked={logoMode === "static"}
+                      onChange={() => setLogoMode("static")}
+                    />
+                    Same for all
+                  </label>
+                  <label className={`mode-option${logoMode === "dynamic" ? " active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="logoMode"
+                      checked={logoMode === "dynamic"}
+                      onChange={() => setLogoMode("dynamic")}
+                    />
+                    Based on data
+                  </label>
+                </div>
+                {logoMode === "static" ? (
+                  <div className="static-asset-select">
+                    <select
+                      value={selectedLogo?.id ?? ""}
+                      onChange={(e) => {
+                        const logo = (library.Logos ?? []).find((l) => l.id === e.target.value);
+                        setSelectedLogo(logo ?? null);
+                      }}
+                    >
+                      <option value="">Select logo...</option>
+                      {(library.Logos ?? []).map((logo) => (
+                        <option key={logo.id} value={logo.id}>{logo.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="dynamic-asset-config">
+                    <select
+                      value={logoColumn}
+                      onChange={(e) => setLogoColumn(e.target.value)}
+                      className="column-select"
+                    >
+                      <option value="">Select column...</option>
+                      {columns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    {logoColumn && uniqueLogoValues.length > 0 && (
+                      <>
+                        {uniqueLogoValues.length > 20 && (
+                          <div className="alert warning">
+                            {uniqueLogoValues.length} unique values found. Consider using a different column.
+                          </div>
+                        )}
+                        <div className="value-mapping-table">
+                          <div className="value-mapping-header">
+                            <span>Value</span>
+                            <span>Logo</span>
+                          </div>
+                          {uniqueLogoValues.slice(0, 50).map((value) => (
+                            <div key={value} className="value-mapping-row">
+                              <span className="value-cell">{value}</span>
+                              <select
+                                value={logoValueMap[value] ?? ""}
+                                onChange={(e) =>
+                                  setLogoValueMap((prev) => ({ ...prev, [value]: e.target.value }))
+                                }
+                                className={logoValueMap[value] ? "mapped" : "unmapped"}
+                              >
+                                <option value="">Select...</option>
+                                {(library.Logos ?? []).map((logo) => (
+                                  <option key={logo.id} value={logo.id}>{logo.label}</option>
+                                ))}
+                              </select>
+                              {logoValueMap[value] && <span className="match-indicator">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mapping-stats">
+                          {Object.keys(logoValueMap).filter((k) => uniqueLogoValues.includes(k) && logoValueMap[k]).length} of {uniqueLogoValues.length} mapped
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Tagline Selection */}
+              <div className="dynamic-asset-section">
+                <div className="dynamic-asset-header">
+                  <span className="dynamic-asset-label">Tagline</span>
+                </div>
+                <div className="dynamic-asset-mode">
+                  <label className={`mode-option${taglineMode === "static" ? " active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="taglineMode"
+                      checked={taglineMode === "static"}
+                      onChange={() => setTaglineMode("static")}
+                    />
+                    Same for all
+                  </label>
+                  <label className={`mode-option${taglineMode === "dynamic" ? " active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="taglineMode"
+                      checked={taglineMode === "dynamic"}
+                      onChange={() => setTaglineMode("dynamic")}
+                    />
+                    Based on data
+                  </label>
+                </div>
+                {taglineMode === "static" ? (
+                  <div className="static-asset-select">
+                    <select
+                      value={selectedTaglineByPage[activePage]?.id ?? ""}
+                      onChange={(e) => {
+                        const tagline = (library.Taglines ?? []).find((t) => t.id === e.target.value);
+                        setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: tagline ?? null }));
+                      }}
+                    >
+                      <option value="">Select tagline...</option>
+                      {(library.Taglines ?? []).map((tagline) => (
+                        <option key={tagline.id} value={tagline.id}>{tagline.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="dynamic-asset-config">
+                    <select
+                      value={taglineColumn}
+                      onChange={(e) => setTaglineColumn(e.target.value)}
+                      className="column-select"
+                    >
+                      <option value="">Select column...</option>
+                      {columns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    {taglineColumn && uniqueTaglineValues.length > 0 && (
+                      <>
+                        {uniqueTaglineValues.length > 20 && (
+                          <div className="alert warning">
+                            {uniqueTaglineValues.length} unique values found. Consider using a different column.
+                          </div>
+                        )}
+                        <div className="value-mapping-table">
+                          <div className="value-mapping-header">
+                            <span>Value</span>
+                            <span>Tagline</span>
+                          </div>
+                          {uniqueTaglineValues.slice(0, 50).map((value) => (
+                            <div key={value} className="value-mapping-row">
+                              <span className="value-cell">{value}</span>
+                              <select
+                                value={taglineValueMap[value] ?? ""}
+                                onChange={(e) =>
+                                  setTaglineValueMap((prev) => ({ ...prev, [value]: e.target.value }))
+                                }
+                                className={taglineValueMap[value] ? "mapped" : "unmapped"}
+                              >
+                                <option value="">Select...</option>
+                                {(library.Taglines ?? []).map((tagline) => (
+                                  <option key={tagline.id} value={tagline.id}>{tagline.label}</option>
+                                ))}
+                              </select>
+                              {taglineValueMap[value] && <span className="match-indicator">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mapping-stats">
+                          {Object.keys(taglineValueMap).filter((k) => uniqueTaglineValues.includes(k) && taglineValueMap[k]).length} of {uniqueTaglineValues.length} mapped
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Return Address Selection */}
+              <div className="dynamic-asset-section">
+                <div className="dynamic-asset-header">
+                  <span className="dynamic-asset-label">Return Address</span>
+                </div>
+                <div className="dynamic-asset-mode">
+                  <label className={`mode-option${returnMode === "static" ? " active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="returnMode"
+                      checked={returnMode === "static"}
+                      onChange={() => setReturnMode("static")}
+                    />
+                    Same for all
+                  </label>
+                  <label className={`mode-option${returnMode === "dynamic" ? " active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="returnMode"
+                      checked={returnMode === "dynamic"}
+                      onChange={() => setReturnMode("dynamic")}
+                    />
+                    Based on data
+                  </label>
+                </div>
+                {returnMode === "static" ? (
+                  <div className="static-asset-select">
+                    <select
+                      value={selectedReturn?.id ?? ""}
+                      onChange={(e) => {
+                        const ret = (library["Return Address"] ?? []).find((r) => r.id === e.target.value);
+                        setSelectedReturn(ret ?? null);
+                      }}
+                    >
+                      <option value="">Select return address...</option>
+                      {(library["Return Address"] ?? []).map((ret) => (
+                        <option key={ret.id} value={ret.id}>{ret.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="dynamic-asset-config">
+                    <select
+                      value={returnColumn}
+                      onChange={(e) => setReturnColumn(e.target.value)}
+                      className="column-select"
+                    >
+                      <option value="">Select column...</option>
+                      {columns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    {returnColumn && uniqueReturnValues.length > 0 && (
+                      <>
+                        {uniqueReturnValues.length > 20 && (
+                          <div className="alert warning">
+                            {uniqueReturnValues.length} unique values found. Consider using a different column.
+                          </div>
+                        )}
+                        <div className="value-mapping-table">
+                          <div className="value-mapping-header">
+                            <span>Value</span>
+                            <span>Return Address</span>
+                          </div>
+                          {uniqueReturnValues.slice(0, 50).map((value) => (
+                            <div key={value} className="value-mapping-row">
+                              <span className="value-cell">{value}</span>
+                              <select
+                                value={returnValueMap[value] ?? ""}
+                                onChange={(e) =>
+                                  setReturnValueMap((prev) => ({ ...prev, [value]: e.target.value }))
+                                }
+                                className={returnValueMap[value] ? "mapped" : "unmapped"}
+                              >
+                                <option value="">Select...</option>
+                                {(library["Return Address"] ?? []).map((ret) => (
+                                  <option key={ret.id} value={ret.id}>{ret.label}</option>
+                                ))}
+                              </select>
+                              {returnValueMap[value] && <span className="match-indicator">✓</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mapping-stats">
+                          {Object.keys(returnValueMap).filter((k) => uniqueReturnValues.includes(k) && returnValueMap[k]).length} of {uniqueReturnValues.length} mapped
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="property-group">
             <button className="secondary" onClick={handleMergePreview} disabled={!spreadsheetContent}>
               Merge/Preview
@@ -2815,22 +3297,28 @@ export default function BuilderClient() {
                   <>
                     <div className="preview-header">
                       <div className="preview-return">
-                        {returnLines[0] || returnLines[1] || returnLines[2] ? (
-                          <>
-                            <div>{returnLines[0]}</div>
-                            <div>{returnLines[1]}</div>
-                            <div>{returnLines[2]}</div>
-                          </>
-                        ) : (
-                          <div className="preview-placeholder">No return address</div>
-                        )}
+                        {(() => {
+                          const previewReturnLines = getReturnLinesForRow(previewIndex);
+                          return previewReturnLines[0] || previewReturnLines[1] || previewReturnLines[2] ? (
+                            <>
+                              <div>{previewReturnLines[0]}</div>
+                              <div>{previewReturnLines[1]}</div>
+                              <div>{previewReturnLines[2]}</div>
+                            </>
+                          ) : (
+                            <div className="preview-placeholder">No return address</div>
+                          );
+                        })()}
                       </div>
                       <div className="preview-logo">
-                        {selectedLogo?.imageUrl ? (
-                          <img src={selectedLogo.imageUrl} alt={selectedLogo.label} />
-                        ) : (
-                          <div className="preview-placeholder">No logo</div>
-                        )}
+                        {(() => {
+                          const previewLogo = getLogoForRow(previewIndex);
+                          return previewLogo?.imageUrl ? (
+                            <img src={previewLogo.imageUrl} alt={previewLogo.label} />
+                          ) : (
+                            <div className="preview-placeholder">No logo</div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="preview-mailing">
@@ -2845,11 +3333,14 @@ export default function BuilderClient() {
                   className="preview-body"
                   dangerouslySetInnerHTML={{ __html: buildMergedHtml() }}
                 />
-                {selectedTaglineByPage[activePage] && (
-                  <div className="preview-tagline">
-                    {selectedTaglineByPage[activePage]?.content ?? selectedTaglineByPage[activePage]?.label}
-                  </div>
-                )}
+                {(() => {
+                  const previewTagline = getTaglineForRow(previewIndex);
+                  return previewTagline ? (
+                    <div className="preview-tagline">
+                      {previewTagline.content ?? previewTagline.label}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div className="preview-meta">
                 <h4>TLE Index (Row {previewIndex + 1})</h4>

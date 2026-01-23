@@ -471,6 +471,22 @@ def generate_afp(payload: dict[str, Any]) -> Response:
         mailing_map = payload.get("mailing_map", {})
         return_lines = payload.get("return_address", ["", "", ""])
 
+        # Dynamic asset configuration
+        dynamic_return = payload.get("dynamic_return")
+
+        # Helper to get return lines for a row
+        def get_return_lines_for_row(row: dict[str, str]) -> list[str]:
+            if dynamic_return:
+                column = dynamic_return.get("column", "")
+                value_map = dynamic_return.get("map", {})
+                default = dynamic_return.get("default", ["", "", ""])
+                if column and value_map:
+                    value = row.get(column, "")
+                    if value in value_map:
+                        return value_map[value]
+                return default if default else ["", "", ""]
+            return return_lines
+
         # Build pages with image data and TLE information
         pages: list[dict[str, Any]] = []
         for index, row in enumerate(rows, start=1):
@@ -486,11 +502,14 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 row.get(mailing_map.get("mailing_addr3", ""), ""),
             ]
 
+            # Get return lines for this row (static or dynamic)
+            row_return_lines = get_return_lines_for_row(row)
+
             image_bytes = _render_letter(
                 merged_body,
                 merged_blocks,
                 mailing_lines,
-                return_lines,
+                row_return_lines,
             )
 
             # Convert PNG to grayscale image data
@@ -510,9 +529,9 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                     'mailing_addr1': mailing_lines[1],
                     'mailing_addr2': mailing_lines[2],
                     'mailing_addr3': mailing_lines[3],
-                    'return_addr1': return_lines[0] if len(return_lines) > 0 else "",
-                    'return_addr2': return_lines[1] if len(return_lines) > 1 else "",
-                    'return_addr3': return_lines[2] if len(return_lines) > 2 else "",
+                    'return_addr1': row_return_lines[0] if len(row_return_lines) > 0 else "",
+                    'return_addr2': row_return_lines[1] if len(row_return_lines) > 1 else "",
+                    'return_addr3': row_return_lines[2] if len(row_return_lines) > 2 else "",
                 }
             })
 
@@ -558,6 +577,22 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
         mailing_map = payload.get("mailing_map", {})
         return_lines = payload.get("return_address", ["", "", ""])
 
+        # Dynamic asset configuration
+        dynamic_return = payload.get("dynamic_return")
+
+        # Helper to get return lines for a row
+        def get_return_lines_for_row(row: dict[str, str]) -> list[str]:
+            if dynamic_return:
+                column = dynamic_return.get("column", "")
+                value_map = dynamic_return.get("map", {})
+                default = dynamic_return.get("default", ["", "", ""])
+                if column and value_map:
+                    value = row.get(column, "")
+                    if value in value_map:
+                        return value_map[value]
+                return default if default else ["", "", ""]
+            return return_lines
+
         # Render each row as a page image
         images: list[Image.Image] = []
         for index, row in enumerate(rows, start=1):
@@ -573,11 +608,14 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 row.get(mailing_map.get("mailing_addr3", ""), ""),
             ]
 
+            # Get return lines for this row (static or dynamic)
+            row_return_lines = get_return_lines_for_row(row)
+
             image_bytes = _render_letter(
                 merged_body,
                 merged_blocks,
                 mailing_lines,
-                return_lines,
+                row_return_lines,
             )
 
             # Open rendered image and convert to RGB for PDF
