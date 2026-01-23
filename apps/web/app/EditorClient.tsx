@@ -144,10 +144,14 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
   // Placeholder picker state
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
-  const [pickerPosition, setPickerPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [pickerPosition, setPickerPosition] = useState<{ top: number; left: number; flipped: boolean }>({ top: 0, left: 0, flipped: false });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const bracketStartPosRef = useRef<number | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Constants for picker positioning
+  const PICKER_HEIGHT = 260; // max-height (240) + padding (20)
+  const PICKER_MARGIN = 8;
 
   // Filter columns based on query
   const filteredColumns = useMemo(() => {
@@ -231,7 +235,35 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         if (!pickerOpen || bracketStartPosRef.current !== bracketPos) {
           // Get cursor coordinates for positioning
           const coords = editor.view.coordsAtPos(from);
-          setPickerPosition({ top: coords.bottom + 4, left: coords.left });
+          const viewportHeight = window.innerHeight;
+          const viewportWidth = window.innerWidth;
+
+          // Check if there's enough space below the cursor
+          const spaceBelow = viewportHeight - coords.bottom;
+          const spaceAbove = coords.top;
+          const shouldFlip = spaceBelow < PICKER_HEIGHT && spaceAbove > spaceBelow;
+
+          // Calculate position
+          let top: number;
+          if (shouldFlip) {
+            // Position above cursor
+            top = coords.top - PICKER_HEIGHT - PICKER_MARGIN;
+          } else {
+            // Position below cursor
+            top = coords.bottom + PICKER_MARGIN;
+          }
+
+          // Ensure picker doesn't go off-screen horizontally
+          let left = coords.left;
+          const pickerWidth = 300; // max-width from CSS
+          if (left + pickerWidth > viewportWidth - PICKER_MARGIN) {
+            left = viewportWidth - pickerWidth - PICKER_MARGIN;
+          }
+          if (left < PICKER_MARGIN) {
+            left = PICKER_MARGIN;
+          }
+
+          setPickerPosition({ top, left, flipped: shouldFlip });
           bracketStartPosRef.current = bracketPos;
         }
 
@@ -462,7 +494,7 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       {pickerOpen && columns.length > 0 && (
         <div
           ref={pickerRef}
-          className="placeholder-picker"
+          className={`placeholder-picker${pickerPosition.flipped ? " flipped" : ""}`}
           style={{ top: pickerPosition.top, left: pickerPosition.left }}
         >
           {filteredColumns.length > 0 ? (

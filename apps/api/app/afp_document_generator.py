@@ -17,11 +17,11 @@ from typing import List, Dict, Optional
 # Carriage control (Machine Carriage Control for AFP)
 CC = 0x5A
 
-# Structured Field Identifiers
-SF_BDT = bytes([0xD3, 0xA8, 0xA7])  # Begin Document
-SF_EDT = bytes([0xD3, 0xA9, 0xA7])  # End Document
-SF_BPG = bytes([0xD3, 0xA8, 0xA8])  # Begin Page
-SF_EPG = bytes([0xD3, 0xA9, 0xA8])  # End Page
+# Structured Field Identifiers (per AFP Architecture Reference)
+SF_BDT = bytes([0xD3, 0xA8, 0xC6])  # Begin Document (D3 A8 C6)
+SF_EDT = bytes([0xD3, 0xA9, 0xC6])  # End Document (D3 A9 C6)
+SF_BPG = bytes([0xD3, 0xA8, 0xAF])  # Begin Page (D3 A8 AF)
+SF_EPG = bytes([0xD3, 0xA9, 0xAF])  # End Page (D3 A9 AF)
 SF_PGD = bytes([0xD3, 0xA6, 0xC4])  # Page Descriptor
 SF_TLE = bytes([0xD3, 0xA0, 0x90])  # Tag Logical Element
 SF_NOP = bytes([0xD3, 0xEE, 0xEE])  # No Operation
@@ -48,9 +48,9 @@ SF_IPS = bytes([0xD3, 0xAF, 0x5F])  # Include Page Segment
 SF_BAG = bytes([0xD3, 0xA8, 0xAD])  # Begin Active Environment Group
 SF_EAG = bytes([0xD3, 0xA9, 0xAD])  # End Active Environment Group
 
-# Medium Map (Crawford format uses this instead of BDT/EDT)
-SF_BMM = bytes([0xD3, 0xA8, 0xC6])  # Begin Medium Map
-SF_EMM = bytes([0xD3, 0xA9, 0xC6])  # End Medium Map
+# Medium Map (for grouping pages, not document boundaries)
+SF_BMM = bytes([0xD3, 0xA8, 0xCC])  # Begin Medium Map (D3 A8 CC)
+SF_EMM = bytes([0xD3, 0xA9, 0xCC])  # End Medium Map (D3 A9 CC)
 
 
 def _sf(sf_id: bytes, data: bytes = b'') -> bytes:

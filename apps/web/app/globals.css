@@ -2398,6 +2398,12 @@ textarea:focus-visible {
   margin-top: 4px;
 }
 
+/* Flipped state - when picker appears above cursor */
+.placeholder-picker.flipped {
+  /* Add subtle visual cue that it's above cursor */
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+}
+
 /* ===== Auto-Match Suggestions ===== */
 .auto-match-banner {
   padding: 12px;
@@ -2505,8 +2511,9 @@ textarea:focus-visible {
 
 /* ===== Dynamic Asset Mapping ===== */
 .dynamic-asset-section {
-  display: grid;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 16px;
   border-radius: 12px;
   background: var(--panel);
@@ -2518,6 +2525,87 @@ textarea:focus-visible {
   margin: 0;
   font-size: 0.95rem;
   color: var(--ink);
+}
+
+.dynamic-asset-header {
+  margin-bottom: 4px;
+}
+
+.dynamic-asset-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.dynamic-asset-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Override .property-group label grid layout for radio options */
+.dynamic-asset-mode label.mode-option,
+.property-group .dynamic-asset-mode label.mode-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--muted);
+  transition: color 0.15s;
+  padding: 4px 0;
+}
+
+.dynamic-asset-mode label.mode-option:hover {
+  color: var(--ink);
+}
+
+.dynamic-asset-mode label.mode-option.active {
+  color: #3730a3;
+  font-weight: 500;
+}
+
+.dynamic-asset-mode label.mode-option input[type="radio"] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+/* Static asset select - consistent dropdown width */
+.static-asset-select {
+  width: 100%;
+}
+
+.static-asset-select select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+
+/* Dynamic asset config - column select and mapping table */
+.dynamic-asset-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.dynamic-asset-config select.column-select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
 }
 
 .dynamic-asset-row {
