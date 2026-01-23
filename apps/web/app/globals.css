@@ -2103,6 +2103,14 @@ textarea:focus-visible {
   color: var(--ink);
 }
 
+.preview-tagline {
+  margin-top: 24px;
+  padding-top: 12px;
+  font-style: italic;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
 .preview-meta {
   display: grid;
   gap: 12px;
@@ -2115,13 +2123,52 @@ textarea:focus-visible {
   color: var(--muted);
 }
 
+.preview-format {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--outline);
+}
+
+.preview-format label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.format-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.format-btn {
+  flex: 1;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--outline);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.format-btn:hover {
+  border-color: var(--primary);
+}
+
+.format-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
 .preview-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
   margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--outline);
 }
 
 @media (max-width: 900px) {

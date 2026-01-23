@@ -429,3 +429,78 @@ def generate_afp(payload: dict[str, Any]) -> Response:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/pdf")
+def generate_pdf(payload: dict[str, Any]) -> Response:
+    """
+    Generate a PDF document with rendered letters.
+
+    Each row in the spreadsheet becomes a page in the PDF.
+    """
+    try:
+        spreadsheet_csv = payload.get("spreadsheet_csv", "")
+        if not spreadsheet_csv.strip():
+            raise HTTPException(status_code=400, detail="Spreadsheet data missing")
+        reader = csv.DictReader(io.StringIO(spreadsheet_csv))
+        rows = list(reader)
+        if not rows:
+            raise HTTPException(status_code=400, detail="Spreadsheet has no rows")
+
+        body_html = payload.get("template_html", "")
+        block_texts = payload.get("block_texts", [])
+        placeholder_map = payload.get("placeholder_map", {})
+        mailing_map = payload.get("mailing_map", {})
+        return_lines = payload.get("return_address", ["", "", ""])
+
+        # Render each row as a page image
+        images: list[Image.Image] = []
+        for index, row in enumerate(rows, start=1):
+            merged_body = _replace_placeholders(body_html, row, placeholder_map)
+            merged_blocks = [
+                _replace_placeholders(text, row, placeholder_map) for text in block_texts
+            ]
+
+            mailing_lines = [
+                row.get(mailing_map.get("mailing_name", ""), ""),
+                row.get(mailing_map.get("mailing_addr1", ""), ""),
+                row.get(mailing_map.get("mailing_addr2", ""), ""),
+                row.get(mailing_map.get("mailing_addr3", ""), ""),
+            ]
+
+            image_bytes = _render_letter(
+                merged_body,
+                merged_blocks,
+                mailing_lines,
+                return_lines,
+            )
+
+            # Open rendered image and convert to RGB for PDF
+            image = Image.open(io.BytesIO(image_bytes))
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            images.append(image)
+
+        # Save all images as a multi-page PDF
+        pdf_buffer = io.BytesIO()
+        if images:
+            first_image = images[0]
+            additional_images = images[1:] if len(images) > 1 else []
+            first_image.save(
+                pdf_buffer,
+                format="PDF",
+                save_all=True,
+                append_images=additional_images,
+                resolution=DPI,
+            )
+
+        pdf_buffer.seek(0)
+        return Response(
+            content=pdf_buffer.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="print_output.pdf"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

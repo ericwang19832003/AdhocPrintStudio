@@ -497,6 +497,7 @@ export default function BuilderClient() {
   const [placeholderMap, setPlaceholderMap] = useState<Record<string, string>>({});
   const [spreadsheetContent, setSpreadsheetContent] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [outputFormat, setOutputFormat] = useState<"afp" | "pdf">("afp");
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
   const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -815,6 +816,7 @@ export default function BuilderClient() {
     const returnAddress = selectedReturn?.content ?? selectedReturn?.label ?? "";
     const selectedTagline = selectedTaglineByPage[activePage];
     const tagline = selectedTagline?.content ?? selectedTagline?.label ?? "";
+    const logoUrl = selectedLogo?.imageUrl ?? "";
 
     // Build Word-compatible HTML
     const wordContent = `
@@ -823,13 +825,18 @@ export default function BuilderClient() {
         <meta charset="utf-8">
         <style>
           body { font-family: "Times New Roman", Times, serif; font-size: 12pt; line-height: 1.5; margin: 1in; }
-          .return-address { margin-bottom: 24pt; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24pt; }
+          .return-address { flex: 1; }
+          .logo { max-width: 150px; max-height: 80px; }
           .body-content { margin-bottom: 24pt; }
-          .tagline { font-style: italic; color: #666; }
+          .tagline { font-style: italic; color: #666; margin-top: 24pt; }
         </style>
       </head>
       <body>
-        ${returnAddress ? `<div class="return-address">${returnAddress.replace(/\n/g, "<br>")}</div>` : ""}
+        <div class="header">
+          <div class="return-address">${returnAddress ? returnAddress.replace(/\n/g, "<br>") : ""}</div>
+          ${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Logo" />` : ""}
+        </div>
         <div class="body-content">${bodyContent}</div>
         ${tagline ? `<div class="tagline">${tagline}</div>` : ""}
       </body>
@@ -1266,14 +1273,15 @@ export default function BuilderClient() {
 
   const buildTleIndex = () => buildTleIndexForRow(previewIndex);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (format: "afp" | "pdf" = outputFormat) => {
     if (!spreadsheetContent) {
       alert("Please upload a spreadsheet first.");
       return;
     }
     setGenerating(true);
     try {
-      const response = await fetch(`${env.apiBaseUrl}/print-output/afp`, {
+      const endpoint = format === "pdf" ? "pdf" : "afp";
+      const response = await fetch(`${env.apiBaseUrl}/print-output/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1292,9 +1300,14 @@ export default function BuilderClient() {
       });
       if (!response.ok) {
         const message = await response.text();
-        throw new Error(message || "Failed to generate AFP");
+        throw new Error(message || `Failed to generate ${format.toUpperCase()}`);
       }
       const blob = await response.blob();
+      const fileExt = format === "pdf" ? ".pdf" : ".afp";
+      const fileName = `print_output${fileExt}`;
+      const mimeType = format === "pdf" ? "application/pdf" : "application/octet-stream";
+      const description = format === "pdf" ? "PDF Document" : "AFP Document";
+
       if ("showSaveFilePicker" in window) {
         const picker = await (window as Window & {
           showSaveFilePicker: (options: {
@@ -1302,8 +1315,8 @@ export default function BuilderClient() {
             types?: Array<{ description: string; accept: Record<string, string[]> }>;
           }) => Promise<FileSystemFileHandle>;
         }).showSaveFilePicker({
-          suggestedName: "print_output.afp",
-          types: [{ description: "AFP Document", accept: { "application/octet-stream": [".afp"] } }],
+          suggestedName: fileName,
+          types: [{ description, accept: { [mimeType]: [fileExt] } }],
         });
         const writable = await picker.createWritable();
         await writable.write(blob);
@@ -1312,14 +1325,14 @@ export default function BuilderClient() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "print_output.afp";
+        link.download = fileName;
         link.click();
         URL.revokeObjectURL(url);
       }
       setShowPreview(false);
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : "Failed to generate AFP";
+      const message = error instanceof Error ? error.message : `Failed to generate ${format.toUpperCase()}`;
       alert(`Error: ${message}\n\nMake sure the API server is running.`);
     } finally {
       setGenerating(false);
@@ -2753,6 +2766,11 @@ export default function BuilderClient() {
                   className="preview-body"
                   dangerouslySetInnerHTML={{ __html: buildMergedHtml() }}
                 />
+                {selectedTaglineByPage[activePage] && (
+                  <div className="preview-tagline">
+                    {selectedTaglineByPage[activePage]?.content ?? selectedTaglineByPage[activePage]?.label}
+                  </div>
+                )}
               </div>
               <div className="preview-meta">
                 <h4>TLE Index (Row {previewIndex + 1})</h4>
@@ -2762,12 +2780,29 @@ export default function BuilderClient() {
                     <span>{value}</span>
                   </div>
                 ))}
+                <div className="preview-format">
+                  <label>Output Format:</label>
+                  <div className="format-buttons">
+                    <button
+                      className={outputFormat === "afp" ? "format-btn active" : "format-btn"}
+                      onClick={() => setOutputFormat("afp")}
+                    >
+                      AFP
+                    </button>
+                    <button
+                      className={outputFormat === "pdf" ? "format-btn active" : "format-btn"}
+                      onClick={() => setOutputFormat("pdf")}
+                    >
+                      PDF
+                    </button>
+                  </div>
+                </div>
                 <div className="preview-actions">
                   <button className="secondary" onClick={() => setShowPreview(false)}>
                     Cancel
                   </button>
-                  <button className="primary" onClick={handleGenerate} disabled={generating}>
-                    {generating ? "Generating..." : "Generate AFP"}
+                  <button className="primary" onClick={() => handleGenerate(outputFormat)} disabled={generating}>
+                    {generating ? "Generating..." : `Generate ${outputFormat.toUpperCase()}`}
                   </button>
                 </div>
               </div>
