@@ -22,3 +22,5 @@ run:
       value: "*"
     - name: PYTHONPATH
       value: "/app/apps/api/vendor"
+    - name: DATABASE_URL
+      value: "postgresql://Adhoc_Admin:QxjKZN8@L1J*B$AMSLOB#fZUT8zY6Pu1@98.95.106.175:5432/adhocprint"
