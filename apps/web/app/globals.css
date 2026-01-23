@@ -1324,7 +1324,7 @@ textarea:focus-visible {
 
 /* Mailing window */
 .mail-window {
-  margin-left: 3in;
+  margin-left: 2in;
   margin-bottom: 32px;
   max-width: 220px;
   padding: 10px 14px;
