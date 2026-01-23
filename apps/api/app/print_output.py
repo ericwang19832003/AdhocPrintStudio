@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any
@@ -286,6 +287,96 @@ def _xml_records_to_csv(columns: list[str], records: list[dict[str, str]]) -> st
     return buffer.getvalue()
 
 
+def _flatten_json_object(obj: dict[str, Any], prefix: str = "") -> dict[str, str]:
+    """
+    Flatten a nested JSON object into a flat dictionary.
+    Nested keys are joined with underscore: {"address": {"city": "NYC"}} -> {"address_city": "NYC"}
+    """
+    result: dict[str, str] = {}
+    for key, value in obj.items():
+        new_key = f"{prefix}_{key}" if prefix else key
+        if isinstance(value, dict):
+            result.update(_flatten_json_object(value, new_key))
+        elif isinstance(value, list):
+            # Convert lists to comma-separated strings
+            result[new_key] = ", ".join(str(v) for v in value)
+        elif value is None:
+            result[new_key] = ""
+        else:
+            result[new_key] = str(value)
+    return result
+
+
+def _parse_json_to_records(json_text: str) -> tuple[list[str], list[dict[str, str]]]:
+    """
+    Parse JSON text and extract records.
+
+    Supports:
+    - Array of objects: [{...}, {...}]
+    - Object with data array: {"data": [{...}]} or {"records": [{...}]}
+    - Single object (treated as one record)
+    """
+    data = json.loads(json_text)
+    records: list[dict[str, Any]] = []
+
+    if isinstance(data, list):
+        records = data
+    elif isinstance(data, dict):
+        # Look for common data array keys
+        data_keys = ["data", "records", "items", "rows", "results"]
+        for key in data_keys:
+            if key in data and isinstance(data[key], list):
+                records = data[key]
+                break
+
+        # If no data array found, look for any array value
+        if not records:
+            for key, value in data.items():
+                if isinstance(value, list) and value and isinstance(value[0], dict):
+                    records = value
+                    break
+
+        # If still no records, treat the object itself as a single record
+        if not records and data:
+            records = [data]
+
+    if not records:
+        raise ValueError("No records found in JSON file")
+
+    # Flatten all records
+    flattened: list[dict[str, str]] = []
+    all_columns: set[str] = set()
+
+    for record in records:
+        if isinstance(record, dict):
+            flat = _flatten_json_object(record)
+            flattened.append(flat)
+            all_columns.update(flat.keys())
+
+    # Sort columns for consistent ordering
+    columns = sorted(all_columns)
+
+    return columns, flattened
+
+
+def _json_records_to_csv(columns: list[str], records: list[dict[str, str]]) -> str:
+    """
+    Convert JSON records to CSV format.
+    """
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+
+    # Write header
+    writer.writerow(columns)
+
+    # Write data rows
+    for record in records:
+        row = [record.get(col, "") for col in columns]
+        writer.writerow(row)
+
+    return buffer.getvalue()
+
+
 @router.post("/columns")
 async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
     """
@@ -295,6 +386,7 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
     - CSV files (.csv)
     - Excel files (.xlsx)
     - XML files (.xml) - auto-detects repeating elements as records
+    - JSON files (.json) - supports arrays, nested objects, and common data wrappers
 
     Returns:
         - columns: list of column/field names
@@ -333,7 +425,20 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    raise HTTPException(status_code=400, detail="Unsupported file type. Supported: .csv, .xlsx, .xml")
+    if filename.endswith(".json"):
+        try:
+            json_text = data.decode("utf-8", errors="ignore")
+            columns, records = _parse_json_to_records(json_text)
+            if not records:
+                raise HTTPException(status_code=400, detail="JSON file has no records")
+            csv_text = _json_records_to_csv(columns, records)
+            return {"columns": columns, "csv": csv_text}
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    raise HTTPException(status_code=400, detail="Unsupported file type. Supported: .csv, .xlsx, .xml, .json")
 
 
 @router.post("/afp")

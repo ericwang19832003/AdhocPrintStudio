@@ -1012,6 +1012,85 @@ export default function BuilderClient() {
         return;
       }
 
+      if (fileName.endsWith(".json")) {
+        // Parse JSON client-side
+        const text = await file.text();
+        const jsonData = JSON.parse(text);
+
+        // Helper to flatten nested objects
+        const flattenObject = (obj: Record<string, unknown>, prefix = ""): Record<string, string> => {
+          const result: Record<string, string> = {};
+          for (const [key, value] of Object.entries(obj)) {
+            const newKey = prefix ? `${prefix}_${key}` : key;
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+              Object.assign(result, flattenObject(value as Record<string, unknown>, newKey));
+            } else {
+              result[newKey] = value === null || value === undefined ? "" : String(value);
+            }
+          }
+          return result;
+        };
+
+        // Detect JSON structure and extract records
+        let records: Record<string, unknown>[] = [];
+        if (Array.isArray(jsonData)) {
+          records = jsonData;
+        } else if (typeof jsonData === "object" && jsonData !== null) {
+          // Look for common data array keys
+          const dataKeys = ["data", "records", "items", "rows", "results"];
+          for (const key of dataKeys) {
+            if (Array.isArray(jsonData[key])) {
+              records = jsonData[key];
+              break;
+            }
+          }
+          // If no data array found, check if it's a single record
+          if (records.length === 0 && Object.keys(jsonData).length > 0) {
+            // Check if first value is an array (might be keyed by something else)
+            const firstArrayKey = Object.keys(jsonData).find((k) => Array.isArray(jsonData[k]));
+            if (firstArrayKey) {
+              records = jsonData[firstArrayKey];
+            } else {
+              records = [jsonData]; // Treat as single record
+            }
+          }
+        }
+
+        if (records.length === 0) {
+          throw new Error("No records found in JSON file");
+        }
+
+        // Flatten all records and extract columns
+        const flattenedRecords = records.map((record) =>
+          flattenObject(record as Record<string, unknown>)
+        );
+        const parsedColumns = Array.from(
+          new Set(flattenedRecords.flatMap((record) => Object.keys(record)))
+        );
+
+        // Convert to CSV
+        const escapeCSV = (value: string) => {
+          if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        };
+
+        const csvLines = [
+          parsedColumns.map(escapeCSV).join(","),
+          ...flattenedRecords.map((record) =>
+            parsedColumns.map((col) => escapeCSV(record[col] ?? "")).join(",")
+          ),
+        ];
+        const csvContent = csvLines.join("\n");
+
+        setSpreadsheetContent(csvContent);
+        setSpreadsheetName(file.name);
+        setColumns(parsedColumns);
+        setSpreadsheetLoading(false);
+        return;
+      }
+
       // Handle CSV files
       const reader = new FileReader();
       reader.onload = () => {
@@ -2132,12 +2211,12 @@ export default function BuilderClient() {
               }}
             >
               <p>{spreadsheetName ? "Data file loaded" : "Drag data file here"}</p>
-              <span>{spreadsheetName ?? "Upload CSV, Excel, or XML file"}</span>
+              <span>{spreadsheetName ?? "Upload CSV, Excel, XML, or JSON file"}</span>
               <label className="file-input">
                 Upload file
                 <input
                   type="file"
-                  accept=".csv,.xlsx,.xml"
+                  accept=".csv,.xlsx,.xml,.json"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
