@@ -2946,7 +2946,7 @@ export default function BuilderClient() {
                 Upload file
                 <input
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
