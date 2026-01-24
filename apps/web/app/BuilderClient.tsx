@@ -1105,11 +1105,11 @@ export default function BuilderClient() {
     const maxAttempts = Math.max(12, Math.ceil(height / GRID_SIZE) + 4);
     let attempt = 0;
     while (getOverlap(x, y, block.width, height, block.id, item.type) && attempt < maxAttempts) {
-      y = Math.min(y + GRID_SIZE, size.height - height);
+      y = Math.min(y + GRID_SIZE, Math.max(0, size.height - height));
       attempt += 1;
     }
     block.x = Math.min(Math.max(x, 0), size.width - block.width);
-    block.y = Math.min(Math.max(y, 0), size.height - height);
+    block.y = Math.max(0, Math.min(y, Math.max(0, size.height - height)));
     setBlocksByPage((prev) => ({
       ...prev,
       [activePage]: [...(prev[activePage] ?? []), block],
