@@ -412,6 +412,47 @@ def _to_bilevel(gray: bytes, w: int, h: int) -> bytes:
     return bytes(out)
 
 
+def generate_inline_image(
+    image_data: bytes,
+    width: int,
+    height: int,
+    resolution: int = 240
+) -> bytes:
+    """
+    Generate an inline image object (without page segment wrapper).
+
+    This embeds the image directly in the page using BIO...EIO structure,
+    avoiding BPS/EPS/IPS which Bluecrest interprets as page segment references.
+    """
+    # Ensure width is byte-aligned
+    padded_width = ((width + 7) // 8) * 8
+    if padded_width != width:
+        padded_data = bytearray(padded_width * height)
+        for y in range(height):
+            for x in range(width):
+                if y * width + x < len(image_data):
+                    padded_data[y * padded_width + x] = image_data[y * width + x]
+        image_data = bytes(padded_data)
+        width = padded_width
+
+    bilevel_data = _to_bilevel(image_data, width, height)
+
+    result = bytearray()
+    # Image object without page segment wrapper
+    # Use empty name to avoid any segment reference issues
+    result.extend(_build_bio(""))
+    result.extend(_build_bog())
+    result.extend(_build_obd(width, height, resolution))
+    result.extend(_build_obp())
+    result.extend(_build_iid())
+    result.extend(_build_idd(width, height, resolution))
+    result.extend(_build_eog())
+    result.extend(_build_ipd_records(bilevel_data, width, height, resolution))
+    result.extend(_build_eio())
+
+    return bytes(result)
+
+
 def generate_inline_page_segment(
     image_data: bytes,
     width: int,
@@ -423,6 +464,7 @@ def generate_inline_page_segment(
     Generate an inline page segment with IOCA image data.
 
     This creates BPS...EPS structure that can be embedded in a page.
+    NOTE: This may cause issues with Bluecrest - use generate_inline_image instead.
     """
     segment_name = segment_name.upper()[:8]
 
@@ -497,8 +539,6 @@ def generate_afp_document(
     for page_num, page in enumerate(pages, start=1):
         doc_name = f"DOC{page_num:05d}"
         page_name = f"P{page_num:07d}"
-        # Use IMG prefix instead of S to avoid Bluecrest index element confusion
-        segment_name = f"IMG{page_num:05d}"
 
         # Begin Document - each letter is its own document
         result.extend(_build_bdt(doc_name))
@@ -530,22 +570,20 @@ def generate_afp_document(
             # Always write TLE records, even when value is empty
             result.extend(_build_tle(field_name, field_value))
 
-        # Inline page segment with image
+        # Inline image (without page segment wrapper to avoid Bluecrest issues)
+        # Using direct BIO/EIO structure instead of BPS/EPS/IPS
         image_data = page.get('image_data', b'')
         width = page.get('width', page_width)
         height = page.get('height', page_height)
 
         if image_data:
-            # Define the page segment inline
-            result.extend(generate_inline_page_segment(
+            # Embed image directly without page segment wrapper
+            result.extend(generate_inline_image(
                 image_data=image_data,
                 width=width,
                 height=height,
-                segment_name=segment_name,
                 resolution=resolution
             ))
-            # Include the page segment on the page (renders it)
-            result.extend(_build_ips(segment_name))
 
         # End Page
         result.extend(_build_epg(page_name))
