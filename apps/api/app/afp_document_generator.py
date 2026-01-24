@@ -52,6 +52,23 @@ SF_EAG = bytes([0xD3, 0xA9, 0xAD])  # End Active Environment Group
 SF_BMM = bytes([0xD3, 0xA8, 0xCC])  # Begin Medium Map (D3 A8 CC)
 SF_EMM = bytes([0xD3, 0xA9, 0xCC])  # End Medium Map (D3 A9 CC)
 
+# Resource structured fields (for Exstream-compatible output)
+SF_BRS = bytes([0xD3, 0xA8, 0xCE])  # Begin Resource
+SF_ERS = bytes([0xD3, 0xA9, 0xCE])  # End Resource
+
+# Named Page Group (for document grouping/indexing)
+SF_BNG = bytes([0xD3, 0xA8, 0xAD])  # Begin Named Page Group - NOTE: Same as BAG in some docs
+SF_ENG = bytes([0xD3, 0xA9, 0xAD])  # End Named Page Group - NOTE: Same as EAG in some docs
+# Correct identifiers for Named Page Group
+SF_BNG = bytes([0xD3, 0xA8, 0x5F])  # This conflicts with BPS, use AD variant
+SF_ENG = bytes([0xD3, 0xA9, 0x5F])  # This conflicts with EPS, use AD variant
+# Per AFP spec, Named Page Group uses:
+SF_BNG = bytes([0xD3, 0xA8, 0xDF])  # Begin Named Page Group (correct)
+SF_ENG = bytes([0xD3, 0xA9, 0xDF])  # End Named Page Group (correct)
+
+# Map Coded Font (font mapping in AEG)
+SF_MCF = bytes([0xD3, 0xAB, 0x8A])  # Map Coded Font
+
 
 def _sf(sf_id: bytes, data: bytes = b'') -> bytes:
     """Build structured field with carriage control (MCC format).
@@ -220,6 +237,84 @@ def _build_nop_comment(comment: str) -> bytes:
     # EBCDIC version
     data = bytes([0x00, 0x00, 0x00]) + comment_padded.encode('cp500')
     return _sf(SF_NOP, data)
+
+
+# ============== Resource Group Functions ==============
+
+def _build_brs(resource_name: str, resource_type: int = 0x03) -> bytes:
+    """
+    Build Begin Resource (BRS) structured field.
+
+    Args:
+        resource_name: 8-character resource name
+        resource_type: Resource type code:
+            0x03 = Page Segment
+            0x05 = Overlay
+            0x06 = Form Definition
+            0x40 = Font Character Set
+            0x41 = Code Page
+            0xFB = Object Container
+    """
+    data = bytearray()
+    data.extend([0x00, 0x00, 0x00])  # Flags
+    data.extend(_to_ebcdic(resource_name, 8))  # Resource name
+    # Resource type triplet
+    data.extend([0x00, 0x00, 0x0A])  # Reserved + triplet length
+    data.append(0x21)  # Resource Type triplet ID
+    data.append(0x41)  # Triplet type indicator
+    data.extend([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Padding
+    return _sf(SF_BRS, bytes(data))
+
+
+def _build_ers(resource_name: str) -> bytes:
+    """Build End Resource (ERS) structured field."""
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(resource_name, 8)
+    return _sf(SF_ERS, data)
+
+
+def _build_bng(group_name: str) -> bytes:
+    """
+    Build Begin Named Page Group (BNG) structured field.
+    Used to group pages for indexing and document boundaries.
+    """
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(group_name, 8)
+    return _sf(SF_BNG, data)
+
+
+def _build_eng(group_name: str) -> bytes:
+    """Build End Named Page Group (ENG) structured field."""
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(group_name, 8)
+    return _sf(SF_ENG, data)
+
+
+def _build_mcf(font_mappings: list = None) -> bytes:
+    """
+    Build Map Coded Font (MCF) structured field.
+
+    Maps local font IDs to coded font names.
+    Default provides basic Courier font mapping.
+    """
+    if font_mappings is None:
+        # Default font mapping - Courier at 10 pitch
+        font_mappings = [
+            (0x01, "X0C10000"),  # Local ID 1 -> Courier 10 pitch
+        ]
+
+    data = bytearray()
+    data.extend([0x00, 0x00, 0x00])  # Flags
+
+    for local_id, font_name in font_mappings:
+        # Font mapping triplet (0x8D = MCF-1 Triplet)
+        triplet = bytearray()
+        triplet.append(0x16)  # Triplet length (22 bytes)
+        triplet.append(0x8D)  # MCF-1 triplet ID
+        triplet.append(local_id)  # Local font ID
+        triplet.extend([0x00])  # Section ID
+        triplet.extend(_to_ebcdic(font_name, 8))  # Coded font name
+        triplet.extend(_to_ebcdic("T1V10500", 8))  # Code page (example)
+        data.extend(triplet)
+
+    return _sf(SF_MCF, bytes(data))
 
 
 def _build_ips(segment_name: str) -> bytes:
@@ -622,3 +717,138 @@ def create_afp_with_tle(
         })
 
     return generate_afp_document(pages, document_name)
+
+
+def generate_afp_with_resources(
+    pages: List[Dict],
+    document_name: str = "PRINTDOC",
+    resolution: int = 240,
+    page_width: int = 2040,
+    page_height: int = 2640
+) -> bytes:
+    """
+    Generate AFP document with Exstream-compatible resource structure.
+
+    This format includes:
+    - Resource section with page segments for images
+    - Named Page Groups for document boundaries
+    - Map Coded Font in Active Environment Groups
+    - Include Page Segment references instead of inline images
+
+    This structure is more compatible with production print systems like Bluecrest.
+
+    Args:
+        pages: List of page dictionaries (same format as generate_afp_document)
+        document_name: str - 8-character document name
+        resolution: int - DPI (default 240)
+        page_width: int - page width in L-units
+        page_height: int - page height in L-units
+
+    Returns:
+        bytes - Complete AFP document with resource structure
+    """
+    result = bytearray()
+
+    # Add document header comments (like Exstream does)
+    result.extend(_build_nop_comment(f"Generated by AdhocPrintStudio"))
+    result.extend(_build_nop_comment(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
+
+    # Begin main document
+    result.extend(_build_bdt(document_name))
+
+    # ============== RESOURCE SECTION ==============
+    # Create page segment resources for all images first
+    page_segments = []  # Track segment names for later reference
+
+    for page_num, page in enumerate(pages, start=1):
+        image_data = page.get('image_data')
+        if not image_data:
+            continue
+
+        segment_name = f"S{page_num:07d}"
+        page_segments.append((page_num, segment_name))
+
+        img_width = page.get('width', page_width)
+        img_height = page.get('height', page_height)
+
+        # Begin Resource (Page Segment type = 0x03)
+        result.extend(_build_brs(segment_name, resource_type=0x03))
+
+        # Begin Page Segment
+        result.extend(_build_bps(segment_name))
+
+        # Image Object within Page Segment
+        image_obj_name = f"I{page_num:07d}"
+        result.extend(_build_bio(image_obj_name))
+
+        # Object Environment Group
+        result.extend(_build_bog())
+        result.extend(_build_obd(img_width, img_height, resolution))
+        result.extend(_build_obp())
+        result.extend(_build_iid())
+        result.extend(_build_eog())
+
+        # Image Data
+        result.extend(_build_idd(img_width, img_height, resolution))
+        result.extend(_build_ipd_records(image_data, img_width, img_height, resolution))
+
+        # End Image Object
+        result.extend(_build_eio())
+
+        # End Page Segment
+        result.extend(_build_eps(segment_name))
+
+        # End Resource
+        result.extend(_build_ers(segment_name))
+
+    # ============== PAGE SECTION ==============
+    # Now output pages that reference the page segment resources
+
+    segment_index = 0
+    for page_num, page in enumerate(pages, start=1):
+        group_name = f"G{page_num:07d}"
+        page_name = f"P{page_num:07d}"
+
+        # Begin Named Page Group (for document boundary detection)
+        result.extend(_build_bng(group_name))
+
+        # TLE records for this page/group (critical for indexing)
+        tle_data = page.get('tle_data', {})
+        tle_fields = [
+            ('mailing_name', tle_data.get('mailing_name', '')),
+            ('mailing_addr1', tle_data.get('mailing_addr1', '')),
+            ('mailing_addr2', tle_data.get('mailing_addr2', '')),
+            ('mailing_addr3', tle_data.get('mailing_addr3', '')),
+            ('return_addr1', tle_data.get('return_addr1', '')),
+            ('return_addr2', tle_data.get('return_addr2', '')),
+            ('return_addr3', tle_data.get('return_addr3', '')),
+        ]
+
+        for field_name, field_value in tle_fields:
+            result.extend(_build_tle(field_name, field_value))
+
+        # Begin Page
+        result.extend(_build_bpg(page_name))
+
+        # Active Environment Group with font mapping
+        result.extend(_build_bag())
+        # Include Map Coded Font for text rendering support
+        result.extend(_build_mcf())
+        result.extend(_build_eag())
+
+        # Include Page Segment reference (instead of inline image)
+        if page.get('image_data') and segment_index < len(page_segments):
+            _, segment_name = page_segments[segment_index]
+            result.extend(_build_ips(segment_name))
+            segment_index += 1
+
+        # End Page
+        result.extend(_build_epg(page_name))
+
+        # End Named Page Group
+        result.extend(_build_eng(group_name))
+
+    # End Document
+    result.extend(_build_edt(document_name))
+
+    return bytes(result)

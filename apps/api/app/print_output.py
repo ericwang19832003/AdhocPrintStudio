@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from PIL import Image, ImageDraw, ImageFont
 
-from app.afp_document_generator import generate_afp_document
+from app.afp_document_generator import generate_afp_document, generate_afp_with_resources
 from app.afp_cleaner import clean_afp
 from app.security import validate_file_size, validate_file_content, MAX_UPLOAD_SIZE
 from app.xml_streaming_parser import (
@@ -623,8 +623,10 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 }
             })
 
-        # Generate complete AFP document with embedded TLE records
-        afp_document = generate_afp_document(
+        # Generate AFP document with Exstream-compatible resource structure
+        # Uses BRS/ERS for page segment resources, BNG/ENG for named page groups,
+        # and MCF for font mappings - better compatibility with Bluecrest
+        afp_document = generate_afp_with_resources(
             pages=pages,
             document_name="MAILOUT",
             resolution=DPI,
