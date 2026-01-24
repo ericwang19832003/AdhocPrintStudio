@@ -3854,29 +3854,36 @@ export default function BuilderClient() {
                     <span>{value}</span>
                   </div>
                 ))}
-                <div className="preview-format">
-                  <label>Output Format:</label>
-                  <div className="format-buttons">
+                <div className="output-format-section">
+                  <h4>Select Output Format</h4>
+                  <div className="format-segmented-control">
                     <button
-                      className={outputFormat === "afp" ? "format-btn active" : "format-btn"}
-                      onClick={() => setOutputFormat("afp")}
-                    >
-                      AFP
-                    </button>
-                    <button
-                      className={outputFormat === "pdf" ? "format-btn active" : "format-btn"}
+                      className={`format-segment ${outputFormat === "pdf" ? "active" : ""}`}
                       onClick={() => setOutputFormat("pdf")}
                     >
-                      PDF
+                      <span className="format-icon">PDF</span>
+                      <span className="format-label">Preview & Print</span>
+                    </button>
+                    <button
+                      className={`format-segment ${outputFormat === "afp" ? "active" : ""}`}
+                      onClick={() => setOutputFormat("afp")}
+                    >
+                      <span className="format-icon">AFP</span>
+                      <span className="format-label">Mainframe</span>
                     </button>
                   </div>
+                  <p className="format-description">
+                    {outputFormat === "pdf"
+                      ? "Generate a PDF file for preview and direct printing."
+                      : "Generate AFP format for mainframe processing and mail sorting."}
+                  </p>
                 </div>
                 <div className="preview-actions">
-                  <button className="secondary" onClick={() => setShowPreview(false)}>
+                  <button className="ghost" onClick={() => setShowPreview(false)}>
                     Cancel
                   </button>
                   <button className="primary" onClick={() => handleGenerate(outputFormat)} disabled={generating}>
-                    {generating ? "Generating..." : `Generate ${outputFormat.toUpperCase()}`}
+                    {generating ? "Generating..." : `Download ${outputFormat.toUpperCase()}`}
                   </button>
                 </div>
               </div>
