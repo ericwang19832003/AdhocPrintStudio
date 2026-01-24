@@ -570,9 +570,15 @@ def generate_afp_document(
             # Always write TLE records, even when value is empty
             result.extend(_build_tle(field_name, field_value))
 
-        # NOTE: Images removed to avoid Bluecrest "invalid inline resource" errors
-        # This AFP contains only document structure and TLE metadata for mail processing
-        # Use the separate /print-output/pdf endpoint for actual letter images
+        # Embed letter image if provided
+        # Uses IM Image format (BIO/EIO) compatible with Bluecrest
+        image_data = page.get('image_data')
+        if image_data:
+            img_width = page.get('width', page_width)
+            img_height = page.get('height', page_height)
+            result.extend(generate_inline_image(
+                image_data, img_width, img_height, resolution
+            ))
 
         # End Page
         result.extend(_build_epg(page_name))
