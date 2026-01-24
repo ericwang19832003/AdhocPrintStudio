@@ -594,6 +594,153 @@ textarea:focus-visible {
   color: #1d4ed8;
 }
 
+/* ===== Shared Library Panel Enhancements ===== */
+.library-panel-enhanced {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.library-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.library-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.library-section-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.library-sort-select {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border: 1px solid var(--outline);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.library-sort-select:hover {
+  border-color: #94a3b8;
+}
+
+/* Recently Used Chips */
+.library-recent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.library-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--outline);
+  background: white;
+  font-size: 0.8rem;
+  color: var(--ink);
+  cursor: grab;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.library-chip:hover {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  transform: scale(1.02);
+}
+
+.library-chip:active {
+  cursor: grabbing;
+}
+
+/* Shared Library Item Styles */
+.library-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-favorite-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: #d1d5db;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+  opacity: 0;
+}
+
+.library-favorite-btn:hover {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.library-favorite-btn.active {
+  color: #f59e0b;
+  opacity: 1;
+}
+
+.library-favorite-btn.active:hover {
+  color: #d97706;
+}
+
+/* Show favorite button on item hover */
+.return-address-list-item:hover .library-favorite-btn,
+.tagline-list-item:hover .library-favorite-btn,
+.verbiage-list-item:hover .library-favorite-btn,
+.full-letter-list-item:hover .library-favorite-btn {
+  opacity: 1;
+}
+
+/* Update list items to accommodate favorite button */
+.return-address-list-item,
+.tagline-list-item,
+.verbiage-list-item,
+.full-letter-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Favorited item styles */
+.return-address-list-item.favorited,
+.tagline-list-item.favorited,
+.verbiage-list-item.favorited,
+.full-letter-list-item.favorited {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.return-address-list-item.favorited:hover,
+.tagline-list-item.favorited:hover,
+.verbiage-list-item.favorited:hover,
+.full-letter-list-item.favorited:hover {
+  border-color: #f59e0b;
+}
+
 .flyout-list {
   display: grid;
   gap: 10px;
