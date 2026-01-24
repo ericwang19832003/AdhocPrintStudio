@@ -412,12 +412,7 @@ const libraryButtons = [
 ] as const;
 
 function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | null {
-  if (
-    item.type === "logo" ||
-    item.type === "return" ||
-    item.type === "verbiage" ||
-    item.type === "full-letter"
-  ) {
+  if (item.type === "logo" || item.type === "return") {
     return null;
   }
   return {
@@ -910,11 +905,6 @@ export default function BuilderClient() {
     if (!bodyZoneRef.current) return;
     const item = parseDropItem(event);
     if (!item) return;
-    if (item.type === "verbiage" || item.type === "full-letter") {
-      setEditorSelectionAtPoint(event.clientX, event.clientY);
-      insertLibraryText(item, { standardFormat: item.type === "full-letter" });
-      return;
-    }
     if (item.type === "tagline") {
       setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: item }));
       return;
@@ -1107,10 +1097,6 @@ export default function BuilderClient() {
     else if (item.type === "verbiage") trackVerbiageUsage(item.id);
     else if (item.type === "full-letter") trackTemplateUsage(item.id);
 
-    if (item.type === "verbiage" || item.type === "full-letter") {
-      insertLibraryText(item, { standardFormat: item.type === "full-letter" });
-      return;
-    }
     placeItemOnCanvas(item, GRID_SIZE, GRID_SIZE);
   };
 
@@ -3708,7 +3694,7 @@ export default function BuilderClient() {
                     taglineText.trim()
                   );
                   if (createdItem) {
-                    insertLibraryText(createdItem);
+                    addLibraryItemToCanvas(createdItem);
                   }
                   setTaglineText("");
                   setShowTaglineModal(false);
