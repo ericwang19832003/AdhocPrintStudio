@@ -274,6 +274,25 @@ const SNAP_TOLERANCE = 6;
 const DEFAULT_BLOCK_HEIGHT = 80;
 const PAGE_PADDING = 20;
 
+// Estimate block height based on content for better overlap detection
+const estimateBlockHeight = (item: LibraryItem): number => {
+  if (item.type !== "verbiage" && item.type !== "full-letter") {
+    return DEFAULT_BLOCK_HEIGHT;
+  }
+  if (!item.content) return DEFAULT_BLOCK_HEIGHT;
+
+  // Count newlines and estimate based on content length
+  const lineBreaks = (item.content.match(/\n/g) || []).length;
+  const avgCharsPerLine = 60; // Based on full-width block
+  const estimatedLines = Math.max(lineBreaks + 1, Math.ceil(item.content.length / avgCharsPerLine));
+
+  const lineHeight = 24;
+  const headerHeight = 40; // Title area
+  const padding = 32; // Top/bottom padding
+
+  return Math.max(DEFAULT_BLOCK_HEIGHT, headerHeight + (estimatedLines * lineHeight) + padding);
+};
+
 // 15 Logo placeholders with varied styles and colors
 const logoPlaceholders: LibraryItem[] = [
   { id: "logo-1", label: "APS Primary", type: "logo", imageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='70'><rect width='100%25' height='100%25' rx='14' fill='%23b84f2f'/><text x='50%25' y='55%25' text-anchor='middle' font-family='Arial' font-size='28' fill='white'>APS</text></svg>" },
@@ -721,14 +740,24 @@ export default function BuilderClient() {
     y: number,
     width: number,
     height: number,
-    ignoreId: string
+    ignoreId: string,
+    itemType?: string
   ) => {
+    const size = getBodyZoneSize();
+    const bodyWidth = size?.width ?? 600;
+    // For verbiage/full-letter, use actual rendered position and width
+    const checkX = (itemType === "verbiage" || itemType === "full-letter") ? PAGE_PADDING : x;
+    const checkWidth = (itemType === "verbiage" || itemType === "full-letter") ? (bodyWidth - PAGE_PADDING * 2) : width;
+
     return (blocksByPage[activePage] ?? []).some((block) => {
       if (block.id === ignoreId) return false;
       const blockHeight = getBlockHeight(block.id);
+      // Get actual rendered position/width for existing blocks too
+      const blockX = (block.type === "verbiage" || block.type === "full-letter") ? PAGE_PADDING : block.x;
+      const blockWidth = (block.type === "verbiage" || block.type === "full-letter") ? (bodyWidth - PAGE_PADDING * 2) : block.width;
       return !(
-        x + width <= block.x ||
-        x >= block.x + block.width ||
+        checkX + checkWidth <= blockX ||
+        checkX >= blockX + blockWidth ||
         y + height <= block.y ||
         y >= block.y + blockHeight
       );
@@ -741,7 +770,7 @@ export default function BuilderClient() {
     const height = getBlockHeight(block.id);
     const clampedX = Math.min(Math.max(nextX, 0), size.width - block.width);
     const clampedY = Math.min(Math.max(nextY, 0), size.height - height);
-    if (getOverlap(clampedX, clampedY, block.width, height, block.id)) {
+    if (getOverlap(clampedX, clampedY, block.width, height, block.id, block.type)) {
       return { x: block.x, y: block.y };
     }
     return { x: clampedX, y: clampedY };
@@ -814,7 +843,7 @@ export default function BuilderClient() {
       nextX = Math.min(Math.max(nextX, 0), rect.width - current.width);
       nextY = Math.min(Math.max(nextY, 0), rect.height - height);
 
-      const hasOverlap = getOverlap(nextX, nextY, current.width, height, current.id);
+      const hasOverlap = getOverlap(nextX, nextY, current.width, height, current.id, current.type);
       if (hasOverlap) {
         setGuideX(null);
         setGuideY(null);
@@ -1071,9 +1100,11 @@ export default function BuilderClient() {
     let y = snapToGrid(Math.max(rawY, 0));
     const block = createBlock(item, x, y);
     if (!block) return;
-    const height = DEFAULT_BLOCK_HEIGHT;
+    const height = estimateBlockHeight(item);
+    // More attempts for taller blocks
+    const maxAttempts = Math.max(12, Math.ceil(height / GRID_SIZE) + 4);
     let attempt = 0;
-    while (getOverlap(x, y, block.width, height, block.id) && attempt < 12) {
+    while (getOverlap(x, y, block.width, height, block.id, item.type) && attempt < maxAttempts) {
       y = Math.min(y + GRID_SIZE, size.height - height);
       attempt += 1;
     }
