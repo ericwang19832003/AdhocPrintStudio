@@ -3092,4 +3092,224 @@ textarea:focus-visible {
   margin: 4px 0;
 }
 
+/* ========================================
+   DRAG & DROP DISCOVERABILITY ENHANCEMENTS
+   ======================================== */
+
+/* Drag handle for list items */
+.drag-handle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  font-size: 0.7rem;
+  letter-spacing: -0.1em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.return-list-item:hover .drag-handle-icon,
+.tagline-list-item:hover .drag-handle-icon,
+.verbiage-list-item:hover .drag-handle-icon,
+.full-letter-list-item:hover .drag-handle-icon {
+  opacity: 0.6;
+}
+
+.return-list-item:active .drag-handle-icon,
+.tagline-list-item:active .drag-handle-icon {
+  cursor: grabbing;
+}
+
+/* Enhanced hover lift for list items */
+.return-list-item,
+.tagline-list-item {
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.return-list-item:hover,
+.tagline-list-item:hover {
+  transform: translateX(2px);
+  box-shadow: -2px 0 0 0 #2563eb;
+}
+
+/* Drop zone highlighting during drag */
+.page-surface.drag-active {
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+  background: linear-gradient(to bottom, rgba(59, 130, 246, 0.02), rgba(59, 130, 246, 0.05));
+}
+
+.return-block.drag-active,
+.logo-block.drag-active {
+  border-color: #3b82f6 !important;
+  border-style: solid !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  animation: drop-zone-pulse 1.5s ease-in-out infinite;
+}
+
+.tagline-block.drag-active {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  animation: drop-zone-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes drop-zone-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
+}
+
+/* Drop zone label during drag */
+.drop-zone-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3b82f6;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 4px 10px;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.return-block.drag-active .drop-zone-label,
+.logo-block.drag-active .drop-zone-label,
+.tagline-block.drag-active .drop-zone-label {
+  opacity: 1;
+}
+
+/* Empty canvas placeholder */
+.empty-canvas-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.empty-canvas-hint .hint-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-canvas-hint .hint-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.empty-canvas-hint .hint-subtitle {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+/* First-time tooltip */
+.drag-tooltip {
+  position: fixed;
+  background: #1e293b;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  max-width: 220px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: tooltip-appear 0.3s ease;
+}
+
+.drag-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-left-color: #1e293b;
+}
+
+.drag-tooltip .tooltip-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drag-tooltip .tooltip-dismiss {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.drag-tooltip .tooltip-dismiss:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Wiggle animation for first-time hint */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+
+.library-item-wiggle {
+  animation: wiggle 0.5s ease-in-out 2;
+}
+
+/* Library chip with drag handle */
+.library-chip {
+  position: relative;
+  padding-left: 20px;
+}
+
+.library-chip::before {
+  content: "⋮⋮";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.6rem;
+  color: #9ca3af;
+  letter-spacing: -0.1em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.library-chip:hover::before {
+  opacity: 0.6;
+}
+
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap");

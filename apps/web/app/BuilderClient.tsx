@@ -537,6 +537,14 @@ export default function BuilderClient() {
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
   const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingLibraryItem, setIsDraggingLibraryItem] = useState(false);
+  const [dragItemType, setDragItemType] = useState<string | null>(null);
+  const [showDragTooltip, setShowDragTooltip] = useState(() => {
+    if (typeof window !== "undefined") {
+      return !localStorage.getItem("dragTooltipDismissed");
+    }
+    return true;
+  });
   const [mailingMap, setMailingMap] = useState<Record<string, string>>({
     mailing_name: "",
     mailing_addr1: "",
@@ -846,6 +854,8 @@ export default function BuilderClient() {
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>, item: LibraryItem) => {
     event.dataTransfer.setData("text/plain", JSON.stringify(item));
     event.dataTransfer.effectAllowed = "copy";
+    setIsDraggingLibraryItem(true);
+    setDragItemType(item.type ?? null);
     const ghost = document.createElement("div");
     ghost.style.width = "1px";
     ghost.style.height = "1px";
@@ -853,6 +863,16 @@ export default function BuilderClient() {
     document.body.appendChild(ghost);
     event.dataTransfer.setDragImage(ghost, 0, 0);
     setTimeout(() => ghost.remove(), 0);
+  };
+
+  const handleDragEnd = () => {
+    setIsDraggingLibraryItem(false);
+    setDragItemType(null);
+  };
+
+  const dismissDragTooltip = () => {
+    setShowDragTooltip(false);
+    localStorage.setItem("dragTooltipDismissed", "true");
   };
 
   const parseDropItem = (event: React.DragEvent<HTMLElement>) => {
@@ -2103,6 +2123,7 @@ export default function BuilderClient() {
                             className="logo-card-mini"
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             title={item.label}
                           >
@@ -2162,6 +2183,7 @@ export default function BuilderClient() {
                           className={`logo-card${favoriteLogos.includes(item.id) ? " favorited" : ""}`}
                           draggable
                           onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                           onClick={() => addLibraryItemToCanvas(item)}
                           title={`${item.label} - Drag to canvas or click to insert`}
                         >
@@ -2206,6 +2228,7 @@ export default function BuilderClient() {
                             className="library-chip"
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             title={item.label}
                           >
@@ -2261,6 +2284,7 @@ export default function BuilderClient() {
                             className={`return-list-item${favoriteReturns.includes(item.id) ? " favorited" : ""}`}
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             onMouseEnter={() => setHoverReturnId(item.id)}
                             onMouseLeave={() => setHoverReturnId(null)}
@@ -2268,6 +2292,7 @@ export default function BuilderClient() {
                             onBlur={() => setHoverReturnId(null)}
                             tabIndex={0}
                           >
+                            <span className="drag-handle-icon">⋮⋮</span>
                             <span className="library-item-label">{item.label}</span>
                             <button
                               className={`library-favorite-btn${favoriteReturns.includes(item.id) ? " active" : ""}`}
@@ -2320,6 +2345,7 @@ export default function BuilderClient() {
                             className="library-chip"
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             title={item.content ?? item.label}
                           >
@@ -2375,6 +2401,7 @@ export default function BuilderClient() {
                             className={`tagline-list-item${favoriteTaglines.includes(item.id) ? " favorited" : ""}`}
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             onMouseEnter={() => setHoverTaglineId(item.id)}
                             onMouseLeave={() => setHoverTaglineId(null)}
@@ -2382,6 +2409,7 @@ export default function BuilderClient() {
                             onBlur={() => setHoverTaglineId(null)}
                             tabIndex={0}
                           >
+                            <span className="drag-handle-icon">⋮⋮</span>
                             <span className="library-item-label">{item.label}</span>
                             <button
                               className={`library-favorite-btn${favoriteTaglines.includes(item.id) ? " active" : ""}`}
@@ -2434,6 +2462,7 @@ export default function BuilderClient() {
                             className="library-chip"
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             title={item.content ?? item.label}
                           >
@@ -2489,6 +2518,7 @@ export default function BuilderClient() {
                             className={`full-letter-list-item${selectedFullLetterId === item.id ? " active" : ""}${favoriteTemplates.includes(item.id) ? " favorited" : ""}`}
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => {
                               addLibraryItemToCanvas(item);
                               setSelectedFullLetterId(item.id);
@@ -2552,6 +2582,7 @@ export default function BuilderClient() {
                             className="library-chip"
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => addLibraryItemToCanvas(item)}
                             title={item.content ?? item.label}
                           >
@@ -2607,6 +2638,7 @@ export default function BuilderClient() {
                             className={`verbiage-list-item${selectedVerbiageId === item.id ? " active" : ""}${favoriteVerbiage.includes(item.id) ? " favorited" : ""}`}
                             draggable
                             onDragStart={(event) => handleDragStart(event, item)}
+                            onDragEnd={handleDragEnd}
                             onClick={() => {
                               addLibraryItemToCanvas(item);
                               setSelectedVerbiageId(item.id);
@@ -2714,10 +2746,13 @@ export default function BuilderClient() {
                 {activePage === 0 && (
                   <div className="page-header">
                     <div
-                      className="return-block"
+                      className={`return-block${isDraggingLibraryItem && dragItemType === "return" ? " drag-active" : ""}`}
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={handleReturnDrop}
                     >
+                      {isDraggingLibraryItem && dragItemType === "return" && (
+                        <span className="drop-zone-label">Drop return address</span>
+                      )}
                       <div className="return-content">
                         {selectedReturn
                           ? selectedReturn.content ?? selectedReturn.label
@@ -2726,7 +2761,7 @@ export default function BuilderClient() {
                     </div>
 
                     <div
-                      className="logo-block resizable"
+                      className={`logo-block resizable${isDraggingLibraryItem && dragItemType === "logo" ? " drag-active" : ""}`}
                       style={{ width: logoBox.width, height: logoBox.height }}
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={handleLogoDrop}
@@ -2761,7 +2796,12 @@ export default function BuilderClient() {
                           ))}
                         </>
                       ) : (
-                        <span className="logo-placeholder">Logo</span>
+                        <>
+                          {isDraggingLibraryItem && dragItemType === "logo" && (
+                            <span className="drop-zone-label">Drop logo</span>
+                          )}
+                          <span className="logo-placeholder">Logo</span>
+                        </>
                       )}
                     </div>
                   </div>
@@ -2868,10 +2908,13 @@ export default function BuilderClient() {
 
                 {/* Tagline at bottom of page */}
                 <div
-                  className="tagline-block"
+                  className={`tagline-block${isDraggingLibraryItem && dragItemType === "tagline" ? " drag-active" : ""}`}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={handleTaglineDrop}
                 >
+                  {isDraggingLibraryItem && dragItemType === "tagline" && (
+                    <span className="drop-zone-label">Drop tagline</span>
+                  )}
                   <div className="tagline-content">
                     {selectedTaglineByPage[activePage]
                       ? selectedTaglineByPage[activePage]?.label
@@ -3886,6 +3929,24 @@ export default function BuilderClient() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* First-time drag tooltip */}
+      {showDragTooltip && openMenuTab && (
+        <div
+          className="drag-tooltip"
+          style={{ top: "200px", left: "420px" }}
+        >
+          <div className="tooltip-title">
+            <span>✨</span> Drag & Drop
+          </div>
+          <p>
+            Drag items from the library panel and drop them onto the letter canvas.
+          </p>
+          <button className="tooltip-dismiss" onClick={dismissDragTooltip}>
+            Got it
+          </button>
         </div>
       )}
     </div>
