@@ -497,7 +497,8 @@ def generate_afp_document(
     for page_num, page in enumerate(pages, start=1):
         doc_name = f"DOC{page_num:05d}"
         page_name = f"P{page_num:07d}"
-        segment_name = f"S{page_num:07d}"
+        # Use IMG prefix instead of S to avoid Bluecrest index element confusion
+        segment_name = f"IMG{page_num:05d}"
 
         # Begin Document - each letter is its own document
         result.extend(_build_bdt(doc_name))
