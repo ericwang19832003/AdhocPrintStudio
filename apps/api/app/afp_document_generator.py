@@ -57,14 +57,9 @@ SF_BRS = bytes([0xD3, 0xA8, 0xCE])  # Begin Resource
 SF_ERS = bytes([0xD3, 0xA9, 0xCE])  # End Resource
 
 # Named Page Group (for document grouping/indexing)
-SF_BNG = bytes([0xD3, 0xA8, 0xAD])  # Begin Named Page Group - NOTE: Same as BAG in some docs
-SF_ENG = bytes([0xD3, 0xA9, 0xAD])  # End Named Page Group - NOTE: Same as EAG in some docs
-# Correct identifiers for Named Page Group
-SF_BNG = bytes([0xD3, 0xA8, 0x5F])  # This conflicts with BPS, use AD variant
-SF_ENG = bytes([0xD3, 0xA9, 0x5F])  # This conflicts with EPS, use AD variant
-# Per AFP spec, Named Page Group uses:
-SF_BNG = bytes([0xD3, 0xA8, 0xDF])  # Begin Named Page Group (correct)
-SF_ENG = bytes([0xD3, 0xA9, 0xDF])  # End Named Page Group (correct)
+# Per AFP Architecture Reference, BNG/ENG use D3 A8/A9 DF
+SF_BNG = bytes([0xD3, 0xA8, 0xDF])  # Begin Named Page Group
+SF_ENG = bytes([0xD3, 0xA9, 0xDF])  # End Named Page Group
 
 # Map Coded Font (font mapping in AEG)
 SF_MCF = bytes([0xD3, 0xAB, 0x8A])  # Map Coded Font
@@ -258,11 +253,12 @@ def _build_brs(resource_name: str, resource_type: int = 0x03) -> bytes:
     data = bytearray()
     data.extend([0x00, 0x00, 0x00])  # Flags
     data.extend(_to_ebcdic(resource_name, 8))  # Resource name
-    # Resource type triplet
-    data.extend([0x00, 0x00, 0x0A])  # Reserved + triplet length
-    data.append(0x21)  # Resource Type triplet ID
-    data.append(0x41)  # Triplet type indicator
-    data.extend([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Padding
+    # Resource Object Type triplet (0x21) - per AFP spec
+    # Format: length(1) + triplet_id(1) + resource_type(1) + reserved(7)
+    data.append(0x0A)  # Triplet length (10 bytes)
+    data.append(0x21)  # Resource Object Type triplet ID
+    data.append(resource_type)  # Resource type (0x03 = Page Segment, etc.)
+    data.extend([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])  # Reserved bytes
     return _sf(SF_BRS, bytes(data))
 
 
