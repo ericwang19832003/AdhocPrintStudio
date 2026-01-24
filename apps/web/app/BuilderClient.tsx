@@ -464,6 +464,11 @@ export default function BuilderClient() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [openMenuTab, setOpenMenuTab] = useState<string | null>(null);
   const [flyoutQuery, setFlyoutQuery] = useState("");
+
+  // Logo UX improvements: Recently Used, Favorites, Sorting
+  const [recentlyUsedLogos, setRecentlyUsedLogos] = useState<string[]>([]);
+  const [favoriteLogos, setFavoriteLogos] = useState<string[]>([]);
+  const [logoSortOrder, setLogoSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -561,6 +566,47 @@ export default function BuilderClient() {
     const interval = setInterval(checkEditor, 100);
     return () => clearInterval(interval);
   }, [editorInstance]);
+
+  // Load recently used logos and favorites from localStorage
+  useEffect(() => {
+    try {
+      const savedRecent = localStorage.getItem("recentlyUsedLogos");
+      const savedFavorites = localStorage.getItem("favoriteLogos");
+      if (savedRecent) setRecentlyUsedLogos(JSON.parse(savedRecent));
+      if (savedFavorites) setFavoriteLogos(JSON.parse(savedFavorites));
+    } catch (e) {
+      console.error("Failed to load logo preferences:", e);
+    }
+  }, []);
+
+  // Save recently used logos to localStorage
+  useEffect(() => {
+    if (recentlyUsedLogos.length > 0) {
+      localStorage.setItem("recentlyUsedLogos", JSON.stringify(recentlyUsedLogos));
+    }
+  }, [recentlyUsedLogos]);
+
+  // Save favorite logos to localStorage
+  useEffect(() => {
+    localStorage.setItem("favoriteLogos", JSON.stringify(favoriteLogos));
+  }, [favoriteLogos]);
+
+  // Track logo usage for "Recently Used" section
+  const trackLogoUsage = (logoId: string) => {
+    setRecentlyUsedLogos((prev) => {
+      const filtered = prev.filter((id) => id !== logoId);
+      return [logoId, ...filtered].slice(0, 5); // Keep last 5
+    });
+  };
+
+  // Toggle favorite status for a logo
+  const toggleLogoFavorite = (logoId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setFavoriteLogos((prev) =>
+      prev.includes(logoId) ? prev.filter((id) => id !== logoId) : [...prev, logoId]
+    );
+  };
 
   const escapeHtml = (value: string) =>
     value
@@ -954,6 +1000,10 @@ export default function BuilderClient() {
   };
 
   const addLibraryItemToCanvas = (item: LibraryItem) => {
+    // Track logo usage for "Recently Used" feature
+    if (item.type === "logo") {
+      trackLogoUsage(item.id);
+    }
     if (item.type === "verbiage" || item.type === "full-letter") {
       insertLibraryText(item, { standardFormat: item.type === "full-letter" });
       return;
@@ -1953,25 +2003,107 @@ export default function BuilderClient() {
             }}
           >
             {openMenuTab === "Logos" ? (
-              <div className="logo-grid">
-                {filterFlyoutItems(openMenuTab).map((item) => (
-                  <div
-                    key={item.id}
-                    className="logo-card"
-                    draggable
-                    onDragStart={(event) => handleDragStart(event, item)}
-                    onClick={() => addLibraryItemToCanvas(item)}
-                    title={item.label}
-                  >
-                    <div className="logo-card-thumb">
-                      {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
+              <div className="logo-panel">
+                {/* Recently Used Section */}
+                {recentlyUsedLogos.length > 0 && !flyoutQuery && (
+                  <div className="logo-section">
+                    <div className="logo-section-header">
+                      <span className="logo-section-title">Recently Used</span>
                     </div>
-                    <div className="logo-card-title">
-                      {item.label}
-                      {item.isCustom && <span className="logo-badge">Custom</span>}
+                    <div className="logo-recent-row">
+                      {recentlyUsedLogos
+                        .map((id) => (library.Logos ?? []).find((l) => l.id === id))
+                        .filter(Boolean)
+                        .map((item) => item && (
+                          <div
+                            key={item.id}
+                            className="logo-card-mini"
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            title={item.label}
+                          >
+                            <div className="logo-card-mini-thumb">
+                              {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* All Logos Section */}
+                <div className="logo-section">
+                  <div className="logo-section-header">
+                    <span className="logo-section-title">
+                      {flyoutQuery ? `Results for "${flyoutQuery}"` : "All Logos"}
+                    </span>
+                    {!flyoutQuery && (
+                      <select
+                        className="logo-sort-select"
+                        value={logoSortOrder}
+                        onChange={(e) => setLogoSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
+                      >
+                        <option value="recent">Recent</option>
+                        <option value="a-z">A-Z</option>
+                        <option value="favorites">Favorites</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="logo-grid">
+                    {(() => {
+                      let items = filterFlyoutItems(openMenuTab);
+                      // Apply sorting
+                      if (!flyoutQuery) {
+                        if (logoSortOrder === "a-z") {
+                          items = [...items].sort((a, b) => a.label.localeCompare(b.label));
+                        } else if (logoSortOrder === "favorites") {
+                          items = [...items].sort((a, b) => {
+                            const aFav = favoriteLogos.includes(a.id) ? 0 : 1;
+                            const bFav = favoriteLogos.includes(b.id) ? 0 : 1;
+                            return aFav - bFav || a.label.localeCompare(b.label);
+                          });
+                        } else if (logoSortOrder === "recent") {
+                          items = [...items].sort((a, b) => {
+                            const aRecent = recentlyUsedLogos.indexOf(a.id);
+                            const bRecent = recentlyUsedLogos.indexOf(b.id);
+                            const aScore = aRecent === -1 ? 999 : aRecent;
+                            const bScore = bRecent === -1 ? 999 : bRecent;
+                            return aScore - bScore || a.label.localeCompare(b.label);
+                          });
+                        }
+                      }
+                      return items.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`logo-card${favoriteLogos.includes(item.id) ? " favorited" : ""}`}
+                          draggable
+                          onDragStart={(event) => handleDragStart(event, item)}
+                          onClick={() => addLibraryItemToCanvas(item)}
+                          title={`${item.label} - Drag to canvas or click to insert`}
+                        >
+                          <div className="logo-card-drag-handle">
+                            <span className="drag-dots">⋮⋮</span>
+                          </div>
+                          <div className="logo-card-thumb">
+                            {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
+                          </div>
+                          <div className="logo-card-title">
+                            <span className="logo-card-label">{item.label}</span>
+                            <button
+                              className={`logo-favorite-btn${favoriteLogos.includes(item.id) ? " active" : ""}`}
+                              onClick={(e) => toggleLogoFavorite(item.id, e)}
+                              title={favoriteLogos.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              {favoriteLogos.includes(item.id) ? "★" : "☆"}
+                            </button>
+                          </div>
+                          {item.isCustom && <span className="logo-badge">Custom</span>}
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
               </div>
             ) : openMenuTab === "Return Address" ? (
               <div className="return-two-column">
