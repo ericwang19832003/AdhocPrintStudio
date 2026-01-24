@@ -284,7 +284,8 @@ const estimateBlockHeightFromContent = (content: string | undefined): number => 
   const avgCharsPerLine = 45;
   // Calculate lines from both newlines and character wrapping
   const charsWithoutNewlines = content.replace(/\n/g, '').length;
-  const wrappedLines = Math.ceil(charsWithoutNewlines / avgCharsPerLine);
+  // Ensure at least 1 line for content, plus account for line wrapping
+  const wrappedLines = Math.max(1, Math.ceil(charsWithoutNewlines / avgCharsPerLine));
   // Total lines = newlines create line breaks + wrapped lines within paragraphs
   const estimatedLines = lineBreaks + wrappedLines;
 
