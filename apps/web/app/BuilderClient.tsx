@@ -465,10 +465,26 @@ export default function BuilderClient() {
   const [openMenuTab, setOpenMenuTab] = useState<string | null>(null);
   const [flyoutQuery, setFlyoutQuery] = useState("");
 
-  // Logo UX improvements: Recently Used, Favorites, Sorting
+  // Library UX improvements: Recently Used, Favorites, Sorting
   const [recentlyUsedLogos, setRecentlyUsedLogos] = useState<string[]>([]);
   const [favoriteLogos, setFavoriteLogos] = useState<string[]>([]);
   const [logoSortOrder, setLogoSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
+
+  const [recentlyUsedReturns, setRecentlyUsedReturns] = useState<string[]>([]);
+  const [favoriteReturns, setFavoriteReturns] = useState<string[]>([]);
+  const [returnSortOrder, setReturnSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
+
+  const [recentlyUsedTaglines, setRecentlyUsedTaglines] = useState<string[]>([]);
+  const [favoriteTaglines, setFavoriteTaglines] = useState<string[]>([]);
+  const [taglineSortOrder, setTaglineSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
+
+  const [recentlyUsedVerbiage, setRecentlyUsedVerbiage] = useState<string[]>([]);
+  const [favoriteVerbiage, setFavoriteVerbiage] = useState<string[]>([]);
+  const [verbiageSortOrder, setVerbiageSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
+
+  const [recentlyUsedTemplates, setRecentlyUsedTemplates] = useState<string[]>([]);
+  const [favoriteTemplates, setFavoriteTemplates] = useState<string[]>([]);
+  const [templateSortOrder, setTemplateSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -567,45 +583,109 @@ export default function BuilderClient() {
     return () => clearInterval(interval);
   }, [editorInstance]);
 
-  // Load recently used logos and favorites from localStorage
+  // Load library preferences from localStorage
   useEffect(() => {
     try {
-      const savedRecent = localStorage.getItem("recentlyUsedLogos");
-      const savedFavorites = localStorage.getItem("favoriteLogos");
-      if (savedRecent) setRecentlyUsedLogos(JSON.parse(savedRecent));
-      if (savedFavorites) setFavoriteLogos(JSON.parse(savedFavorites));
+      // Logos
+      const savedRecentLogos = localStorage.getItem("recentlyUsedLogos");
+      const savedFavoriteLogos = localStorage.getItem("favoriteLogos");
+      if (savedRecentLogos) setRecentlyUsedLogos(JSON.parse(savedRecentLogos));
+      if (savedFavoriteLogos) setFavoriteLogos(JSON.parse(savedFavoriteLogos));
+
+      // Returns
+      const savedRecentReturns = localStorage.getItem("recentlyUsedReturns");
+      const savedFavoriteReturns = localStorage.getItem("favoriteReturns");
+      if (savedRecentReturns) setRecentlyUsedReturns(JSON.parse(savedRecentReturns));
+      if (savedFavoriteReturns) setFavoriteReturns(JSON.parse(savedFavoriteReturns));
+
+      // Taglines
+      const savedRecentTaglines = localStorage.getItem("recentlyUsedTaglines");
+      const savedFavoriteTaglines = localStorage.getItem("favoriteTaglines");
+      if (savedRecentTaglines) setRecentlyUsedTaglines(JSON.parse(savedRecentTaglines));
+      if (savedFavoriteTaglines) setFavoriteTaglines(JSON.parse(savedFavoriteTaglines));
+
+      // Verbiage
+      const savedRecentVerbiage = localStorage.getItem("recentlyUsedVerbiage");
+      const savedFavoriteVerbiage = localStorage.getItem("favoriteVerbiage");
+      if (savedRecentVerbiage) setRecentlyUsedVerbiage(JSON.parse(savedRecentVerbiage));
+      if (savedFavoriteVerbiage) setFavoriteVerbiage(JSON.parse(savedFavoriteVerbiage));
+
+      // Templates
+      const savedRecentTemplates = localStorage.getItem("recentlyUsedTemplates");
+      const savedFavoriteTemplates = localStorage.getItem("favoriteTemplates");
+      if (savedRecentTemplates) setRecentlyUsedTemplates(JSON.parse(savedRecentTemplates));
+      if (savedFavoriteTemplates) setFavoriteTemplates(JSON.parse(savedFavoriteTemplates));
     } catch (e) {
-      console.error("Failed to load logo preferences:", e);
+      console.error("Failed to load library preferences:", e);
     }
   }, []);
 
-  // Save recently used logos to localStorage
+  // Save recently used items to localStorage
   useEffect(() => {
-    if (recentlyUsedLogos.length > 0) {
-      localStorage.setItem("recentlyUsedLogos", JSON.stringify(recentlyUsedLogos));
-    }
+    if (recentlyUsedLogos.length > 0) localStorage.setItem("recentlyUsedLogos", JSON.stringify(recentlyUsedLogos));
   }, [recentlyUsedLogos]);
-
-  // Save favorite logos to localStorage
   useEffect(() => {
-    localStorage.setItem("favoriteLogos", JSON.stringify(favoriteLogos));
-  }, [favoriteLogos]);
+    if (recentlyUsedReturns.length > 0) localStorage.setItem("recentlyUsedReturns", JSON.stringify(recentlyUsedReturns));
+  }, [recentlyUsedReturns]);
+  useEffect(() => {
+    if (recentlyUsedTaglines.length > 0) localStorage.setItem("recentlyUsedTaglines", JSON.stringify(recentlyUsedTaglines));
+  }, [recentlyUsedTaglines]);
+  useEffect(() => {
+    if (recentlyUsedVerbiage.length > 0) localStorage.setItem("recentlyUsedVerbiage", JSON.stringify(recentlyUsedVerbiage));
+  }, [recentlyUsedVerbiage]);
+  useEffect(() => {
+    if (recentlyUsedTemplates.length > 0) localStorage.setItem("recentlyUsedTemplates", JSON.stringify(recentlyUsedTemplates));
+  }, [recentlyUsedTemplates]);
 
-  // Track logo usage for "Recently Used" section
-  const trackLogoUsage = (logoId: string) => {
-    setRecentlyUsedLogos((prev) => {
-      const filtered = prev.filter((id) => id !== logoId);
-      return [logoId, ...filtered].slice(0, 5); // Keep last 5
-    });
+  // Save favorites to localStorage
+  useEffect(() => { localStorage.setItem("favoriteLogos", JSON.stringify(favoriteLogos)); }, [favoriteLogos]);
+  useEffect(() => { localStorage.setItem("favoriteReturns", JSON.stringify(favoriteReturns)); }, [favoriteReturns]);
+  useEffect(() => { localStorage.setItem("favoriteTaglines", JSON.stringify(favoriteTaglines)); }, [favoriteTaglines]);
+  useEffect(() => { localStorage.setItem("favoriteVerbiage", JSON.stringify(favoriteVerbiage)); }, [favoriteVerbiage]);
+  useEffect(() => { localStorage.setItem("favoriteTemplates", JSON.stringify(favoriteTemplates)); }, [favoriteTemplates]);
+
+  // Track usage for "Recently Used" sections
+  const trackLogoUsage = (id: string) => {
+    setRecentlyUsedLogos((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 5));
+  };
+  const trackReturnUsage = (id: string) => {
+    setRecentlyUsedReturns((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 5));
+  };
+  const trackTaglineUsage = (id: string) => {
+    setRecentlyUsedTaglines((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 5));
+  };
+  const trackVerbiageUsage = (id: string) => {
+    setRecentlyUsedVerbiage((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 5));
+  };
+  const trackTemplateUsage = (id: string) => {
+    setRecentlyUsedTemplates((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 5));
   };
 
-  // Toggle favorite status for a logo
-  const toggleLogoFavorite = (logoId: string, event: React.MouseEvent) => {
+  // Toggle favorite status
+  const toggleLogoFavorite = (id: string, event: React.MouseEvent) => {
     event.stopPropagation();
     event.preventDefault();
-    setFavoriteLogos((prev) =>
-      prev.includes(logoId) ? prev.filter((id) => id !== logoId) : [...prev, logoId]
-    );
+    setFavoriteLogos((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+  const toggleReturnFavorite = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setFavoriteReturns((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+  const toggleTaglineFavorite = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setFavoriteTaglines((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+  const toggleVerbiageFavorite = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setFavoriteVerbiage((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+  const toggleTemplateFavorite = (id: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
+    setFavoriteTemplates((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
   const escapeHtml = (value: string) =>
@@ -1000,10 +1080,13 @@ export default function BuilderClient() {
   };
 
   const addLibraryItemToCanvas = (item: LibraryItem) => {
-    // Track logo usage for "Recently Used" feature
-    if (item.type === "logo") {
-      trackLogoUsage(item.id);
-    }
+    // Track usage for "Recently Used" feature
+    if (item.type === "logo") trackLogoUsage(item.id);
+    else if (item.type === "return") trackReturnUsage(item.id);
+    else if (item.type === "tagline") trackTaglineUsage(item.id);
+    else if (item.type === "verbiage") trackVerbiageUsage(item.id);
+    else if (item.type === "full-letter") trackTemplateUsage(item.id);
+
     if (item.type === "verbiage" || item.type === "full-letter") {
       insertLibraryText(item, { standardFormat: item.type === "full-letter" });
       return;
@@ -2106,179 +2189,467 @@ export default function BuilderClient() {
                 </div>
               </div>
             ) : openMenuTab === "Return Address" ? (
-              <div className="return-two-column">
-                <div className="return-list">
-                  {filterFlyoutItems(openMenuTab).map((item) => (
-                    <div
-                      key={item.id}
-                      className="return-list-item"
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, item)}
-                      onClick={() => addLibraryItemToCanvas(item)}
-                      onMouseEnter={() => setHoverReturnId(item.id)}
-                      onMouseLeave={() => setHoverReturnId(null)}
-                      onFocus={() => setHoverReturnId(item.id)}
-                      onBlur={() => setHoverReturnId(null)}
-                      tabIndex={0}
-                    >
-                      {item.label}
+              <div className="library-panel-enhanced">
+                {/* Recently Used Section */}
+                {recentlyUsedReturns.length > 0 && !flyoutQuery && (
+                  <div className="library-section">
+                    <div className="library-section-header">
+                      <span className="library-section-title">Recently Used</span>
                     </div>
-                  ))}
-                </div>
-                <div className="return-preview-panel">
-                  {(() => {
-                    if (!hoverReturnId) {
-                      return <p className="hint">Hover an address to preview.</p>;
-                    }
-                    const activeItem = (library[openMenuTab] ?? []).find(
-                      (entry) => entry.id === hoverReturnId
-                    );
-                    if (!activeItem) {
-                      return <p className="hint">Hover an address to preview.</p>;
-                    }
-                    return (
-                      <>
-                        <div className="return-preview-title">{activeItem.label}</div>
-                        <p>{activeItem.content ?? activeItem.label}</p>
-                      </>
-                    );
-                  })()}
+                    <div className="library-recent-chips">
+                      {recentlyUsedReturns
+                        .map((id) => (library["Return Address"] ?? []).find((r) => r.id === id))
+                        .filter(Boolean)
+                        .map((item) => item && (
+                          <div
+                            key={item.id}
+                            className="library-chip"
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            title={item.label}
+                          >
+                            {item.label}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Content */}
+                <div className="library-section">
+                  <div className="library-section-header">
+                    <span className="library-section-title">
+                      {flyoutQuery ? `Results` : "All Addresses"}
+                    </span>
+                    {!flyoutQuery && (
+                      <select
+                        className="library-sort-select"
+                        value={returnSortOrder}
+                        onChange={(e) => setReturnSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
+                      >
+                        <option value="recent">Recent</option>
+                        <option value="a-z">A-Z</option>
+                        <option value="favorites">Favorites</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="return-two-column">
+                    <div className="return-list">
+                      {(() => {
+                        let items = filterFlyoutItems(openMenuTab);
+                        if (!flyoutQuery) {
+                          if (returnSortOrder === "a-z") {
+                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
+                          } else if (returnSortOrder === "favorites") {
+                            items = [...items].sort((a, b) => {
+                              const aFav = favoriteReturns.includes(a.id) ? 0 : 1;
+                              const bFav = favoriteReturns.includes(b.id) ? 0 : 1;
+                              return aFav - bFav || a.label.localeCompare(b.label);
+                            });
+                          } else if (returnSortOrder === "recent") {
+                            items = [...items].sort((a, b) => {
+                              const aRecent = recentlyUsedReturns.indexOf(a.id);
+                              const bRecent = recentlyUsedReturns.indexOf(b.id);
+                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
+                            });
+                          }
+                        }
+                        return items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`return-list-item${favoriteReturns.includes(item.id) ? " favorited" : ""}`}
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            onMouseEnter={() => setHoverReturnId(item.id)}
+                            onMouseLeave={() => setHoverReturnId(null)}
+                            onFocus={() => setHoverReturnId(item.id)}
+                            onBlur={() => setHoverReturnId(null)}
+                            tabIndex={0}
+                          >
+                            <span className="library-item-label">{item.label}</span>
+                            <button
+                              className={`library-favorite-btn${favoriteReturns.includes(item.id) ? " active" : ""}`}
+                              onClick={(e) => toggleReturnFavorite(item.id, e)}
+                              title={favoriteReturns.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              {favoriteReturns.includes(item.id) ? "★" : "☆"}
+                            </button>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    <div className="return-preview-panel">
+                      {(() => {
+                        if (!hoverReturnId) {
+                          return <p className="hint">Hover an address to preview.</p>;
+                        }
+                        const activeItem = (library[openMenuTab] ?? []).find(
+                          (entry) => entry.id === hoverReturnId
+                        );
+                        if (!activeItem) {
+                          return <p className="hint">Hover an address to preview.</p>;
+                        }
+                        return (
+                          <>
+                            <div className="return-preview-title">{activeItem.label}</div>
+                            <p>{activeItem.content ?? activeItem.label}</p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : openMenuTab === "Taglines" ? (
-              <div className="tagline-two-column" onWheel={handleTaglineWheel}>
-                <div className="tagline-list" ref={taglineListRef}>
-                  {filterFlyoutItems(openMenuTab).map((item) => (
-                    <div
-                      key={item.id}
-                      className="tagline-list-item"
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, item)}
-                      onClick={() => addLibraryItemToCanvas(item)}
-                      onMouseEnter={() => setHoverTaglineId(item.id)}
-                      onMouseLeave={() => setHoverTaglineId(null)}
-                      onFocus={() => setHoverTaglineId(item.id)}
-                      onBlur={() => setHoverTaglineId(null)}
-                      tabIndex={0}
-                    >
-                      {item.label}
+              <div className="library-panel-enhanced">
+                {/* Recently Used Section */}
+                {recentlyUsedTaglines.length > 0 && !flyoutQuery && (
+                  <div className="library-section">
+                    <div className="library-section-header">
+                      <span className="library-section-title">Recently Used</span>
                     </div>
-                  ))}
-                </div>
-                <div className="tagline-preview-panel">
-                  {(() => {
-                    if (!hoverTaglineId) {
-                      return <p className="hint">Hover a tagline to preview.</p>;
-                    }
-                    const activeItem = (library[openMenuTab] ?? []).find(
-                      (entry) => entry.id === hoverTaglineId
-                    );
-                    if (!activeItem) {
-                      return <p className="hint">Hover a tagline to preview.</p>;
-                    }
-                    return (
-                      <>
-                        <div className="tagline-preview-title">{activeItem.label}</div>
-                        <p>{activeItem.content ?? activeItem.label}</p>
-                      </>
-                    );
-                  })()}
+                    <div className="library-recent-chips">
+                      {recentlyUsedTaglines
+                        .map((id) => (library.Taglines ?? []).find((t) => t.id === id))
+                        .filter(Boolean)
+                        .map((item) => item && (
+                          <div
+                            key={item.id}
+                            className="library-chip"
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            title={item.content ?? item.label}
+                          >
+                            {item.label}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Content */}
+                <div className="library-section">
+                  <div className="library-section-header">
+                    <span className="library-section-title">
+                      {flyoutQuery ? `Results` : "All Taglines"}
+                    </span>
+                    {!flyoutQuery && (
+                      <select
+                        className="library-sort-select"
+                        value={taglineSortOrder}
+                        onChange={(e) => setTaglineSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
+                      >
+                        <option value="recent">Recent</option>
+                        <option value="a-z">A-Z</option>
+                        <option value="favorites">Favorites</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="tagline-two-column" onWheel={handleTaglineWheel}>
+                    <div className="tagline-list" ref={taglineListRef}>
+                      {(() => {
+                        let items = filterFlyoutItems(openMenuTab);
+                        if (!flyoutQuery) {
+                          if (taglineSortOrder === "a-z") {
+                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
+                          } else if (taglineSortOrder === "favorites") {
+                            items = [...items].sort((a, b) => {
+                              const aFav = favoriteTaglines.includes(a.id) ? 0 : 1;
+                              const bFav = favoriteTaglines.includes(b.id) ? 0 : 1;
+                              return aFav - bFav || a.label.localeCompare(b.label);
+                            });
+                          } else if (taglineSortOrder === "recent") {
+                            items = [...items].sort((a, b) => {
+                              const aRecent = recentlyUsedTaglines.indexOf(a.id);
+                              const bRecent = recentlyUsedTaglines.indexOf(b.id);
+                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
+                            });
+                          }
+                        }
+                        return items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`tagline-list-item${favoriteTaglines.includes(item.id) ? " favorited" : ""}`}
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            onMouseEnter={() => setHoverTaglineId(item.id)}
+                            onMouseLeave={() => setHoverTaglineId(null)}
+                            onFocus={() => setHoverTaglineId(item.id)}
+                            onBlur={() => setHoverTaglineId(null)}
+                            tabIndex={0}
+                          >
+                            <span className="library-item-label">{item.label}</span>
+                            <button
+                              className={`library-favorite-btn${favoriteTaglines.includes(item.id) ? " active" : ""}`}
+                              onClick={(e) => toggleTaglineFavorite(item.id, e)}
+                              title={favoriteTaglines.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              {favoriteTaglines.includes(item.id) ? "★" : "☆"}
+                            </button>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    <div className="tagline-preview-panel">
+                      {(() => {
+                        if (!hoverTaglineId) {
+                          return <p className="hint">Hover a tagline to preview.</p>;
+                        }
+                        const activeItem = (library[openMenuTab] ?? []).find(
+                          (entry) => entry.id === hoverTaglineId
+                        );
+                        if (!activeItem) {
+                          return <p className="hint">Hover a tagline to preview.</p>;
+                        }
+                        return (
+                          <>
+                            <div className="tagline-preview-title">{activeItem.label}</div>
+                            <p>{activeItem.content ?? activeItem.label}</p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : openMenuTab === "Full Letters" ? (
-              <div className="full-letter-two-column">
-                <div className="full-letter-list">
-                  {filterFlyoutItems(openMenuTab).map((item) => (
-                    <div
-                      key={item.id}
-                      className={
-                        selectedFullLetterId === item.id
-                          ? "full-letter-list-item active"
-                          : "full-letter-list-item"
-                      }
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, item)}
-                      onClick={() => {
-                        addLibraryItemToCanvas(item);
-                        setSelectedFullLetterId(item.id);
-                      }}
-                      onMouseEnter={() => setHoverFullLetterId(item.id)}
-                      onMouseLeave={() => setHoverFullLetterId(null)}
-                      onFocus={() => setHoverFullLetterId(item.id)}
-                      onBlur={() => setHoverFullLetterId(null)}
-                      tabIndex={0}
-                    >
-                      {item.label}
+              <div className="library-panel-enhanced">
+                {/* Recently Used Section */}
+                {recentlyUsedTemplates.length > 0 && !flyoutQuery && (
+                  <div className="library-section">
+                    <div className="library-section-header">
+                      <span className="library-section-title">Recently Used</span>
                     </div>
-                  ))}
-                </div>
-                <div className="full-letter-preview-panel">
-                  {(() => {
-                    const activeId = hoverFullLetterId ?? selectedFullLetterId;
-                    if (!activeId) {
-                      return <p className="hint">Hover a letter to preview.</p>;
-                    }
-                    const activeItem = (library[openMenuTab] ?? []).find(
-                      (entry) => entry.id === activeId
-                    );
-                    if (!activeItem) {
-                      return <p className="hint">Hover a letter to preview.</p>;
-                    }
-                    return (
-                      <>
-                        <div className="full-letter-preview-title">{activeItem.label}</div>
-                        <p>{activeItem.content ?? activeItem.label}</p>
-                      </>
-                    );
-                  })()}
+                    <div className="library-recent-chips">
+                      {recentlyUsedTemplates
+                        .map((id) => (library["Full Letters"] ?? []).find((t) => t.id === id))
+                        .filter(Boolean)
+                        .map((item) => item && (
+                          <div
+                            key={item.id}
+                            className="library-chip"
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            title={item.content ?? item.label}
+                          >
+                            {item.label}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Content */}
+                <div className="library-section">
+                  <div className="library-section-header">
+                    <span className="library-section-title">
+                      {flyoutQuery ? `Results` : "All Templates"}
+                    </span>
+                    {!flyoutQuery && (
+                      <select
+                        className="library-sort-select"
+                        value={templateSortOrder}
+                        onChange={(e) => setTemplateSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
+                      >
+                        <option value="recent">Recent</option>
+                        <option value="a-z">A-Z</option>
+                        <option value="favorites">Favorites</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="full-letter-two-column">
+                    <div className="full-letter-list">
+                      {(() => {
+                        let items = filterFlyoutItems(openMenuTab);
+                        if (!flyoutQuery) {
+                          if (templateSortOrder === "a-z") {
+                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
+                          } else if (templateSortOrder === "favorites") {
+                            items = [...items].sort((a, b) => {
+                              const aFav = favoriteTemplates.includes(a.id) ? 0 : 1;
+                              const bFav = favoriteTemplates.includes(b.id) ? 0 : 1;
+                              return aFav - bFav || a.label.localeCompare(b.label);
+                            });
+                          } else if (templateSortOrder === "recent") {
+                            items = [...items].sort((a, b) => {
+                              const aRecent = recentlyUsedTemplates.indexOf(a.id);
+                              const bRecent = recentlyUsedTemplates.indexOf(b.id);
+                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
+                            });
+                          }
+                        }
+                        return items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`full-letter-list-item${selectedFullLetterId === item.id ? " active" : ""}${favoriteTemplates.includes(item.id) ? " favorited" : ""}`}
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => {
+                              addLibraryItemToCanvas(item);
+                              setSelectedFullLetterId(item.id);
+                            }}
+                            onMouseEnter={() => setHoverFullLetterId(item.id)}
+                            onMouseLeave={() => setHoverFullLetterId(null)}
+                            onFocus={() => setHoverFullLetterId(item.id)}
+                            onBlur={() => setHoverFullLetterId(null)}
+                            tabIndex={0}
+                          >
+                            <span className="library-item-label">{item.label}</span>
+                            <button
+                              className={`library-favorite-btn${favoriteTemplates.includes(item.id) ? " active" : ""}`}
+                              onClick={(e) => toggleTemplateFavorite(item.id, e)}
+                              title={favoriteTemplates.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              {favoriteTemplates.includes(item.id) ? "★" : "☆"}
+                            </button>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    <div className="full-letter-preview-panel">
+                      {(() => {
+                        const activeId = hoverFullLetterId ?? selectedFullLetterId;
+                        if (!activeId) {
+                          return <p className="hint">Hover a letter to preview.</p>;
+                        }
+                        const activeItem = (library[openMenuTab] ?? []).find(
+                          (entry) => entry.id === activeId
+                        );
+                        if (!activeItem) {
+                          return <p className="hint">Hover a letter to preview.</p>;
+                        }
+                        return (
+                          <>
+                            <div className="full-letter-preview-title">{activeItem.label}</div>
+                            <p>{activeItem.content ?? activeItem.label}</p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : openMenuTab === "Verbiage" ? (
-              <div className="verbiage-two-column">
-                <div className="verbiage-list">
-                  {filterFlyoutItems(openMenuTab).map((item) => (
-                    <div
-                      key={item.id}
-                      className={
-                        selectedVerbiageId === item.id
-                          ? "verbiage-list-item active"
-                          : "verbiage-list-item"
-                      }
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, item)}
-                      onClick={() => {
-                        addLibraryItemToCanvas(item);
-                        setSelectedVerbiageId(item.id);
-                      }}
-                      onMouseEnter={() => setHoverPreviewId(item.id)}
-                      onMouseLeave={() => setHoverPreviewId(null)}
-                      onFocus={() => setHoverPreviewId(item.id)}
-                      onBlur={() => setHoverPreviewId(null)}
-                      tabIndex={0}
-                    >
-                      {item.label}
+              <div className="library-panel-enhanced">
+                {/* Recently Used Section */}
+                {recentlyUsedVerbiage.length > 0 && !flyoutQuery && (
+                  <div className="library-section">
+                    <div className="library-section-header">
+                      <span className="library-section-title">Recently Used</span>
                     </div>
-                  ))}
-                </div>
-                <div className="verbiage-preview-panel">
-                  {(() => {
-                    const activeId = hoverPreviewId ?? selectedVerbiageId;
-                    if (!activeId) {
-                      return <p className="hint">Hover a verbiage to preview.</p>;
-                    }
-                    const activeItem = (library[openMenuTab] ?? []).find(
-                      (entry) => entry.id === activeId
-                    );
-                    if (!activeItem) {
-                      return <p className="hint">Hover a verbiage to preview.</p>;
-                    }
-                    return (
-                      <>
-                        <div className="verbiage-preview-title">{activeItem.label}</div>
-                        <p>{activeItem.content ?? activeItem.label}</p>
-                      </>
-                    );
-                  })()}
+                    <div className="library-recent-chips">
+                      {recentlyUsedVerbiage
+                        .map((id) => (library.Verbiage ?? []).find((v) => v.id === id))
+                        .filter(Boolean)
+                        .map((item) => item && (
+                          <div
+                            key={item.id}
+                            className="library-chip"
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => addLibraryItemToCanvas(item)}
+                            title={item.content ?? item.label}
+                          >
+                            {item.label}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Content */}
+                <div className="library-section">
+                  <div className="library-section-header">
+                    <span className="library-section-title">
+                      {flyoutQuery ? `Results` : "All Verbiage"}
+                    </span>
+                    {!flyoutQuery && (
+                      <select
+                        className="library-sort-select"
+                        value={verbiageSortOrder}
+                        onChange={(e) => setVerbiageSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
+                      >
+                        <option value="recent">Recent</option>
+                        <option value="a-z">A-Z</option>
+                        <option value="favorites">Favorites</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="verbiage-two-column">
+                    <div className="verbiage-list">
+                      {(() => {
+                        let items = filterFlyoutItems(openMenuTab);
+                        if (!flyoutQuery) {
+                          if (verbiageSortOrder === "a-z") {
+                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
+                          } else if (verbiageSortOrder === "favorites") {
+                            items = [...items].sort((a, b) => {
+                              const aFav = favoriteVerbiage.includes(a.id) ? 0 : 1;
+                              const bFav = favoriteVerbiage.includes(b.id) ? 0 : 1;
+                              return aFav - bFav || a.label.localeCompare(b.label);
+                            });
+                          } else if (verbiageSortOrder === "recent") {
+                            items = [...items].sort((a, b) => {
+                              const aRecent = recentlyUsedVerbiage.indexOf(a.id);
+                              const bRecent = recentlyUsedVerbiage.indexOf(b.id);
+                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
+                            });
+                          }
+                        }
+                        return items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`verbiage-list-item${selectedVerbiageId === item.id ? " active" : ""}${favoriteVerbiage.includes(item.id) ? " favorited" : ""}`}
+                            draggable
+                            onDragStart={(event) => handleDragStart(event, item)}
+                            onClick={() => {
+                              addLibraryItemToCanvas(item);
+                              setSelectedVerbiageId(item.id);
+                            }}
+                            onMouseEnter={() => setHoverPreviewId(item.id)}
+                            onMouseLeave={() => setHoverPreviewId(null)}
+                            onFocus={() => setHoverPreviewId(item.id)}
+                            onBlur={() => setHoverPreviewId(null)}
+                            tabIndex={0}
+                          >
+                            <span className="library-item-label">{item.label}</span>
+                            <button
+                              className={`library-favorite-btn${favoriteVerbiage.includes(item.id) ? " active" : ""}`}
+                              onClick={(e) => toggleVerbiageFavorite(item.id, e)}
+                              title={favoriteVerbiage.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
+                            >
+                              {favoriteVerbiage.includes(item.id) ? "★" : "☆"}
+                            </button>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    <div className="verbiage-preview-panel">
+                      {(() => {
+                        const activeId = hoverPreviewId ?? selectedVerbiageId;
+                        if (!activeId) {
+                          return <p className="hint">Hover a verbiage to preview.</p>;
+                        }
+                        const activeItem = (library[openMenuTab] ?? []).find(
+                          (entry) => entry.id === activeId
+                        );
+                        if (!activeItem) {
+                          return <p className="hint">Hover a verbiage to preview.</p>;
+                        }
+                        return (
+                          <>
+                            <div className="verbiage-preview-title">{activeItem.label}</div>
+                            <p>{activeItem.content ?? activeItem.label}</p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
