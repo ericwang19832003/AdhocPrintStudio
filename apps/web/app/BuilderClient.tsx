@@ -274,23 +274,28 @@ const SNAP_TOLERANCE = 6;
 const DEFAULT_BLOCK_HEIGHT = 80;
 const PAGE_PADDING = 20;
 
-// Estimate block height based on content for better overlap detection
-const estimateBlockHeight = (item: LibraryItem): number => {
-  if (item.type !== "verbiage" && item.type !== "full-letter") {
-    return DEFAULT_BLOCK_HEIGHT;
-  }
-  if (!item.content) return DEFAULT_BLOCK_HEIGHT;
+// Estimate block height from content string (for existing blocks in state)
+const estimateBlockHeightFromContent = (content: string | undefined): number => {
+  if (!content) return DEFAULT_BLOCK_HEIGHT;
 
   // Count newlines and estimate based on content length
-  const lineBreaks = (item.content.match(/\n/g) || []).length;
+  const lineBreaks = (content.match(/\n/g) || []).length;
   const avgCharsPerLine = 60; // Based on full-width block
-  const estimatedLines = Math.max(lineBreaks + 1, Math.ceil(item.content.length / avgCharsPerLine));
+  const estimatedLines = Math.max(lineBreaks + 1, Math.ceil(content.length / avgCharsPerLine));
 
   const lineHeight = 24;
   const headerHeight = 40; // Title area
   const padding = 32; // Top/bottom padding
 
   return Math.max(DEFAULT_BLOCK_HEIGHT, headerHeight + (estimatedLines * lineHeight) + padding);
+};
+
+// Estimate block height based on content for better overlap detection
+const estimateBlockHeight = (item: LibraryItem): number => {
+  if (item.type !== "verbiage" && item.type !== "full-letter") {
+    return DEFAULT_BLOCK_HEIGHT;
+  }
+  return estimateBlockHeightFromContent(item.content);
 };
 
 // 15 Logo placeholders with varied styles and colors
@@ -751,7 +756,10 @@ export default function BuilderClient() {
 
     return (blocksByPage[activePage] ?? []).some((block) => {
       if (block.id === ignoreId) return false;
-      const blockHeight = getBlockHeight(block.id);
+      // For verbiage/full-letter, use content-based estimation (DOM refs may be stale/unavailable)
+      const blockHeight = (block.type === "verbiage" || block.type === "full-letter")
+        ? estimateBlockHeightFromContent(block.content)
+        : getBlockHeight(block.id);
       // Get actual rendered position/width for existing blocks too
       const blockX = (block.type === "verbiage" || block.type === "full-letter") ? PAGE_PADDING : block.x;
       const blockWidth = (block.type === "verbiage" || block.type === "full-letter") ? (bodyWidth - PAGE_PADDING * 2) : block.width;
