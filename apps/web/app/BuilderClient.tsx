@@ -2941,12 +2941,12 @@ export default function BuilderClient() {
               }}
             >
               <p>{spreadsheetName ? "Data file loaded" : "Drag data file here"}</p>
-              <span>{spreadsheetName ?? "Upload CSV, Excel, XML, or JSON file"}</span>
+              <span>{spreadsheetName ?? "Upload Excel file"}</span>
               <label className="file-input">
                 Upload file
                 <input
                   type="file"
-                  accept=".csv,.xlsx,.xml,.json"
+                  accept=".xlsx,.xls"
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (file) {
