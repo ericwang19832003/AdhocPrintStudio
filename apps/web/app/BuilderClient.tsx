@@ -756,10 +756,12 @@ export default function BuilderClient() {
 
     return (blocksByPage[activePage] ?? []).some((block) => {
       if (block.id === ignoreId) return false;
-      // For verbiage/full-letter, use content-based estimation (DOM refs may be stale/unavailable)
+      // For verbiage/full-letter, use max of DOM height and content estimation
+      // (DOM refs may be stale/unavailable, estimation may undercount)
+      const domHeight = getBlockHeight(block.id);
       const blockHeight = (block.type === "verbiage" || block.type === "full-letter")
-        ? estimateBlockHeightFromContent(block.content)
-        : getBlockHeight(block.id);
+        ? Math.max(domHeight, estimateBlockHeightFromContent(block.content))
+        : domHeight;
       // Get actual rendered position/width for existing blocks too
       const blockX = (block.type === "verbiage" || block.type === "full-letter") ? PAGE_PADDING : block.x;
       const blockWidth = (block.type === "verbiage" || block.type === "full-letter") ? (bodyWidth - PAGE_PADDING * 2) : block.width;
