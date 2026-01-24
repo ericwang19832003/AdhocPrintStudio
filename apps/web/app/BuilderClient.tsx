@@ -3376,11 +3376,8 @@ export default function BuilderClient() {
           )}
 
           <div className="property-group">
-            <button className="secondary" onClick={handleMergePreview} disabled={!spreadsheetContent}>
-              Merge/Preview
-            </button>
-            <button className="primary" onClick={() => setShowPreview(true)} disabled={!spreadsheetContent}>
-              Generate print output
+            <button className="primary" onClick={handleMergePreview} disabled={!spreadsheetContent}>
+              Merge/Preview/Print
             </button>
           </div>
         </aside>
