@@ -280,12 +280,17 @@ const estimateBlockHeightFromContent = (content: string | undefined): number => 
 
   // Count newlines and estimate based on content length
   const lineBreaks = (content.match(/\n/g) || []).length;
-  const avgCharsPerLine = 60; // Based on full-width block
-  const estimatedLines = Math.max(lineBreaks + 1, Math.ceil(content.length / avgCharsPerLine));
+  // Use conservative estimate: ~45 chars/line for full-width blocks at typical font size
+  const avgCharsPerLine = 45;
+  // Calculate lines from both newlines and character wrapping
+  const charsWithoutNewlines = content.replace(/\n/g, '').length;
+  const wrappedLines = Math.ceil(charsWithoutNewlines / avgCharsPerLine);
+  // Total lines = newlines create line breaks + wrapped lines within paragraphs
+  const estimatedLines = lineBreaks + wrappedLines;
 
   const lineHeight = 24;
-  const headerHeight = 40; // Title area
-  const padding = 32; // Top/bottom padding
+  const headerHeight = 48; // Title area with some margin
+  const padding = 40; // Top/bottom padding
 
   return Math.max(DEFAULT_BLOCK_HEIGHT, headerHeight + (estimatedLines * lineHeight) + padding);
 };
