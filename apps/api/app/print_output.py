@@ -15,6 +15,7 @@ from fastapi.responses import Response
 from PIL import Image, ImageDraw, ImageFont
 
 from app.afp_document_generator import generate_afp_document
+from app.afp_cleaner import clean_afp
 from app.security import validate_file_size, validate_file_content, MAX_UPLOAD_SIZE
 from openpyxl import load_workbook
 
@@ -693,4 +694,76 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
     except HTTPException:
         raise
     except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/afp-clean")
+async def clean_afp_file(file: UploadFile = File(...)) -> Response:
+    """
+    Remove index/grouping structured fields from an AFP file.
+
+    This endpoint removes Named Page Group and Index Element structured fields
+    that are added by mainframe processing (e.g., StreamWeaver) and may not be
+    recognized by downstream systems like Bluecrest Output Manager.
+
+    Structured fields removed:
+    - BNG (D3 A8 5F) - Begin Named Page Group
+    - ENG (D3 A9 5F) - End Named Page Group
+    - BIE (D3 A8 FB) - Begin Index Element
+    - EIE (D3 A9 FB) - End Index Element
+    - IEL (D3 AF 5F) - Index Element Link
+
+    Only removes these fields when they contain S-number patterns (S0000001, etc.).
+    """
+    try:
+        # Read the uploaded file
+        content = await file.read()
+
+        # Validate file size (max 50MB for AFP files)
+        max_afp_size = 50 * 1024 * 1024  # 50MB
+        if len(content) > max_afp_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large. Maximum size is {max_afp_size // (1024*1024)}MB"
+            )
+
+        # Validate it's an AFP file (starts with 0x5A carriage control)
+        if len(content) < 6 or content[0] != 0x5A:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid AFP file format. File must start with AFP carriage control (0x5A)"
+            )
+
+        # Clean the AFP file
+        cleaned_data, stats = clean_afp(content)
+
+        # Generate filename
+        original_name = file.filename or "output"
+        if original_name.lower().endswith('.afp'):
+            clean_name = original_name[:-4] + ".cleaned.afp"
+        else:
+            clean_name = original_name + ".cleaned.afp"
+
+        logger.info(
+            f"AFP cleaned: removed {stats['total_removed']} index fields, "
+            f"kept {stats['total_kept']} structured fields"
+        )
+
+        return Response(
+            content=cleaned_data,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{clean_name}"',
+                "X-AFP-Removed-BNG": str(stats.get("BNG (Begin Named Page Group)", 0)),
+                "X-AFP-Removed-ENG": str(stats.get("ENG (End Named Page Group)", 0)),
+                "X-AFP-Removed-BIE": str(stats.get("BIE (Begin Index Element)", 0)),
+                "X-AFP-Removed-IEL": str(stats.get("IEL (Index Element Link)", 0)),
+                "X-AFP-Total-Removed": str(stats["total_removed"]),
+                "X-AFP-Total-Kept": str(stats["total_kept"]),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"AFP cleaning failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
