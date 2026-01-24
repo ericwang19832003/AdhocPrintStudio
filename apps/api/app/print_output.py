@@ -4,8 +4,10 @@ import csv
 import io
 import json
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 # Use defusedxml to prevent XXE attacks
 import defusedxml.ElementTree as ET
@@ -17,6 +19,12 @@ from PIL import Image, ImageDraw, ImageFont
 from app.afp_document_generator import generate_afp_document
 from app.afp_cleaner import clean_afp
 from app.security import validate_file_size, validate_file_content, MAX_UPLOAD_SIZE
+from app.xml_streaming_parser import (
+    parse_large_xml_to_records,
+    parse_large_xml_to_csv,
+    get_xml_file_info,
+    stream_xml_records,
+)
 from openpyxl import load_workbook
 
 logger = logging.getLogger(__name__)
@@ -799,3 +807,252 @@ async def clean_afp_file(file: UploadFile = File(...)) -> Response:
     except Exception as exc:
         logger.error(f"AFP cleaning failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Maximum size for large XML files (2GB)
+MAX_LARGE_XML_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
+
+
+@router.post("/xml-large/info")
+async def get_large_xml_info(file: UploadFile = File(...)) -> dict[str, Any]:
+    """
+    Get information about a large XML file without fully parsing it.
+
+    This endpoint analyzes the XML structure and estimates the record count
+    without loading the entire file into memory.
+
+    Returns:
+        - file_size_bytes: File size in bytes
+        - file_size_mb: File size in megabytes
+        - detected_record_tag: The detected repeating element tag
+        - estimated_records: Estimated number of records
+    """
+    if not file.filename or not file.filename.lower().endswith('.xml'):
+        raise HTTPException(status_code=400, detail="File must be an XML file (.xml)")
+
+    # Save to temp file for streaming analysis
+    temp_file = None
+    try:
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xml')
+        temp_path = temp_file.name
+
+        # Stream file to disk in chunks
+        total_size = 0
+        chunk_size = 64 * 1024  # 64KB chunks
+
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_LARGE_XML_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size is {MAX_LARGE_XML_SIZE // (1024*1024*1024)}GB"
+                )
+            temp_file.write(chunk)
+
+        temp_file.close()
+
+        # Get file info using streaming parser
+        info = get_xml_file_info(temp_path)
+        info["filename"] = file.filename
+
+        return info
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"XML info extraction failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        if temp_file:
+            try:
+                os.unlink(temp_file.name)
+            except Exception:
+                pass
+
+
+@router.post("/xml-large/parse")
+async def parse_large_xml(
+    file: UploadFile = File(...),
+    max_records: Optional[int] = 10000,
+    record_tag: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Parse a large XML file using streaming (memory-efficient).
+
+    This endpoint can handle XML files up to 2GB by using iterative parsing
+    that processes records one at a time without loading the entire file.
+
+    Args:
+        file: The XML file to parse
+        max_records: Maximum records to return (default 10000, max 50000)
+        record_tag: Override the detected record element tag (optional)
+
+    Returns:
+        - columns: list of column names
+        - csv: data in CSV format
+        - records_processed: number of records processed
+        - truncated: whether the result was truncated due to max_records
+    """
+    if not file.filename or not file.filename.lower().endswith('.xml'):
+        raise HTTPException(status_code=400, detail="File must be an XML file (.xml)")
+
+    # Limit max_records to prevent memory issues
+    if max_records is None or max_records > 50000:
+        max_records = 50000
+
+    temp_file = None
+    try:
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xml')
+        temp_path = temp_file.name
+
+        # Stream file to disk
+        total_size = 0
+        chunk_size = 64 * 1024
+
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_LARGE_XML_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size is {MAX_LARGE_XML_SIZE // (1024*1024*1024)}GB"
+                )
+            temp_file.write(chunk)
+
+        temp_file.close()
+
+        logger.info(f"Parsing large XML file: {file.filename} ({total_size / (1024*1024):.1f} MB)")
+
+        # Parse using streaming parser
+        columns, records = parse_large_xml_to_records(
+            temp_path,
+            record_tag=record_tag,
+            max_records=max_records
+        )
+
+        # Convert to CSV format
+        csv_text = _xml_records_to_csv(columns, records)
+
+        truncated = len(records) >= max_records
+
+        logger.info(f"Parsed {len(records)} records with {len(columns)} columns (truncated={truncated})")
+
+        return {
+            "columns": columns,
+            "csv": csv_text,
+            "records_processed": len(records),
+            "truncated": truncated,
+            "file_size_mb": round(total_size / (1024 * 1024), 2),
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as exc:
+        logger.error(f"Large XML parsing failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        if temp_file:
+            try:
+                os.unlink(temp_file.name)
+            except Exception:
+                pass
+
+
+@router.post("/xml-large/to-csv")
+async def convert_large_xml_to_csv(
+    file: UploadFile = File(...),
+    record_tag: Optional[str] = None,
+) -> Response:
+    """
+    Convert a large XML file to CSV format (streaming).
+
+    This endpoint handles XML files up to 2GB by streaming the data
+    and returning a downloadable CSV file.
+
+    Args:
+        file: The XML file to convert
+        record_tag: Override the detected record element tag (optional)
+
+    Returns:
+        CSV file download
+    """
+    if not file.filename or not file.filename.lower().endswith('.xml'):
+        raise HTTPException(status_code=400, detail="File must be an XML file (.xml)")
+
+    temp_xml = None
+    temp_csv = None
+    try:
+        # Save XML to temp file
+        temp_xml = tempfile.NamedTemporaryFile(delete=False, suffix='.xml')
+        xml_path = temp_xml.name
+
+        total_size = 0
+        chunk_size = 64 * 1024
+
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_LARGE_XML_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size is {MAX_LARGE_XML_SIZE // (1024*1024*1024)}GB"
+                )
+            temp_xml.write(chunk)
+
+        temp_xml.close()
+
+        logger.info(f"Converting large XML to CSV: {file.filename} ({total_size / (1024*1024):.1f} MB)")
+
+        # Convert to CSV
+        temp_csv = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
+        csv_path = temp_csv.name
+        temp_csv.close()
+
+        csv_path, record_count, columns = parse_large_xml_to_csv(
+            xml_path,
+            output_path=csv_path,
+            record_tag=record_tag
+        )
+
+        logger.info(f"Converted {record_count} records with {len(columns)} columns")
+
+        # Read CSV and return
+        with open(csv_path, 'rb') as f:
+            csv_content = f.read()
+
+        # Generate output filename
+        output_name = file.filename[:-4] + ".csv" if file.filename else "output.csv"
+
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="{output_name}"',
+                "X-Records-Count": str(record_count),
+                "X-Columns-Count": str(len(columns)),
+            },
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as exc:
+        logger.error(f"Large XML to CSV conversion failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        for temp in [temp_xml, temp_csv]:
+            if temp:
+                try:
+                    os.unlink(temp.name)
+                except Exception:
+                    pass
