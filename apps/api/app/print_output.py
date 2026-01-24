@@ -144,6 +144,17 @@ def _csv_from_rows(rows: list[list[Any]]) -> str:
     return buffer.getvalue()
 
 
+def _strip_namespace(tag: str) -> str:
+    """
+    Strip XML namespace prefix from a tag.
+
+    Example: "{http://www.example.com}Customer" -> "Customer"
+    """
+    if tag.startswith("{"):
+        return tag.split("}", 1)[1] if "}" in tag else tag
+    return tag
+
+
 def _flatten_xml_element(element: ET.Element, prefix: str = "") -> dict[str, str]:
     """
     Flatten an XML element into a dictionary with dot-notation keys.
@@ -151,11 +162,16 @@ def _flatten_xml_element(element: ET.Element, prefix: str = "") -> dict[str, str
     Example:
         <Address><Line1>123 Main</Line1><City>NYC</City></Address>
         becomes: {"Address.Line1": "123 Main", "Address.City": "NYC"}
+
+    Namespace prefixes are stripped from tag names.
     """
     result: dict[str, str] = {}
 
+    # Strip namespace from tag
+    tag_name = _strip_namespace(element.tag)
+
     # Build the current key
-    current_key = f"{prefix}.{element.tag}" if prefix else element.tag
+    current_key = f"{prefix}.{tag_name}" if prefix else tag_name
 
     # Get element text (strip whitespace)
     text = (element.text or "").strip()
@@ -183,46 +199,62 @@ def _flatten_xml_element(element: ET.Element, prefix: str = "") -> dict[str, str
     return result
 
 
-def _detect_repeating_element(root: ET.Element) -> tuple[str, list[ET.Element]]:
+def _find_all_repeating_elements(element: ET.Element, depth: int = 0, max_depth: int = 3) -> list[tuple[str, list[ET.Element], int]]:
     """
-    Auto-detect the repeating element (records) in an XML structure.
+    Recursively find all repeating elements in an XML structure.
 
-    Looks for the first level of children that have multiple siblings with the same tag.
-    Returns the tag name and list of record elements.
+    Returns a list of (tag_name, elements, count) tuples for each repeating element found.
     """
-    # Count children by tag
+    results = []
+
+    if depth > max_depth:
+        return results
+
+    # Count children by tag (stripped of namespace)
     tag_counts: dict[str, list[ET.Element]] = {}
-    for child in root:
-        tag = child.tag
+    for child in element:
+        tag = _strip_namespace(child.tag)
         if tag not in tag_counts:
             tag_counts[tag] = []
         tag_counts[tag].append(child)
 
-    # Find the tag with multiple occurrences (likely the record element)
+    # Find tags with multiple occurrences
     for tag, elements in tag_counts.items():
         if len(elements) > 1:
-            return tag, elements
+            results.append((tag, elements, len(elements)))
 
-    # If no repeating element at first level, check if root has single child with repeating grandchildren
-    if len(list(root)) == 1:
-        single_child = list(root)[0]
-        grandchild_counts: dict[str, list[ET.Element]] = {}
-        for grandchild in single_child:
-            tag = grandchild.tag
-            if tag not in grandchild_counts:
-                grandchild_counts[tag] = []
-            grandchild_counts[tag].append(grandchild)
+    # Recursively check children
+    for child in element:
+        child_results = _find_all_repeating_elements(child, depth + 1, max_depth)
+        results.extend(child_results)
 
-        for tag, elements in grandchild_counts.items():
-            if len(elements) > 1:
-                return tag, elements
+    return results
 
-    # Fallback: treat all direct children as records
-    children = list(root)
-    if children:
-        return children[0].tag, children
 
-    return "", []
+def _detect_repeating_element(root: ET.Element) -> tuple[str, list[ET.Element]]:
+    """
+    Auto-detect the repeating element (records) in an XML structure.
+
+    Looks for repeating elements at any level up to 3 levels deep.
+    If multiple repeating elements are found, picks the one with the most occurrences.
+    Returns the tag name and list of record elements.
+    """
+    # Find all repeating elements
+    all_repeating = _find_all_repeating_elements(root)
+
+    if not all_repeating:
+        # Fallback: treat all direct children as records
+        children = list(root)
+        if children:
+            return _strip_namespace(children[0].tag), children
+        return "", []
+
+    # Sort by count (most occurrences first)
+    all_repeating.sort(key=lambda x: x[2], reverse=True)
+
+    # Return the repeating element with most occurrences
+    tag, elements, count = all_repeating[0]
+    return tag, elements
 
 
 def _parse_xml_to_records(xml_content: str) -> tuple[list[str], list[dict[str, str]]]:
