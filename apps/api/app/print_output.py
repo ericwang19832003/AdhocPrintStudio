@@ -715,6 +715,9 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 header, b64_data = data_url.split(",", 1)
                 img_bytes = base64.b64decode(b64_data)
                 img = Image.open(io.BytesIO(img_bytes))
+                # Resize to match letter page dimensions for consistent PDF output
+                if img.size != (PAGE_WIDTH, PAGE_HEIGHT):
+                    img = img.resize((PAGE_WIDTH, PAGE_HEIGHT), Image.Resampling.LANCZOS)
                 if img.mode != "RGB":
                     img = img.convert("RGB")
                 babel_images.append(img)
