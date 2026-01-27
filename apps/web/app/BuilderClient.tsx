@@ -588,6 +588,8 @@ export default function BuilderClient() {
   const taglineListRef = useRef<HTMLDivElement | null>(null);
   const logoAspectRef = useRef(160 / 70);
   const activePageRef = useRef(activePage);
+  // Track pending blocks during rapid clicks to prevent overlap race condition
+  const pendingBlocksRef = useRef<PlacedBlock[]>([]);
 
   const stripInlineControls = (html: string) => {
     if (!html) return "";
@@ -601,6 +603,12 @@ export default function BuilderClient() {
   useEffect(() => {
     activePageRef.current = activePage;
   }, [activePage]);
+
+  // Clear pending blocks ref after React commits blocksByPage state updates
+  // This prevents stale pending blocks from causing false overlap detections
+  useEffect(() => {
+    pendingBlocksRef.current = [];
+  }, [blocksByPage]);
 
   // Track editor instance for toolbar
   useEffect(() => {
@@ -760,7 +768,14 @@ export default function BuilderClient() {
     const checkX = (itemType === "verbiage" || itemType === "full-letter") ? PAGE_PADDING : x;
     const checkWidth = (itemType === "verbiage" || itemType === "full-letter") ? (bodyWidth - PAGE_PADDING * 2) : width;
 
-    return (blocksByPage[activePage] ?? []).some((block) => {
+    // Combine committed blocks with pending blocks to handle rapid clicks
+    // (pending blocks haven't been committed to React state yet due to batching)
+    const allBlocks = [
+      ...(blocksByPage[activePage] ?? []),
+      ...pendingBlocksRef.current,
+    ];
+
+    return allBlocks.some((block) => {
       if (block.id === ignoreId) return false;
       // For verbiage/full-letter, use max of DOM height and content estimation
       // (DOM refs may be stale/unavailable, estimation may undercount)
@@ -1126,6 +1141,10 @@ export default function BuilderClient() {
     }
     block.x = Math.min(Math.max(x, 0), size.width - block.width);
     block.y = Math.max(0, Math.min(y, Math.max(0, size.height - height)));
+    // Add to pending blocks ref BEFORE React state update to prevent race condition
+    // during rapid clicks (React batches state updates, so subsequent clicks would
+    // see stale state without this)
+    pendingBlocksRef.current = [...pendingBlocksRef.current, block];
     setBlocksByPage((prev) => ({
       ...prev,
       [activePage]: [...(prev[activePage] ?? []), block],
