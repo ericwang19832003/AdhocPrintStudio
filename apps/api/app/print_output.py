@@ -12,6 +12,9 @@ from typing import Any, Optional
 # Use defusedxml to prevent XXE attacks
 import defusedxml.ElementTree as ET
 
+import base64
+
+import fitz  # PyMuPDF
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from PIL import Image, ImageDraw, ImageFont
@@ -562,6 +565,35 @@ def generate_afp(payload: dict[str, Any]) -> Response:
         # Dynamic asset configuration
         dynamic_return = payload.get("dynamic_return")
 
+        # Babel pages (PDF pages to append after each letter)
+        babel_pages_data = payload.get("babel_pages", [])
+        babel_page_info: list[dict[str, Any]] = []
+        for data_url in babel_pages_data:
+            if data_url.startswith("data:image/"):
+                # Extract base64 data
+                header, b64_data = data_url.split(",", 1)
+                img_bytes = base64.b64decode(b64_data)
+                img = Image.open(io.BytesIO(img_bytes))
+                # Resize to match page dimensions if needed
+                if img.size != (PAGE_WIDTH, PAGE_HEIGHT):
+                    img = img.resize((PAGE_WIDTH, PAGE_HEIGHT), Image.Resampling.LANCZOS)
+                if img.mode != "L":
+                    img = img.convert("L")
+                babel_page_info.append({
+                    'image_data': img.tobytes(),
+                    'width': img.size[0],
+                    'height': img.size[1],
+                    'tle_data': {
+                        'mailing_name': '',
+                        'mailing_addr1': '',
+                        'mailing_addr2': '',
+                        'mailing_addr3': '',
+                        'return_addr1': '',
+                        'return_addr2': '',
+                        'return_addr3': '',
+                    }
+                })
+
         # Helper to get return lines for a row
         def get_return_lines_for_row(row: dict[str, str]) -> list[str]:
             if dynamic_return:
@@ -623,6 +655,10 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 }
             })
 
+            # Append babel pages after each letter
+            for babel_page in babel_page_info:
+                pages.append(babel_page.copy())
+
         # Generate AFP document with Exstream-compatible resource structure
         # Uses BRS/ERS for page segment resources, BNG/ENG for named page groups,
         # and MCF for font mappings - better compatibility with Bluecrest
@@ -670,6 +706,19 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
         # Dynamic asset configuration
         dynamic_return = payload.get("dynamic_return")
 
+        # Babel pages (PDF pages to append after each letter)
+        babel_pages_data = payload.get("babel_pages", [])
+        babel_images: list[Image.Image] = []
+        for data_url in babel_pages_data:
+            if data_url.startswith("data:image/"):
+                # Extract base64 data
+                header, b64_data = data_url.split(",", 1)
+                img_bytes = base64.b64decode(b64_data)
+                img = Image.open(io.BytesIO(img_bytes))
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                babel_images.append(img)
+
         # Helper to get return lines for a row
         def get_return_lines_for_row(row: dict[str, str]) -> list[str]:
             if dynamic_return:
@@ -713,6 +762,10 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
             if image.mode != "RGB":
                 image = image.convert("RGB")
             images.append(image)
+
+            # Append babel pages after each letter
+            for babel_img in babel_images:
+                images.append(babel_img.copy())
 
         # Save all images as a multi-page PDF
         pdf_buffer = io.BytesIO()
@@ -1058,3 +1111,60 @@ async def convert_large_xml_to_csv(
                     os.unlink(temp.name)
                 except Exception:
                     pass
+
+
+@router.post("/extract-pdf-pages")
+async def extract_pdf_pages(file: UploadFile = File(...)) -> dict[str, Any]:
+    """
+    Extract pages from a PDF file as base64-encoded PNG images.
+
+    These images can be used as "babel pages" to append after each letter
+    in the generated output.
+
+    Returns:
+        - pages: list of base64 data URLs (data:image/png;base64,...)
+        - count: number of pages extracted
+    """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF (.pdf)")
+
+    try:
+        content = await file.read()
+
+        # Validate file size (max 20MB for babel PDFs)
+        max_babel_size = 20 * 1024 * 1024
+        if len(content) > max_babel_size:
+            raise HTTPException(
+                status_code=413,
+                detail=f"PDF too large. Maximum size is {max_babel_size // (1024*1024)}MB",
+            )
+
+        # Open PDF with PyMuPDF
+        pdf_doc = fitz.open(stream=content, filetype="pdf")
+
+        pages: list[str] = []
+        for page_num in range(len(pdf_doc)):
+            page = pdf_doc[page_num]
+            # Render page at 150 DPI for good quality thumbnails
+            mat = fitz.Matrix(150 / 72, 150 / 72)
+            pix = page.get_pixmap(matrix=mat)
+
+            # Convert to PNG bytes
+            png_bytes = pix.tobytes("png")
+
+            # Convert to base64 data URL
+            b64 = base64.b64encode(png_bytes).decode("utf-8")
+            data_url = f"data:image/png;base64,{b64}"
+            pages.append(data_url)
+
+        pdf_doc.close()
+
+        logger.info(f"Extracted {len(pages)} pages from PDF: {file.filename}")
+
+        return {"pages": pages, "count": len(pages)}
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"PDF page extraction failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

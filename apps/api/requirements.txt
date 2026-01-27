@@ -14,3 +14,5 @@ python-multipart==0.0.9
 defusedxml==0.7.1
 slowapi==0.1.9
 python-magic==0.4.27
+# PDF processing
+PyMuPDF==1.24.5
