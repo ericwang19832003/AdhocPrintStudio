@@ -486,6 +486,10 @@ export default function BuilderClient() {
   const [blocksByPage, setBlocksByPage] = useState<Record<number, PlacedBlock[]>>({
     0: [],
   });
+  // Babel pages (PDF pages to append to the letter)
+  const [babelPages, setBabelPages] = useState<Array<{ id: string; name: string; dataUrl: string }>>([]);
+  const [babelLoading, setBabelLoading] = useState(false);
+  const [babelError, setBabelError] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [openMenuTab, setOpenMenuTab] = useState<string | null>(null);
   const [flyoutQuery, setFlyoutQuery] = useState("");
@@ -1019,6 +1023,43 @@ export default function BuilderClient() {
     setBlocksByPage((prev) => ({ ...prev, [nextIndex]: [] }));
     setActivePage(nextIndex);
     setSelectedBlockId(null);
+  };
+
+  const handleBabelPdfUpload = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setBabelError("Please upload a PDF file");
+      return;
+    }
+    setBabelLoading(true);
+    setBabelError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`${env.apiBaseUrl}/print-output/extract-pdf-pages`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Failed to extract PDF pages");
+      }
+      const result = await response.json();
+      const newPages = (result.pages || []).map((dataUrl: string, index: number) => ({
+        id: `${Date.now()}-${index}`,
+        name: `${file.name} - Page ${index + 1}`,
+        dataUrl,
+      }));
+      setBabelPages((prev) => [...prev, ...newPages]);
+    } catch (error) {
+      console.error(error);
+      setBabelError(error instanceof Error ? error.message : "Failed to process PDF");
+    } finally {
+      setBabelLoading(false);
+    }
+  };
+
+  const removeBabelPage = (id: string) => {
+    setBabelPages((prev) => prev.filter((page) => page.id !== id));
   };
 
   const handleExportWord = () => {
@@ -1778,6 +1819,8 @@ export default function BuilderClient() {
             map: buildDynamicReturnMap(),
             default: returnLines,
           } : null,
+          // Babel pages to append after each letter
+          babel_pages: babelPages.map((page) => page.dataUrl),
         }),
       });
       if (!response.ok) {
@@ -2986,6 +3029,56 @@ export default function BuilderClient() {
             <button className="ghost full-width" onClick={handleAddPage}>
               + Add page
             </button>
+          </div>
+
+          <h3>Babel Pages</h3>
+          <div className="property-group">
+            <p className="hint">Upload PDF pages to append after each letter</p>
+            <div
+              className={`drop-zone babel-drop${babelLoading ? " loading" : ""}`}
+              onDragEnter={(e) => e.preventDefault()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const file = event.dataTransfer.files?.[0];
+                if (file) handleBabelPdfUpload(file);
+              }}
+            >
+              <p>{babelLoading ? "Processing PDF..." : "Drop PDF here"}</p>
+              <label className="file-input">
+                Upload PDF
+                <input
+                  type="file"
+                  accept=".pdf"
+                  disabled={babelLoading}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleBabelPdfUpload(file);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            {babelError && <div className="alert warning">{babelError}</div>}
+            {babelPages.length > 0 && (
+              <div className="babel-pages-list">
+                {babelPages.map((page) => (
+                  <div key={page.id} className="babel-page-item">
+                    <img src={page.dataUrl} alt={page.name} className="babel-thumb" />
+                    <span className="babel-name" title={page.name}>
+                      {page.name.length > 20 ? page.name.slice(0, 20) + "..." : page.name}
+                    </span>
+                    <button
+                      className="babel-remove"
+                      onClick={() => removeBabelPage(page.id)}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <h3>Data</h3>
