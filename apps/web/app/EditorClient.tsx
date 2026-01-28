@@ -385,19 +385,9 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         // Check if editor is empty (only has empty paragraph with placeholder)
         const isEmpty = editor.state.doc.textContent.trim() === "";
 
-        const chain = editor.chain().focus();
-
-        // If editor is empty, select all to replace the empty paragraph
-        if (isEmpty) {
-          chain.selectAll();
-        }
-
-        if (options?.standardFormat) {
-          chain.setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left");
-        }
-        if (item.type === "verbiage") {
-          chain
-            .insertContent({
+        // Build the content to insert
+        const contentToInsert = item.type === "verbiage"
+          ? {
               type: "verbiageBlock",
               attrs: {
                 verbiageId: item.id ?? null,
@@ -405,11 +395,23 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
                 sourceType: "verbiage",
               },
               content: lines.length > 0 ? lines : [{ type: "paragraph" }],
-            })
-            .run();
-          return;
+            }
+          : lines.length > 0 ? lines : [{ type: "paragraph" }];
+
+        // If editor is empty, replace all content; otherwise insert at cursor
+        if (isEmpty) {
+          const chain = editor.chain().focus().clearContent();
+          if (options?.standardFormat) {
+            chain.setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left");
+          }
+          chain.insertContent(contentToInsert).run();
+        } else {
+          const chain = editor.chain().focus();
+          if (options?.standardFormat) {
+            chain.setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left");
+          }
+          chain.insertContent(contentToInsert).run();
         }
-        chain.insertContent(lines.length > 0 ? lines : [{ type: "paragraph" }]).run();
       },
       focusAtPoint: (x, y) => {
         if (!editor) return;
@@ -456,20 +458,9 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
         // Check if editor is empty (only has empty paragraph with placeholder)
         const isEmpty = editor.state.doc.textContent.trim() === "";
 
-        // If editor is empty, select all to replace; otherwise set cursor at drop position
-        if (isEmpty) {
-          editor.chain().focus().selectAll().run();
-        } else if (posAtCoords?.pos !== undefined) {
-          editor.chain().focus().setTextSelection(posAtCoords.pos).run();
-        } else {
-          editor.chain().focus("end").run();
-        }
-
-        // Insert the content
-        if (item.type === "verbiage") {
-          editor
-            .chain()
-            .insertContent({
+        // Build the content to insert
+        const contentToInsert = item.type === "verbiage"
+          ? {
               type: "verbiageBlock",
               attrs: {
                 verbiageId: item.id ?? null,
@@ -477,10 +468,18 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
                 sourceType: "verbiage",
               },
               content: lines.length > 0 ? lines : [{ type: "paragraph" }],
-            })
-            .run();
+            }
+          : lines.length > 0 ? lines : [{ type: "paragraph" }];
+
+        // If editor is empty, clear and insert; otherwise insert at drop position
+        if (isEmpty) {
+          editor.chain().focus().clearContent().insertContent(contentToInsert).run();
         } else {
-          editor.chain().insertContent(lines.length > 0 ? lines : [{ type: "paragraph" }]).run();
+          if (posAtCoords?.pos !== undefined) {
+            editor.chain().focus().setTextSelection(posAtCoords.pos).insertContent(contentToInsert).run();
+          } else {
+            editor.chain().focus("end").insertContent(contentToInsert).run();
+          }
         }
         return;
       }

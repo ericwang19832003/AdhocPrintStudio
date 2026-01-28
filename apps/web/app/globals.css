@@ -1922,11 +1922,6 @@ textarea:focus-visible {
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
 }
 
-.body-editor.empty::before {
-  content: "Start typing your letter...";
-  color: var(--muted);
-}
-
 .inserted-block {
   position: relative;
   margin: 10px 0;
