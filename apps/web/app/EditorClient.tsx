@@ -398,13 +398,15 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             }
           : lines.length > 0 ? lines : [{ type: "paragraph" }];
 
-        // If editor is empty, replace all content; otherwise insert at cursor
+        // If editor is empty, use setContent to completely replace; otherwise insert at cursor
         if (isEmpty) {
-          const chain = editor.chain().focus().clearContent();
+          // setContent replaces the entire document, removing the empty placeholder paragraph
+          editor.commands.setContent(contentToInsert);
           if (options?.standardFormat) {
-            chain.setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left");
+            editor.chain().focus().selectAll().setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left").run();
+          } else {
+            editor.commands.focus("end");
           }
-          chain.insertContent(contentToInsert).run();
         } else {
           const chain = editor.chain().focus();
           if (options?.standardFormat) {
@@ -471,9 +473,10 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             }
           : lines.length > 0 ? lines : [{ type: "paragraph" }];
 
-        // If editor is empty, clear and insert; otherwise insert at drop position
+        // If editor is empty, use setContent to replace; otherwise insert at drop position
         if (isEmpty) {
-          editor.chain().focus().clearContent().insertContent(contentToInsert).run();
+          editor.commands.setContent(contentToInsert);
+          editor.commands.focus("end");
         } else {
           if (posAtCoords?.pos !== undefined) {
             editor.chain().focus().setTextSelection(posAtCoords.pos).insertContent(contentToInsert).run();
