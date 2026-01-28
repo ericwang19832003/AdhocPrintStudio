@@ -404,9 +404,9 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
           editor.commands.setContent(contentToInsert);
           if (options?.standardFormat) {
             editor.chain().focus().selectAll().setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left").run();
-          } else {
-            editor.commands.focus("end");
           }
+          // Always move cursor to end after insertion
+          editor.commands.focus("end");
         } else {
           const chain = editor.chain().focus();
           if (options?.standardFormat) {
