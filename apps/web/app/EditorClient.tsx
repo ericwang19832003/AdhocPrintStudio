@@ -381,7 +381,17 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             type: "paragraph",
             content: [{ type: "text", text: line }],
           }));
+
+        // Check if editor is empty (only has empty paragraph with placeholder)
+        const isEmpty = editor.state.doc.textContent.trim() === "";
+
         const chain = editor.chain().focus();
+
+        // If editor is empty, select all to replace the empty paragraph
+        if (isEmpty) {
+          chain.selectAll();
+        }
+
         if (options?.standardFormat) {
           chain.setFontFamily("Times New Roman").setFontSize("12pt").setLineHeight("1.5").setTextAlign("left");
         }
@@ -443,8 +453,13 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             content: [{ type: "text", text: line }],
           }));
 
-        // Set cursor position if we got valid coords, otherwise go to end
-        if (posAtCoords?.pos !== undefined) {
+        // Check if editor is empty (only has empty paragraph with placeholder)
+        const isEmpty = editor.state.doc.textContent.trim() === "";
+
+        // If editor is empty, select all to replace; otherwise set cursor at drop position
+        if (isEmpty) {
+          editor.chain().focus().selectAll().run();
+        } else if (posAtCoords?.pos !== undefined) {
           editor.chain().focus().setTextSelection(posAtCoords.pos).run();
         } else {
           editor.chain().focus("end").run();
