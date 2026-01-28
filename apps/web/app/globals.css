@@ -2356,6 +2356,14 @@ textarea:focus-visible {
   gap: 16px;
 }
 
+.preview-pages-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
 .preview-page {
   border-radius: 16px;
   background: #ffffff;
@@ -2417,6 +2425,34 @@ textarea:focus-visible {
   font-style: italic;
   color: #6b7280;
   font-size: 0.9rem;
+}
+
+/* Babel page preview in modal */
+.babel-preview-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 12px;
+  min-height: auto;
+}
+
+.babel-page-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.babel-preview-image {
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--outline);
+  background: white;
 }
 
 .preview-meta {

@@ -3981,55 +3981,64 @@ export default function BuilderClient() {
               </button>
             </div>
             <div className="preview-grid">
-              <div className="preview-page">
-                {activePage === 0 && (
-                  <>
-                    <div className="preview-header">
-                      <div className="preview-return">
-                        {(() => {
-                          const previewReturnLines = getReturnLinesForRow(previewIndex);
-                          return previewReturnLines[0] || previewReturnLines[1] || previewReturnLines[2] ? (
-                            <>
-                              <div>{previewReturnLines[0]}</div>
-                              <div>{previewReturnLines[1]}</div>
-                              <div>{previewReturnLines[2]}</div>
-                            </>
-                          ) : (
-                            <div className="preview-placeholder">No return address</div>
-                          );
-                        })()}
+              <div className="preview-pages-column">
+                <div className="preview-page">
+                  {activePage === 0 && (
+                    <>
+                      <div className="preview-header">
+                        <div className="preview-return">
+                          {(() => {
+                            const previewReturnLines = getReturnLinesForRow(previewIndex);
+                            return previewReturnLines[0] || previewReturnLines[1] || previewReturnLines[2] ? (
+                              <>
+                                <div>{previewReturnLines[0]}</div>
+                                <div>{previewReturnLines[1]}</div>
+                                <div>{previewReturnLines[2]}</div>
+                              </>
+                            ) : (
+                              <div className="preview-placeholder">No return address</div>
+                            );
+                          })()}
+                        </div>
+                        <div className="preview-logo">
+                          {(() => {
+                            const previewLogo = getLogoForRow(previewIndex);
+                            return previewLogo?.imageUrl ? (
+                              <img src={previewLogo.imageUrl} alt={previewLogo.label} />
+                            ) : (
+                              <div className="preview-placeholder">No logo</div>
+                            );
+                          })()}
+                        </div>
                       </div>
-                      <div className="preview-logo">
-                        {(() => {
-                          const previewLogo = getLogoForRow(previewIndex);
-                          return previewLogo?.imageUrl ? (
-                            <img src={previewLogo.imageUrl} alt={previewLogo.label} />
-                          ) : (
-                            <div className="preview-placeholder">No logo</div>
-                          );
-                        })()}
+                      <div className="preview-mailing">
+                        <div>{buildTleIndex().mailing_name}</div>
+                        <div>{buildTleIndex().mailing_addr1}</div>
+                        <div>{buildTleIndex().mailing_addr2}</div>
+                        <div>{buildTleIndex().mailing_addr3}</div>
                       </div>
-                    </div>
-                    <div className="preview-mailing">
-                      <div>{buildTleIndex().mailing_name}</div>
-                      <div>{buildTleIndex().mailing_addr1}</div>
-                      <div>{buildTleIndex().mailing_addr2}</div>
-                      <div>{buildTleIndex().mailing_addr3}</div>
-                    </div>
-                  </>
-                )}
-                <div
-                  className="preview-body"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(buildMergedHtml()) }}
-                />
-                {(() => {
-                  const previewTagline = getTaglineForRow(previewIndex);
-                  return previewTagline ? (
-                    <div className="preview-tagline">
-                      {previewTagline.content ?? previewTagline.label}
-                    </div>
-                  ) : null;
-                })()}
+                    </>
+                  )}
+                  <div
+                    className="preview-body"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(buildMergedHtml()) }}
+                  />
+                  {(() => {
+                    const previewTagline = getTaglineForRow(previewIndex);
+                    return previewTagline ? (
+                      <div className="preview-tagline">
+                        {previewTagline.content ?? previewTagline.label}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+                {/* Babel pages preview */}
+                {babelPages.map((page, index) => (
+                  <div key={page.id} className="preview-page babel-preview-page">
+                    <div className="babel-page-label">Babel Page {index + 1}</div>
+                    <img src={page.dataUrl} alt={page.name} className="babel-preview-image" />
+                  </div>
+                ))}
               </div>
               <div className="preview-meta">
                 <h4>TLE Index (Row {previewIndex + 1})</h4>
