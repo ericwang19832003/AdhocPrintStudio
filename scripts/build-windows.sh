@@ -13,7 +13,7 @@ BUILD_DIR="$ROOT_DIR/build/windows-stage"
 CACHE_DIR="$ROOT_DIR/build/.cache"
 OUTPUT_ZIP="$ROOT_DIR/build/AdhocPrintStudio-Windows.zip"
 
-PYTHON_VERSION="3.11.11"
+PYTHON_VERSION="3.11.9"
 PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-embed-amd64.zip"
 PYTHON_ZIP="python-${PYTHON_VERSION}-embed-amd64.zip"
 
@@ -86,8 +86,8 @@ cp -R "$ROOT_DIR/apps/worker/worker" "$BUILD_DIR/worker"
 # 7. Build frontend and copy output
 # -----------------------------------------------------------
 echo "[7/10] Building frontend..."
-(cd "$ROOT_DIR" && BUILD_LOCAL=1 npm run build)
-cp -R "$ROOT_DIR/out" "$BUILD_DIR/web"
+(cd "$ROOT_DIR/apps/web" && npm install && BUILD_LOCAL=1 npm run build)
+cp -R "$ROOT_DIR/apps/web/out" "$BUILD_DIR/web"
 
 # -----------------------------------------------------------
 # 8. Copy launcher files from dist/
