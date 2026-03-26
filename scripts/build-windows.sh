@@ -54,9 +54,9 @@ else
 fi
 
 # -----------------------------------------------------------
-# 4. Create requirements-local.txt
+# 4. Create requirements-local.txt and download Windows wheels
 # -----------------------------------------------------------
-echo "[4/10] Creating requirements-local.txt..."
+echo "[4/11] Creating requirements-local.txt..."
 cat > "$BUILD_DIR/requirements-local.txt" << 'EOF'
 fastapi==0.115.0
 uvicorn==0.30.6
@@ -70,29 +70,44 @@ PyMuPDF==1.24.5
 filetype==1.2.0
 EOF
 
+echo "[5/11] Downloading Windows wheels (offline install)..."
+mkdir -p "$BUILD_DIR/wheels"
+# Use pip from the API venv (or system pip)
+PIP_CMD="${ROOT_DIR}/apps/api/.venv/bin/pip"
+if [ ! -f "$PIP_CMD" ]; then
+    PIP_CMD="pip3"
+fi
+
+"$PIP_CMD" download \
+    --dest "$BUILD_DIR/wheels" \
+    --platform win_amd64 \
+    --python-version 3.11 \
+    --only-binary=:all: \
+    -r "$BUILD_DIR/requirements-local.txt"
+
 # -----------------------------------------------------------
 # 5. Copy API app
 # -----------------------------------------------------------
-echo "[5/10] Copying API app..."
+echo "[6/11] Copying API app..."
 cp -R "$ROOT_DIR/apps/api/app" "$BUILD_DIR/app"
 
 # -----------------------------------------------------------
 # 6. Copy worker
 # -----------------------------------------------------------
-echo "[6/10] Copying worker..."
+echo "[7/11] Copying worker..."
 cp -R "$ROOT_DIR/apps/worker/worker" "$BUILD_DIR/worker"
 
 # -----------------------------------------------------------
 # 7. Build frontend and copy output
 # -----------------------------------------------------------
-echo "[7/10] Building frontend..."
+echo "[8/11] Building frontend..."
 (cd "$ROOT_DIR/apps/web" && npm install && BUILD_LOCAL=1 npm run build)
 cp -R "$ROOT_DIR/apps/web/out" "$BUILD_DIR/web"
 
 # -----------------------------------------------------------
 # 8. Copy launcher files from dist/
 # -----------------------------------------------------------
-echo "[8/10] Copying launcher files..."
+echo "[9/11] Copying launcher files..."
 cp "$ROOT_DIR/dist/start.bat" "$BUILD_DIR/start.bat"
 cp "$ROOT_DIR/dist/stop.bat" "$BUILD_DIR/stop.bat"
 cp "$ROOT_DIR/dist/README.txt" "$BUILD_DIR/README.txt"
@@ -100,7 +115,7 @@ cp "$ROOT_DIR/dist/README.txt" "$BUILD_DIR/README.txt"
 # -----------------------------------------------------------
 # 9. Create empty data/ and storage/ directories
 # -----------------------------------------------------------
-echo "[9/10] Creating data and storage directories..."
+echo "[10/11] Creating data and storage directories..."
 mkdir -p "$BUILD_DIR/data"
 mkdir -p "$BUILD_DIR/storage"
 
@@ -111,14 +126,13 @@ touch "$BUILD_DIR/storage/.gitkeep"
 # -----------------------------------------------------------
 # 10. Create setup.bat for first-run pip install
 # -----------------------------------------------------------
-echo "[9b/10] Creating setup.bat..."
+echo "[10b/11] Creating setup.bat..."
 cat > "$BUILD_DIR/setup.bat" << 'BATEOF'
 @echo off
 echo.
-echo  Installing dependencies...
-echo  This may take a minute.
+echo  Installing dependencies (offline)...
 echo.
-python\python.exe -m pip install --no-warn-script-location -r requirements-local.txt
+python\python.exe -m pip install --no-index --find-links=wheels --no-warn-script-location -r requirements-local.txt
 echo.
 echo  Done! You can now run start.bat
 echo.
@@ -128,7 +142,7 @@ BATEOF
 # -----------------------------------------------------------
 # 11. Create the ZIP
 # -----------------------------------------------------------
-echo "[10/10] Creating ZIP archive..."
+echo "[11/11] Creating ZIP archive..."
 rm -f "$OUTPUT_ZIP"
 (cd "$BUILD_DIR" && zip -r "$OUTPUT_ZIP" .)
 
