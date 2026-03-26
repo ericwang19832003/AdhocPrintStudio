@@ -19,3 +19,8 @@ coverage/
 .pnpm-store/
 tsconfig.tsbuildinfo
 =*
+
+# Build artifacts
+apps/web/out/
+apps/api/web/
+build/
