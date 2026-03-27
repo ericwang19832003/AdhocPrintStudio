@@ -168,3 +168,28 @@ def test_pgd_inside_page_with_resources():
     pages = _make_test_pages(1)
     afp = generate_afp_with_resources(pages, document_name="MAILOUT")
     assert _count_sf(afp, SF_PGD) >= 1, "Should have at least one PGD"
+
+
+def test_default_resolution_300dpi():
+    """Default resolution should be 300 DPI for modern print environments."""
+    import struct
+    from app.afp_document_generator import SF_IDD
+    pages = _make_test_pages(1)
+    afp = generate_afp_with_resources(pages, document_name="MAILOUT")
+
+    sf_idd = bytes([0xD3, 0xA6, 0xFB])
+    offset = 0
+    found_300 = False
+    while offset < len(afp):
+        if afp[offset] != 0x5A:
+            break
+        length = struct.unpack('>H', afp[offset+1:offset+3])[0]
+        if afp[offset+3:offset+6] == sf_idd:
+            data = afp[offset+6:offset+1+length]
+            if len(data) >= 8:
+                x_res = struct.unpack('>H', data[4:6])[0]
+                if x_res == 3000:  # 300 DPI * 10
+                    found_300 = True
+        offset += 1 + length
+
+    assert found_300, "Default resolution should be 300 DPI (3000 in IDD)"

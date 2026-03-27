@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/print-output", tags=["print-output"])
 
-DPI = 240
-PAGE_WIDTH = int(8.5 * DPI)
-PAGE_HEIGHT = int(11 * DPI)
+DPI = 300
+PAGE_WIDTH = int(8.5 * DPI)   # 2550
+PAGE_HEIGHT = int(11 * DPI)   # 3300
 
 
 @dataclass

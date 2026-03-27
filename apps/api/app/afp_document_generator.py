@@ -142,11 +142,11 @@ def _build_epg(page_name: str = "PAGE0001") -> bytes:
     return _sf(SF_EPG, data)
 
 
-def _build_pgd(width: int = 2040, height: int = 2640, resolution: int = 240) -> bytes:
+def _build_pgd(width: int = 2550, height: int = 3300, resolution: int = 300) -> bytes:
     """
     Build Page Descriptor (PGD) structured field.
 
-    Default is 8.5" x 11" at 240 DPI.
+    Default is 8.5" x 11" at 300 DPI.
 
     Format:
     - 3 flag bytes
@@ -376,7 +376,7 @@ def _build_eog() -> bytes:
     return _sf(SF_EOG, bytes([0x00, 0x00, 0x00]))
 
 
-def _build_obd(width: int, height: int, resolution: int = 240) -> bytes:
+def _build_obd(width: int, height: int, resolution: int = 300) -> bytes:
     """Object Area Descriptor (OBD) - Elixir compatible."""
     data = bytearray()
     data.extend([0x00, 0x00, 0x00])
@@ -399,7 +399,7 @@ def _build_obp() -> bytes:
     return _sf(SF_OBP, bytes(data))
 
 
-def _build_idd(width: int, height: int, resolution: int = 240) -> bytes:
+def _build_idd(width: int, height: int, resolution: int = 300) -> bytes:
     """Image Data Descriptor (IDD) - IOCA format."""
     data = bytearray()
     data.extend([0x00, 0x00, 0x00, 0x00])
@@ -425,7 +425,7 @@ def _build_iid() -> bytes:
     return _sf(SF_IID, bytes(data))
 
 
-def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: int = 240) -> bytes:
+def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: int = 300) -> bytes:
     """Build Image Picture Data (IPD) records with IOCA self-defining fields."""
     result = bytearray()
 
@@ -507,7 +507,7 @@ def generate_inline_image(
     image_data: bytes,
     width: int,
     height: int,
-    resolution: int = 240
+    resolution: int = 300
 ) -> bytes:
     """
     Generate an inline image object (without page segment wrapper).
@@ -549,7 +549,7 @@ def generate_inline_page_segment(
     width: int,
     height: int,
     segment_name: str,
-    resolution: int = 240
+    resolution: int = 300
 ) -> bytes:
     """
     Generate an inline page segment with IOCA image data.
@@ -717,9 +717,9 @@ def create_afp_with_tle(
 def generate_afp_with_resources(
     pages: List[Dict],
     document_name: str = "PRINTDOC",
-    resolution: int = 240,
-    page_width: int = 2040,
-    page_height: int = 2640
+    resolution: int = 300,
+    page_width: int = 2550,
+    page_height: int = 3300
 ) -> bytes:
     """
     Generate AFP document with Exstream-compatible resource structure.
@@ -735,9 +735,9 @@ def generate_afp_with_resources(
     Args:
         pages: List of page dictionaries (same format as generate_afp_document)
         document_name: str - 8-character document name
-        resolution: int - DPI (default 240)
-        page_width: int - page width in L-units
-        page_height: int - page height in L-units
+        resolution: int - DPI (default 300)
+        page_width: int - page width in L-units (default 8.5" at 300 DPI)
+        page_height: int - page height in L-units (default 11" at 300 DPI)
 
     Returns:
         bytes - Complete AFP document with resource structure
