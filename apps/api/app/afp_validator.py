@@ -15,10 +15,10 @@ CC = 0x5A
 
 # Structured Field Identifiers
 SF_TYPES = {
-    (0xD3, 0xA8, 0xA7): ("BDT", "Begin Document"),
-    (0xD3, 0xA9, 0xA7): ("EDT", "End Document"),
-    (0xD3, 0xA8, 0xA8): ("BPG", "Begin Page"),
-    (0xD3, 0xA9, 0xA8): ("EPG", "End Page"),
+    (0xD3, 0xA8, 0xA8): ("BDT", "Begin Document"),
+    (0xD3, 0xA9, 0xA8): ("EDT", "End Document"),
+    (0xD3, 0xA8, 0xAF): ("BPG", "Begin Page"),
+    (0xD3, 0xA9, 0xAF): ("EPG", "End Page"),
     (0xD3, 0xA6, 0xC4): ("PGD", "Page Descriptor"),
     (0xD3, 0xA0, 0x90): ("TLE", "Tag Logical Element"),
     (0xD3, 0xEE, 0xEE): ("NOP", "No Operation"),
@@ -32,9 +32,15 @@ SF_TYPES = {
     (0xD3, 0xA9, 0xC7): ("EOG", "End Object Environment Group"),
     (0xD3, 0xA6, 0x6B): ("OBD", "Object Area Descriptor"),
     (0xD3, 0xAC, 0x6B): ("OBP", "Object Area Position"),
+    (0xD3, 0xAB, 0xFB): ("IID", "Image Input Descriptor"),
     (0xD3, 0xAF, 0x5F): ("IPS", "Include Page Segment"),
     (0xD3, 0xA8, 0xAD): ("BAG", "Begin Active Environment Group"),
     (0xD3, 0xA9, 0xAD): ("EAG", "End Active Environment Group"),
+    (0xD3, 0xA8, 0xCE): ("BRS", "Begin Resource"),
+    (0xD3, 0xA9, 0xCE): ("ERS", "End Resource"),
+    (0xD3, 0xA8, 0xDF): ("BNG", "Begin Named Page Group"),
+    (0xD3, 0xA9, 0xDF): ("ENG", "End Named Page Group"),
+    (0xD3, 0xAB, 0x8A): ("MCF", "Map Coded Font"),
     (0xD3, 0xA8, 0x89): ("BPT", "Begin Presentation Text"),
     (0xD3, 0xA9, 0x89): ("EPT", "End Presentation Text"),
     (0xD3, 0xEE, 0x9B): ("PTX", "Presentation Text Data"),
@@ -135,6 +141,7 @@ class AFPValidator:
         segment_depth = 0
         image_depth = 0
         oeg_depth = 0
+        group_depth = 0
 
         for i, f in enumerate(self.fields):
             code = f['code']
@@ -165,6 +172,12 @@ class AFPValidator:
                 image_depth -= 1
                 if image_depth < 0:
                     self.errors.append(f"Field {i+1}: EIO without matching BIO")
+            elif code == 'BNG':
+                group_depth += 1
+            elif code == 'ENG':
+                group_depth -= 1
+                if group_depth < 0:
+                    self.errors.append(f"Field {i+1}: ENG without matching BNG")
             elif code == 'BOG':
                 oeg_depth += 1
             elif code == 'EOG':
@@ -182,6 +195,8 @@ class AFPValidator:
             self.errors.append(f"Unclosed images: {image_depth} BIO without EIO")
         if oeg_depth != 0:
             self.errors.append(f"Unclosed OEG: {oeg_depth} BOG without EOG")
+        if group_depth != 0:
+            self.errors.append(f"Unclosed groups: {group_depth} BNG without ENG")
 
         # Check for page content
         has_page_content = False

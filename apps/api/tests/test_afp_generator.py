@@ -236,3 +236,12 @@ def test_ipd_header_declares_g4():
         offset += 1 + length
 
     assert found_encoding, "Should find encoding parameter in IPD header"
+
+
+def test_validator_passes_valid_document():
+    """Validator should pass a correctly structured AFP document."""
+    from app.afp_validator import validate_afp_bytes
+    pages = _make_test_pages(2)
+    afp = generate_afp_with_resources(pages, document_name="MAILOUT")
+    success, errors, warnings = validate_afp_bytes(afp)
+    assert success, f"Validation failed: {errors}"
