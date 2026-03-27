@@ -7,6 +7,7 @@ import { EditorToolbar } from "./EditorClient";
 import type { Editor } from "@tiptap/react";
 import * as XLSX from "xlsx";
 import DOMPurify from "isomorphic-dompurify";
+import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
 
@@ -439,6 +440,7 @@ const libraryButtons = [
   { label: "Verbiage", tab: "Verbiage", icon: "💬" },
   { label: "Tagline", tab: "Taglines", icon: "✨" },
   { label: "Letter Template", tab: "Full Letters", icon: "📄" },
+  { label: "Upload Word", tab: "Upload", icon: "📂" },
 ] as const;
 
 function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | null {
@@ -592,6 +594,10 @@ export default function BuilderClient() {
   const taglineListRef = useRef<HTMLDivElement | null>(null);
   const logoAspectRef = useRef(160 / 70);
   const activePageRef = useRef(activePage);
+  const [docxError, setDocxError] = useState<string | null>(null);
+  const [docxWarning, setDocxWarning] = useState<string | null>(null);
+  const [docxLoading, setDocxLoading] = useState(false);
+  const docxInputRef = useRef<HTMLInputElement | null>(null);
   // Track pending blocks during rapid clicks to prevent overlap race condition
   const pendingBlocksRef = useRef<PlacedBlock[]>([]);
 
@@ -1377,6 +1383,67 @@ export default function BuilderClient() {
       setSpreadsheetContent("");
       setColumns([]);
       setSpreadsheetLoading(false);
+    }
+  };
+
+  const handleDocxUpload = async (file: File) => {
+    setDocxError(null);
+    setDocxWarning(null);
+
+    if (!file.name.toLowerCase().endsWith(".docx")) {
+      setDocxError("Please upload a .docx file");
+      return;
+    }
+
+    setDocxLoading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer }, {
+        convertImage: mammoth.images.imgElement((image: any) =>
+          image.read("base64").then((imageBuffer: string) => ({
+            src: `data:${image.contentType};base64,${imageBuffer}`,
+          }))
+        ),
+      });
+
+      const html = result.value;
+      if (!html || !html.trim()) {
+        setDocxError("This document appears to be empty");
+        setDocxLoading(false);
+        return;
+      }
+
+      // Check for tables
+      const hasTableWarning = result.messages.some(
+        (msg: any) => msg.type === "warning" && msg.message.toLowerCase().includes("table")
+      );
+      const hasTableTags = /<table[\s>]/i.test(html);
+
+      if (hasTableWarning || hasTableTags) {
+        setDocxWarning(
+          "Tables detected. For best results, convert tables to images in Word first " +
+          "(select table \u2192 Copy \u2192 Paste as Picture), then re-upload."
+        );
+      }
+
+      // Sanitize and set content
+      const cleanHtml = DOMPurify.sanitize(html, {
+        ADD_TAGS: ["img"],
+        ADD_ATTR: ["src", "alt", "style"],
+      });
+
+      const editor = editorRef.current?.getEditor();
+      if (editor) {
+        editor.commands.setContent(cleanHtml);
+      }
+
+      // Reset blocks on current page
+      setBlocksByPage((prev: any) => ({ ...prev, [activePage]: [] }));
+
+    } catch (err) {
+      setDocxError("Could not read this file. Please check it opens correctly in Word.");
+    } finally {
+      setDocxLoading(false);
     }
   };
 
@@ -2778,6 +2845,67 @@ export default function BuilderClient() {
                     </div>
                   </div>
                 </div>
+              </div>
+            ) : openMenuTab === "Upload" ? (
+              <div style={{ padding: "16px" }}>
+                <p style={{ marginBottom: "12px", fontSize: "14px", color: "#666" }}>
+                  Upload a Word document (.docx) to replace the canvas content.
+                </p>
+                <div
+                  style={{
+                    border: "2px dashed #ccc",
+                    borderRadius: "8px",
+                    padding: "32px 16px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    background: docxLoading ? "#f9f9f9" : "#fff",
+                  }}
+                  onClick={() => docxInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleDocxUpload(file);
+                  }}
+                >
+                  {docxLoading ? (
+                    <p>Converting document...</p>
+                  ) : (
+                    <>
+                      <p style={{ fontWeight: 600, marginBottom: "4px" }}>
+                        Drag and drop a .docx file here
+                      </p>
+                      <p style={{ fontSize: "13px", color: "#999" }}>or click to browse</p>
+                    </>
+                  )}
+                  <input
+                    ref={docxInputRef}
+                    type="file"
+                    accept=".docx"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleDocxUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+                {docxError && (
+                  <p style={{
+                    marginTop: "12px", padding: "8px 12px", background: "#FEE2E2",
+                    color: "#DC2626", borderRadius: "6px", fontSize: "13px",
+                  }}>
+                    {docxError}
+                  </p>
+                )}
+                {docxWarning && (
+                  <p style={{
+                    marginTop: "12px", padding: "8px 12px", background: "#FEF3C7",
+                    color: "#92400E", borderRadius: "6px", fontSize: "13px",
+                  }}>
+                    ⚠️ {docxWarning}
+                  </p>
+                )}
               </div>
             ) : (
               <BlockMenu
