@@ -18,8 +18,8 @@ from typing import List, Dict, Optional
 CC = 0x5A
 
 # Structured Field Identifiers (per AFP Architecture Reference)
-SF_BDT = bytes([0xD3, 0xA8, 0xC6])  # Begin Document (D3 A8 C6)
-SF_EDT = bytes([0xD3, 0xA9, 0xC6])  # End Document (D3 A9 C6)
+SF_BDT = bytes([0xD3, 0xA8, 0xA8])  # Begin Document (D3 A8 A8)
+SF_EDT = bytes([0xD3, 0xA9, 0xA8])  # End Document (D3 A9 A8)
 SF_BPG = bytes([0xD3, 0xA8, 0xAF])  # Begin Page (D3 A8 AF)
 SF_EPG = bytes([0xD3, 0xA9, 0xAF])  # End Page (D3 A9 AF)
 SF_PGD = bytes([0xD3, 0xA6, 0xC4])  # Page Descriptor
