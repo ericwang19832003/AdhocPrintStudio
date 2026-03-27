@@ -591,16 +591,17 @@ def generate_inline_page_segment(
 def generate_afp_document(
     pages: List[Dict],
     document_name: str = "PRINTDOC",
-    resolution: int = 240,
-    page_width: int = 2040,
-    page_height: int = 2640
+    resolution: int = 300,
+    page_width: int = 2550,
+    page_height: int = 3300
 ) -> bytes:
     """
     Generate a complete AFP document with TLE index data.
 
-    Each page is wrapped in its own BDT/EDT (Begin/End Document) structure
-    so that mainframe tools like Enrichment One can detect document boundaries
-    based on TLE records.
+    Uses the correct BlueCrest-compatible structure:
+    - Single BDT/EDT wrapping the entire file
+    - Each letter wrapped in BNG/ENG (Named Page Group)
+    - TLE records placed between BNG and BPG for indexing
 
     Args:
         pages: List of page dictionaries, each containing:
@@ -616,37 +617,27 @@ def generate_afp_document(
                 - return_addr2
                 - return_addr3
         document_name: str - 8-character document name
-        resolution: int - DPI (default 240)
-        page_width: int - page width in L-units (default 8.5" at 240 DPI)
-        page_height: int - page height in L-units (default 11" at 240 DPI)
+        resolution: int - DPI (default 300)
+        page_width: int - page width in L-units (default 8.5" at 300 DPI)
+        page_height: int - page height in L-units (default 11" at 300 DPI)
 
     Returns:
         bytes - Complete AFP document
     """
     result = bytearray()
 
-    # Generate each page as a separate document (BDT/EDT wrapper)
-    # This allows Enrichment One to detect document boundaries via TLE records
+    # Single BDT for the entire file
+    result.extend(_build_bdt(document_name))
+
     for page_num, page in enumerate(pages, start=1):
-        doc_name = f"DOC{page_num:05d}"
+        group_name = f"G{page_num:07d}"
         page_name = f"P{page_num:07d}"
 
-        # Begin Document - each letter is its own document
-        result.extend(_build_bdt(doc_name))
+        # Begin Named Page Group (letter boundary for BlueCrest)
+        result.extend(_build_bng(group_name))
 
-        # Begin Page
-        result.extend(_build_bpg(page_name))
-
-        # Begin Active Environment Group
-        result.extend(_build_bag())
-
-        # End Active Environment Group
-        result.extend(_build_eag())
-
-        # TLE records for this page (critical for document detection)
-        # Enrichment One uses these to identify document boundaries
+        # TLE records between BNG and BPG (critical for indexing)
         tle_data = page.get('tle_data', {})
-
         tle_fields = [
             ('mailing_name', tle_data.get('mailing_name', '')),
             ('mailing_addr1', tle_data.get('mailing_addr1', '')),
@@ -656,13 +647,18 @@ def generate_afp_document(
             ('return_addr2', tle_data.get('return_addr2', '')),
             ('return_addr3', tle_data.get('return_addr3', '')),
         ]
-
         for field_name, field_value in tle_fields:
-            # Always write TLE records, even when value is empty
             result.extend(_build_tle(field_name, field_value))
 
+        # Begin Page
+        result.extend(_build_bpg(page_name))
+
+        # Active Environment Group with Page Descriptor
+        result.extend(_build_bag())
+        result.extend(_build_pgd(page_width, page_height, resolution))
+        result.extend(_build_eag())
+
         # Embed letter image if provided
-        # Uses IM Image format (BIO/EIO) compatible with Bluecrest
         image_data = page.get('image_data')
         if image_data:
             img_width = page.get('width', page_width)
@@ -674,8 +670,11 @@ def generate_afp_document(
         # End Page
         result.extend(_build_epg(page_name))
 
-        # End Document - closes this letter's document boundary
-        result.extend(_build_edt(doc_name))
+        # End Named Page Group
+        result.extend(_build_eng(group_name))
+
+    # Single EDT for the entire file
+    result.extend(_build_edt(document_name))
 
     return bytes(result)
 
