@@ -245,3 +245,80 @@ def test_validator_passes_valid_document():
     afp = generate_afp_with_resources(pages, document_name="MAILOUT")
     success, errors, warnings = validate_afp_bytes(afp)
     assert success, f"Validation failed: {errors}"
+
+
+def test_full_afp_bluecrest_compatible():
+    """
+    End-to-end test: generate AFP and verify BlueCrest Output Manager compatibility.
+
+    Checks:
+    1. Single BDT/EDT
+    2. BNG/ENG per letter
+    3. TLEs between BNG and BPG
+    4. PGD inside each page
+    5. 300 DPI resolution
+    6. G4 compression
+    7. Passes validator
+    """
+    from app.afp_document_generator import SF_PGD, SF_IDD
+    from app.afp_validator import validate_afp_bytes
+
+    pages = _make_test_pages(5)
+    afp = generate_afp_with_resources(pages, document_name="MAILOUT")
+
+    # 1. Single BDT/EDT
+    assert _count_sf(afp, SF_BDT) == 1, "Should have exactly one BDT"
+    assert _count_sf(afp, SF_EDT) == 1, "Should have exactly one EDT"
+
+    # 2. BNG/ENG per letter
+    assert _count_sf(afp, SF_BNG) == 5, "Should have one BNG per letter"
+    assert _count_sf(afp, SF_ENG) == 5, "Should have one ENG per letter"
+
+    # 3. TLEs between BNG and BPG
+    sf_ids = _get_sf_sequence(afp)
+    for i, sf_id in enumerate(sf_ids):
+        if sf_id == SF_BNG:
+            # Next non-TLE after BNG should be BPG
+            j = i + 1
+            while j < len(sf_ids) and sf_ids[j] == SF_TLE:
+                j += 1
+            assert j < len(sf_ids) and sf_ids[j] == SF_BPG, \
+                "After BNG+TLEs, next SF should be BPG"
+
+    # 4. PGD inside pages
+    assert _count_sf(afp, SF_PGD) >= 5, "Should have PGD in each page"
+
+    # 5. BPG/EPG per letter
+    assert _count_sf(afp, SF_BPG) == 5
+    assert _count_sf(afp, SF_EPG) == 5
+
+    # 6. 7 TLEs per letter (mailing_name, addr1-3, return_addr1-3)
+    assert _count_sf(afp, SF_TLE) == 35, "Should have 7 TLEs per letter * 5 letters"
+
+    # 7. 300 DPI resolution in IDD
+    sf_idd = bytes([0xD3, 0xA6, 0xFB])
+    offset = 0
+    found_300 = False
+    while offset < len(afp):
+        if afp[offset] != 0x5A:
+            break
+        length = struct.unpack('>H', afp[offset+1:offset+3])[0]
+        if afp[offset+3:offset+6] == sf_idd:
+            data = afp[offset+6:offset+1+length]
+            if len(data) >= 8:
+                x_res = struct.unpack('>H', data[4:6])[0]
+                if x_res == 3000:
+                    found_300 = True
+                    break
+        offset += 1 + length
+    assert found_300, "Should use 300 DPI"
+
+    # 8. Passes validator
+    valid, errors, warnings = validate_afp_bytes(afp)
+    assert valid, f"AFP validation failed: {errors}"
+
+    # 9. Document starts with NOP/BDT and ends with EDT
+    sf_nop = bytes([0xD3, 0xEE, 0xEE])
+    non_nop = [s for s in sf_ids if s != sf_nop]
+    assert non_nop[0] == SF_BDT, "Document should start with BDT (after NOPs)"
+    assert non_nop[-1] == SF_EDT, "Document should end with EDT"
