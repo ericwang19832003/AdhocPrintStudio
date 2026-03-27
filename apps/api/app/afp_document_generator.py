@@ -10,9 +10,12 @@ Generates complete IBM AFP documents with:
 Compatible with mainframe processing, reblocking, and AFP viewers.
 """
 
+import io
 import struct
 from datetime import datetime
 from typing import List, Dict, Optional
+
+from PIL import Image
 
 # Carriage control (Machine Carriage Control for AFP)
 CC = 0x5A
@@ -442,7 +445,7 @@ def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: i
     first_ipd.extend(struct.pack('>H', width))
     first_ipd.extend(struct.pack('>H', height))
 
-    first_ipd.extend([0x95, 0x02, 0x03, 0x01])
+    first_ipd.extend([0x95, 0x02, 0x03, 0x03])
     first_ipd.extend([0x96, 0x01, 0x01])
     first_ipd.extend([0x97, 0x01, 0x00])
     first_ipd.extend([0xFE, 0x92])
@@ -503,6 +506,55 @@ def _to_bilevel(gray: bytes, w: int, h: int) -> bytes:
     return bytes(out)
 
 
+def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
+    """Extract raw compressed strip data from a TIFF file."""
+    if tiff_bytes[:2] == b'II':
+        endian = '<'
+    else:
+        endian = '>'
+
+    ifd_offset = struct.unpack(endian + 'I', tiff_bytes[4:8])[0]
+    num_entries = struct.unpack(endian + 'H', tiff_bytes[ifd_offset:ifd_offset+2])[0]
+
+    strip_offset = 0
+    strip_length = 0
+
+    for i in range(num_entries):
+        entry_off = ifd_offset + 2 + i * 12
+        tag = struct.unpack(endian + 'H', tiff_bytes[entry_off:entry_off+2])[0]
+        typ = struct.unpack(endian + 'H', tiff_bytes[entry_off+2:entry_off+4])[0]
+        count = struct.unpack(endian + 'I', tiff_bytes[entry_off+4:entry_off+8])[0]
+
+        # For SHORT type (3) with count=1, value is in first 2 bytes of value field
+        # For LONG type (4) with count=1, value is the 4-byte value field
+        if typ == 3 and count == 1:
+            value = struct.unpack(endian + 'H', tiff_bytes[entry_off+8:entry_off+10])[0]
+        else:
+            value = struct.unpack(endian + 'I', tiff_bytes[entry_off+8:entry_off+12])[0]
+
+        if tag == 273:  # StripOffsets
+            strip_offset = value
+        elif tag == 279:  # StripByteCounts
+            strip_length = value
+
+    if strip_offset and strip_length:
+        return tiff_bytes[strip_offset:strip_offset + strip_length]
+    return b''
+
+
+def _compress_g4(bilevel_data: bytes, width: int, height: int) -> bytes:
+    """Compress 1-bit bilevel data using CCITT Group 4 via Pillow TIFF."""
+    img = Image.frombytes('1', (width, height), bilevel_data)
+
+    # Save as TIFF with G4 compression
+    buf = io.BytesIO()
+    img.save(buf, format='TIFF', compression='group4')
+    tiff_bytes = buf.getvalue()
+
+    # Extract raw G4 data from TIFF container
+    return _extract_tiff_strip(tiff_bytes)
+
+
 def generate_inline_image(
     image_data: bytes,
     width: int,
@@ -527,6 +579,7 @@ def generate_inline_image(
         width = padded_width
 
     bilevel_data = _to_bilevel(image_data, width, height)
+    compressed_data = _compress_g4(bilevel_data, width, height)
 
     result = bytearray()
     # Image object without page segment wrapper
@@ -538,7 +591,7 @@ def generate_inline_image(
     result.extend(_build_iid())
     result.extend(_build_idd(width, height, resolution))
     result.extend(_build_eog())
-    result.extend(_build_ipd_records(bilevel_data, width, height, resolution))
+    result.extend(_build_ipd_records(compressed_data, width, height, resolution))
     result.extend(_build_eio())
 
     return bytes(result)
@@ -571,6 +624,7 @@ def generate_inline_page_segment(
         width = padded_width
 
     bilevel_data = _to_bilevel(image_data, width, height)
+    compressed_data = _compress_g4(bilevel_data, width, height)
 
     result = bytearray()
     result.extend(_build_bps(segment_name))
@@ -581,7 +635,7 @@ def generate_inline_page_segment(
     result.extend(_build_iid())  # Image Input Descriptor (required by some viewers)
     result.extend(_build_idd(width, height, resolution))
     result.extend(_build_eog())
-    result.extend(_build_ipd_records(bilevel_data, width, height, resolution))
+    result.extend(_build_ipd_records(compressed_data, width, height, resolution))
     result.extend(_build_eio())
     result.extend(_build_eps(segment_name))
 
@@ -783,9 +837,11 @@ def generate_afp_with_resources(
         result.extend(_build_iid())
         result.extend(_build_eog())
 
-        # Image Data
+        # Image Data — convert to bilevel then G4 compress
+        bilevel_data = _to_bilevel(image_data, img_width, img_height)
+        compressed_data = _compress_g4(bilevel_data, img_width, img_height)
         result.extend(_build_idd(img_width, img_height, resolution))
-        result.extend(_build_ipd_records(image_data, img_width, img_height, resolution))
+        result.extend(_build_ipd_records(compressed_data, img_width, img_height, resolution))
 
         # End Image Object
         result.extend(_build_eio())
