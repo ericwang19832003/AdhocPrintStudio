@@ -160,3 +160,11 @@ class TestAfpDocumentStructure:
         assert _count_sf(afp, SF_ENG) == 3, (
             f"Expected 3 ENG, got {_count_sf(afp, SF_ENG)}"
         )
+
+
+def test_pgd_inside_page_with_resources():
+    """Each page must have a Page Descriptor (PGD) inside BAG/EAG."""
+    from app.afp_document_generator import SF_PGD
+    pages = _make_test_pages(1)
+    afp = generate_afp_with_resources(pages, document_name="MAILOUT")
+    assert _count_sf(afp, SF_PGD) >= 1, "Should have at least one PGD"

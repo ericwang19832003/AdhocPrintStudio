@@ -825,8 +825,9 @@ def generate_afp_with_resources(
         # Begin Page
         result.extend(_build_bpg(page_name))
 
-        # Active Environment Group with font mapping
+        # Active Environment Group with page descriptor and font mapping
         result.extend(_build_bag())
+        result.extend(_build_pgd(page_width, page_height, resolution))
         # Include Map Coded Font for text rendering support
         result.extend(_build_mcf())
         result.extend(_build_eag())
