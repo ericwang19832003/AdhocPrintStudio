@@ -841,13 +841,17 @@ def generate_afp_with_resources(
         result.extend(_build_mcf())
         result.extend(_build_eag())
 
-        # Embed image inline (no page segment reference)
+        # Embed image as inline page segment (BPS/EPS inside the page).
+        # This avoids external resource references (BRS/IPS) that cause
+        # BlueCrest "resource missing" errors, while keeping the BPS/EPS
+        # wrapper that BlueCrest's PDF driver expects for IOCA images.
         image_data = page.get('image_data')
         if image_data:
             img_width = page.get('width', page_width)
             img_height = page.get('height', page_height)
-            result.extend(generate_inline_image(
-                image_data, img_width, img_height, resolution
+            segment_name = f"I{page_num:07d}"
+            result.extend(generate_inline_page_segment(
+                image_data, img_width, img_height, segment_name, resolution
             ))
 
         # End Page
