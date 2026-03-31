@@ -10,14 +10,6 @@ REM Create directories if needed
 if not exist "data" mkdir data
 if not exist "storage" mkdir storage
 
-REM Check if dependencies are installed
-if not exist "python\Lib\site-packages\fastapi" (
-    echo First run detected - installing dependencies from local packages...
-    echo This may take a moment...
-    python\python.exe -m pip install --no-index --find-links=wheels --no-warn-script-location -r requirements-local.txt
-    echo.
-)
-
 echo Starting server at http://localhost:8000
 echo Press Ctrl+C to stop.
 echo.

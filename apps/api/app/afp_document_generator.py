@@ -776,15 +776,13 @@ def generate_afp_with_resources(
     page_height: int = 3300
 ) -> bytes:
     """
-    Generate AFP document with Exstream-compatible resource structure.
+    Generate AFP document with inline images and BlueCrest-compatible structure.
 
     This format includes:
-    - Resource section with page segments for images
+    - NOP header comments
     - Named Page Groups for document boundaries
     - Map Coded Font in Active Environment Groups
-    - Include Page Segment references instead of inline images
-
-    This structure is more compatible with production print systems like Bluecrest.
+    - Inline images (no page segment resources to avoid BlueCrest missing-resource errors)
 
     Args:
         pages: List of page dictionaries (same format as generate_afp_document)
@@ -794,7 +792,7 @@ def generate_afp_with_resources(
         page_height: int - page height in L-units (default 11" at 300 DPI)
 
     Returns:
-        bytes - Complete AFP document with resource structure
+        bytes - Complete AFP document
     """
     result = bytearray()
 
@@ -805,57 +803,12 @@ def generate_afp_with_resources(
     # Begin main document
     result.extend(_build_bdt(document_name))
 
-    # ============== RESOURCE SECTION ==============
-    # Create page segment resources for all images first
-    page_segments = []  # Track segment names for later reference
-
-    for page_num, page in enumerate(pages, start=1):
-        image_data = page.get('image_data')
-        if not image_data:
-            continue
-
-        segment_name = f"S{page_num:07d}"
-        page_segments.append((page_num, segment_name))
-
-        img_width = page.get('width', page_width)
-        img_height = page.get('height', page_height)
-
-        # Begin Resource (Page Segment type = 0x03)
-        result.extend(_build_brs(segment_name, resource_type=0x03))
-
-        # Begin Page Segment
-        result.extend(_build_bps(segment_name))
-
-        # Image Object within Page Segment
-        image_obj_name = f"I{page_num:07d}"
-        result.extend(_build_bio(image_obj_name))
-
-        # Object Environment Group
-        result.extend(_build_bog())
-        result.extend(_build_obd(img_width, img_height, resolution))
-        result.extend(_build_obp())
-        result.extend(_build_iid())
-        result.extend(_build_eog())
-
-        # Image Data — convert to bilevel then G4 compress
-        bilevel_data = _to_bilevel(image_data, img_width, img_height)
-        compressed_data = _compress_g4(bilevel_data, img_width, img_height)
-        result.extend(_build_idd(img_width, img_height, resolution))
-        result.extend(_build_ipd_records(compressed_data, img_width, img_height, resolution))
-
-        # End Image Object
-        result.extend(_build_eio())
-
-        # End Page Segment
-        result.extend(_build_eps(segment_name))
-
-        # End Resource
-        result.extend(_build_ers(segment_name))
-
     # ============== PAGE SECTION ==============
-    # Now output pages that reference the page segment resources
+    # Images are inlined directly into each page instead of using
+    # BRS/BPS/IPS page segment resources. BlueCrest Output Manager treats
+    # IPS references (S0000001, S0000002, ...) as external page segments
+    # and fails with "resource missing" when converting to PDF.
 
-    segment_index = 0
     for page_num, page in enumerate(pages, start=1):
         group_name = f"G{page_num:07d}"
         page_name = f"P{page_num:07d}"
@@ -888,11 +841,14 @@ def generate_afp_with_resources(
         result.extend(_build_mcf())
         result.extend(_build_eag())
 
-        # Include Page Segment reference (instead of inline image)
-        if page.get('image_data') and segment_index < len(page_segments):
-            _, segment_name = page_segments[segment_index]
-            result.extend(_build_ips(segment_name))
-            segment_index += 1
+        # Embed image inline (no page segment reference)
+        image_data = page.get('image_data')
+        if image_data:
+            img_width = page.get('width', page_width)
+            img_height = page.get('height', page_height)
+            result.extend(generate_inline_image(
+                image_data, img_width, img_height, resolution
+            ))
 
         # End Page
         result.extend(_build_epg(page_name))

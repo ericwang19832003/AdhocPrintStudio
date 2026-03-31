@@ -50,7 +50,6 @@ from app.assets_local import router as assets_local_router  # noqa: E402
 from app.runs_local import router as runs_local_router  # noqa: E402
 from app.jobs import router as jobs_router  # noqa: E402
 from app.print_output import router as print_output_router  # noqa: E402
-from app.security import SecurityHeadersMiddleware  # noqa: E402
 from app.db_local import init_db, ping_db  # noqa: E402
 from app.worker_thread import start_worker, stop_worker  # noqa: E402
 
@@ -112,11 +111,8 @@ class LocalCSPMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Added last → runs first (outermost)
+# Local mode: use permissive CSP only (no strict SecurityHeadersMiddleware)
 app.add_middleware(LocalCSPMiddleware)
-
-# Security headers (sets a strict CSP that LocalCSPMiddleware will override)
-app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS — allow everything for local use
 app.add_middleware(

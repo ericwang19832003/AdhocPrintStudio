@@ -70,9 +70,12 @@ PyMuPDF==1.24.5
 filetype==1.2.0
 EOF
 
-echo "[5/11] Downloading Windows wheels (offline install)..."
+echo "[5/11] Downloading Windows wheels and pre-installing into embedded Python..."
 mkdir -p "$BUILD_DIR/wheels"
-# Use pip from the API venv (or system pip)
+SITE_PACKAGES="$BUILD_DIR/python/Lib/site-packages"
+mkdir -p "$SITE_PACKAGES"
+
+# Use pip from the API venv (or system pip) to download wheels
 PIP_CMD="${ROOT_DIR}/apps/api/.venv/bin/pip"
 if [ ! -f "$PIP_CMD" ]; then
     PIP_CMD="pip3"
@@ -84,6 +87,29 @@ fi
     --python-version 3.11 \
     --only-binary=:all: \
     -r "$BUILD_DIR/requirements-local.txt"
+
+# Pre-install: extract all wheels into site-packages so no pip needed at runtime
+echo "       Extracting wheels into python/Lib/site-packages..."
+for whl in "$BUILD_DIR/wheels"/*.whl; do
+    unzip -q -o "$whl" -d "$SITE_PACKAGES"
+done
+echo "       Installed $(ls "$BUILD_DIR/wheels"/*.whl | wc -l | tr -d ' ') packages"
+
+# Rewrite _pth file with correct path entries:
+# - python311.zip = stdlib
+# - . = python/ dir itself
+# - Lib/site-packages = pre-installed packages
+# - .. = parent directory (root of the zip, where app/ folder lives)
+# - import site = enable site-packages discovery
+PTH_FILE_SITE="$BUILD_DIR/python/python311._pth"
+cat > "$PTH_FILE_SITE" << 'PTHEOF'
+python311.zip
+.
+Lib/site-packages
+..
+import site
+PTHEOF
+echo "       Wrote python311._pth with site-packages and parent dir"
 
 # -----------------------------------------------------------
 # 5. Copy API app
@@ -140,13 +166,47 @@ pause
 BATEOF
 
 # -----------------------------------------------------------
-# 11. Create the ZIP
+# 11. Remove redundant wheels (already pre-installed in site-packages)
 # -----------------------------------------------------------
-echo "[11/11] Creating ZIP archive..."
+echo "[11/12] Removing redundant wheels directory..."
+rm -rf "$BUILD_DIR/wheels"
+rm -f "$BUILD_DIR/requirements-local.txt"
+rm -f "$BUILD_DIR/setup.bat"
+
+# -----------------------------------------------------------
+# 12. Create split ZIP archives (3 parts for easier sharing)
+# -----------------------------------------------------------
+echo "[12/12] Creating split ZIP archives..."
 rm -f "$OUTPUT_ZIP"
+
+SPLIT_DIR="$ROOT_DIR/build/split"
+rm -rf "$SPLIT_DIR"
+mkdir -p "$SPLIT_DIR"
+
+# Part 1: Python runtime + stdlib (no site-packages)
+echo "       Part 1: Python runtime..."
+(cd "$BUILD_DIR" && zip -r "$SPLIT_DIR/AdhocPrintStudio-Part1-Runtime.zip" \
+    python/ -x "python/Lib/site-packages/*")
+
+# Part 2: Python packages (site-packages)
+echo "       Part 2: Python packages..."
+(cd "$BUILD_DIR" && zip -r "$SPLIT_DIR/AdhocPrintStudio-Part2-Packages.zip" \
+    python/Lib/site-packages/)
+
+# Part 3: App + frontend + launcher
+echo "       Part 3: Application..."
+(cd "$BUILD_DIR" && zip -r "$SPLIT_DIR/AdhocPrintStudio-Part3-App.zip" \
+    app/ worker/ web/ data/ storage/ start.bat stop.bat README.txt)
+
+# Also create a single combined zip for convenience
+echo "       Combined ZIP..."
 (cd "$BUILD_DIR" && zip -r "$OUTPUT_ZIP" .)
 
 echo ""
 echo "=== Build complete ==="
-echo "Output: $OUTPUT_ZIP"
-echo "Size:   $(du -h "$OUTPUT_ZIP" | cut -f1)"
+echo ""
+echo "Split archives (unzip all 3 into the SAME folder):"
+ls -lh "$SPLIT_DIR"/*.zip
+echo ""
+echo "Combined archive:"
+echo "  $(du -h "$OUTPUT_ZIP" | cut -f1)  $OUTPUT_ZIP"
