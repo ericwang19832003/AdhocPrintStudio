@@ -93,6 +93,8 @@ class LocalCSPMiddleware(BaseHTTPMiddleware):
     """Override the restrictive CSP from SecurityHeadersMiddleware.
 
     Allows inline scripts/styles so the bundled static frontend works.
+    Also disables browser caching for HTML/JS/CSS so updates take effect
+    immediately without needing a hard refresh.
     """
 
     LOCAL_CSP = (
@@ -108,6 +110,11 @@ class LocalCSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         response: Response = await call_next(request)
         response.headers["Content-Security-Policy"] = self.LOCAL_CSP
+        # Disable caching for static frontend files so ZIP updates
+        # take effect without manual hard refresh
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
         return response
 
 
