@@ -1900,27 +1900,14 @@ export default function BuilderClient() {
       const mimeType = format === "pdf" ? "application/pdf" : "application/octet-stream";
       const description = format === "pdf" ? "PDF Document" : "AFP Document";
 
-      if ("showSaveFilePicker" in window) {
-        const picker = await (window as Window & {
-          showSaveFilePicker: (options: {
-            suggestedName?: string;
-            types?: Array<{ description: string; accept: Record<string, string[]> }>;
-          }) => Promise<FileSystemFileHandle>;
-        }).showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{ description, accept: { [mimeType]: [fileExt] } }],
-        });
-        const writable = await picker.createWritable();
-        await writable.write(blob);
-        await writable.close();
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
+      // Use <a> download — showSaveFilePicker fails after async fetch
+      // because the browser no longer considers it a user gesture
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
       setShowPreview(false);
     } catch (error) {
       console.error(error);
