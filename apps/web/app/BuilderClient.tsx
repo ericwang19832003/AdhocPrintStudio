@@ -3296,7 +3296,7 @@ export default function BuilderClient() {
           )}
           {(previewRows.length > 0 || spreadsheetName) && (
             <div className="property-group">
-              <h4>Spreadsheet preview</h4>
+              <h4>Spreadsheet preview {spreadsheetRows.length > 0 && <span className="hint-inline">({spreadsheetRows.length} rows)</span>}</h4>
               {previewRows.length > 0 ? (
                 <div className="data-preview">
                   <table>
@@ -3366,9 +3366,20 @@ export default function BuilderClient() {
               )}
               {placeholders.length > 0 && (
                 <>
+                  <div className="mapping-progress">
+                    <div className="mapping-progress-bar">
+                      <div
+                        className="mapping-progress-fill"
+                        style={{ width: `${((placeholders.length - unmappedPlaceholders.length) / placeholders.length) * 100}%` }}
+                      />
+                    </div>
+                    <span className="mapping-progress-text">
+                      {placeholders.length - unmappedPlaceholders.length}/{placeholders.length} mapped
+                    </span>
+                  </div>
                   {unmappedPlaceholders.length > 0 && (
                     <div className="alert warning">
-                      Unmapped placeholders: {unmappedPlaceholders.join(", ")}
+                      Unmapped: {unmappedPlaceholders.join(", ")}
                     </div>
                   )}
                   {autoMatchSuggestions.length > 0 && (
@@ -3376,7 +3387,7 @@ export default function BuilderClient() {
                       <div className="auto-match-header">
                         <span className="auto-match-icon">✨</span>
                         <span className="auto-match-title">
-                          {autoMatchSuggestions.length} auto-match{autoMatchSuggestions.length > 1 ? "es" : ""} found
+                          {autoMatchSuggestions.length} of {placeholders.length} fields auto-matched
                         </span>
                         <button
                           className="auto-match-apply-all"
