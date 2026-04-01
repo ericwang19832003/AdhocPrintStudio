@@ -40,6 +40,8 @@ SF_TYPES = {
     (0xD3, 0xA9, 0xCE): ("ERS", "End Resource"),
     (0xD3, 0xA8, 0xDF): ("BNG", "Begin Named Page Group"),
     (0xD3, 0xA9, 0xDF): ("ENG", "End Named Page Group"),
+    (0xD3, 0xA8, 0xC6): ("BRG", "Begin Resource Group"),
+    (0xD3, 0xA9, 0xC6): ("ERG", "End Resource Group"),
     (0xD3, 0xAB, 0x8A): ("MCF", "Map Coded Font"),
     (0xD3, 0xA8, 0x89): ("BPT", "Begin Presentation Text"),
     (0xD3, 0xA9, 0x89): ("EPT", "End Presentation Text"),
@@ -112,28 +114,30 @@ class AFPValidator:
         """Validate document structure."""
         codes = [f['code'] for f in self.fields]
 
-        # Check for required fields
-        if 'BDT' not in codes:
-            self.errors.append("Missing BDT (Begin Document)")
-        if 'EDT' not in codes:
+        # Check for required fields — accept either BDT/EDT or BRG/ERG format
+        has_bdt = 'BDT' in codes
+        has_brg = 'BRG' in codes
+        if not has_bdt and not has_brg:
+            self.errors.append("Missing document wrapper (need BDT/EDT or BRG/ERG)")
+        if has_bdt and 'EDT' not in codes:
             self.errors.append("Missing EDT (End Document)")
         if 'BPG' not in codes:
             self.errors.append("Missing BPG (Begin Page) - document has no pages!")
         if 'EPG' not in codes:
             self.errors.append("Missing EPG (End Page)")
 
-        # Check document structure
-        bdt_idx = codes.index('BDT') if 'BDT' in codes else -1
-        edt_idx = codes.index('EDT') if 'EDT' in codes else -1
+        # Check document structure (only for BDT/EDT format)
+        if has_bdt:
+            bdt_idx = codes.index('BDT')
+            edt_idx = codes.index('EDT') if 'EDT' in codes else -1
 
-        if bdt_idx > 0:
-            # Only NOP should come before BDT
-            for i in range(bdt_idx):
-                if codes[i] != 'NOP':
-                    self.warnings.append(f"Field {i+1} ({codes[i]}) appears before BDT")
+            if bdt_idx > 0:
+                for i in range(bdt_idx):
+                    if codes[i] != 'NOP':
+                        self.warnings.append(f"Field {i+1} ({codes[i]}) appears before BDT")
 
-        if edt_idx >= 0 and edt_idx < len(codes) - 1:
-            self.warnings.append(f"Fields appear after EDT")
+            if edt_idx >= 0 and edt_idx < len(codes) - 1:
+                self.warnings.append(f"Fields appear after EDT")
 
         # Check page structure
         page_depth = 0
@@ -178,6 +182,12 @@ class AFPValidator:
                 group_depth -= 1
                 if group_depth < 0:
                     self.errors.append(f"Field {i+1}: ENG without matching BNG")
+            elif code == 'BRG':
+                group_depth += 1
+            elif code == 'ERG':
+                group_depth -= 1
+                if group_depth < 0:
+                    self.errors.append(f"Field {i+1}: ERG without matching BRG")
             elif code == 'BOG':
                 oeg_depth += 1
             elif code == 'EOG':
@@ -196,7 +206,7 @@ class AFPValidator:
         if oeg_depth != 0:
             self.errors.append(f"Unclosed OEG: {oeg_depth} BOG without EOG")
         if group_depth != 0:
-            self.errors.append(f"Unclosed groups: {group_depth} BNG without ENG")
+            self.errors.append(f"Unclosed groups: {group_depth} BNG/BRG without ENG/ERG")
 
         # Check for page content
         has_page_content = False

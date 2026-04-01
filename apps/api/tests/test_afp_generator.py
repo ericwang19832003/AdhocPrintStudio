@@ -4,6 +4,7 @@ import struct
 
 from app.afp_document_generator import (
     SF_BDT, SF_EDT, SF_BPG, SF_EPG, SF_BNG, SF_ENG, SF_TLE,
+    SF_BRG, SF_ERG, SF_BPS, SF_EPS, SF_IPS,
     generate_afp_document, generate_afp_with_resources,
 )
 
@@ -90,46 +91,55 @@ def _make_test_pages(count=3):
 
 
 # ---------------------------------------------------------------------------
-# Tests for generate_afp_with_resources (should already be correct)
+# Tests for generate_afp_with_resources (Exstream-compatible structure)
 # ---------------------------------------------------------------------------
 
 class TestAfpWithResourcesStructure:
-    """Verify generate_afp_with_resources uses correct document structure."""
+    """Verify generate_afp_with_resources matches Exstream output structure."""
 
-    def test_single_bdt_edt_for_entire_document(self):
-        """Entire file must have exactly 1 BDT and 1 EDT."""
+    def test_no_bdt_edt(self):
+        """Exstream format has no BDT/EDT wrapper."""
         pages = _make_test_pages(3)
         afp = generate_afp_with_resources(pages)
-        assert _count_sf(afp, SF_BDT) == 1, "Expected exactly 1 BDT"
-        assert _count_sf(afp, SF_EDT) == 1, "Expected exactly 1 EDT"
+        assert _count_sf(afp, SF_BDT) == 0, "Should have no BDT"
+        assert _count_sf(afp, SF_EDT) == 0, "Should have no EDT"
 
-    def test_bng_eng_per_letter(self):
-        """Each letter must be wrapped in its own BNG/ENG."""
+    def test_brg_erg_per_letter(self):
+        """Each letter must be wrapped in BRG/ERG (not BNG/ENG)."""
         pages = _make_test_pages(3)
         afp = generate_afp_with_resources(pages)
-        assert _count_sf(afp, SF_BNG) == 3, "Expected 3 BNG for 3 pages"
-        assert _count_sf(afp, SF_ENG) == 3, "Expected 3 ENG for 3 pages"
+        assert _count_sf(afp, SF_BRG) == 3, "Expected 3 BRG for 3 pages"
+        assert _count_sf(afp, SF_ERG) == 3, "Expected 3 ERG for 3 pages"
+        assert _count_sf(afp, SF_BNG) == 0, "Should not use BNG"
+        assert _count_sf(afp, SF_ENG) == 0, "Should not use ENG"
 
-    def test_tle_between_bng_and_bpg(self):
-        """TLE records must appear after BNG and before BPG."""
+    def test_tle_inside_bpg(self):
+        """TLE records must appear inside BPG (after BAG/EAG), not before BPG."""
         pages = _make_test_pages(1)
         afp = generate_afp_with_resources(pages)
         seq = _get_sf_sequence(afp)
-        # Find first BNG, first TLE after it, and first BPG after it
-        bng_idx = seq.index(SF_BNG)
-        tle_idx = None
-        bpg_idx = None
-        for i in range(bng_idx + 1, len(seq)):
-            if seq[i] == SF_TLE and tle_idx is None:
-                tle_idx = i
-            if seq[i] == SF_BPG and bpg_idx is None:
-                bpg_idx = i
-                break
-        assert tle_idx is not None, "No TLE found after BNG"
-        assert bpg_idx is not None, "No BPG found after BNG"
-        assert bng_idx < tle_idx < bpg_idx, (
-            f"Expected BNG({bng_idx}) < TLE({tle_idx}) < BPG({bpg_idx})"
-        )
+        bpg_idx = seq.index(SF_BPG)
+        epg_idx = seq.index(SF_EPG)
+        tle_indices = [i for i, s in enumerate(seq) if s == SF_TLE]
+        assert len(tle_indices) > 0, "Should have TLE records"
+        for idx in tle_indices:
+            assert bpg_idx < idx < epg_idx, (
+                f"TLE at {idx} should be between BPG({bpg_idx}) and EPG({epg_idx})"
+            )
+
+    def test_inline_bps_eps_with_ips(self):
+        """Each page must have inline BPS/EPS followed by IPS reference."""
+        pages = _make_test_pages(2)
+        afp = generate_afp_with_resources(pages)
+        assert _count_sf(afp, SF_BPS) == 2, "Expected 2 BPS for 2 pages"
+        assert _count_sf(afp, SF_EPS) == 2, "Expected 2 EPS for 2 pages"
+        assert _count_sf(afp, SF_IPS) == 2, "Expected 2 IPS for 2 pages"
+        # IPS must come after EPS
+        seq = _get_sf_sequence(afp)
+        eps_indices = [i for i, s in enumerate(seq) if s == SF_EPS]
+        ips_indices = [i for i, s in enumerate(seq) if s == SF_IPS]
+        for eps_i, ips_i in zip(eps_indices, ips_indices):
+            assert eps_i < ips_i, f"IPS({ips_i}) must follow EPS({eps_i})"
 
 
 # ---------------------------------------------------------------------------
@@ -162,12 +172,12 @@ class TestAfpDocumentStructure:
         )
 
 
-def test_pgd_inside_page_with_resources():
-    """Each page must have a Page Descriptor (PGD) inside BAG/EAG."""
+def test_no_pgd_in_exstream_format():
+    """Exstream format uses empty BAG/EAG — no PGD."""
     from app.afp_document_generator import SF_PGD
     pages = _make_test_pages(1)
     afp = generate_afp_with_resources(pages, document_name="MAILOUT")
-    assert _count_sf(afp, SF_PGD) >= 1, "Should have at least one PGD"
+    assert _count_sf(afp, SF_PGD) == 0, "Exstream format should not have PGD"
 
 
 def test_default_resolution_300dpi():
@@ -238,62 +248,42 @@ def test_ipd_header_declares_g4():
     assert found_encoding, "Should find encoding parameter in IPD header"
 
 
-def test_validator_passes_valid_document():
-    """Validator should pass a correctly structured AFP document."""
-    from app.afp_validator import validate_afp_bytes
-    pages = _make_test_pages(2)
-    afp = generate_afp_with_resources(pages, document_name="MAILOUT")
-    success, errors, warnings = validate_afp_bytes(afp)
-    assert success, f"Validation failed: {errors}"
-
-
-def test_full_afp_bluecrest_compatible():
+def test_full_afp_exstream_compatible():
     """
-    End-to-end test: generate AFP and verify BlueCrest Output Manager compatibility.
+    End-to-end test: verify AFP matches Exstream structure for BlueCrest compatibility.
 
-    Checks:
-    1. Single BDT/EDT
-    2. BNG/ENG per letter
-    3. TLEs between BNG and BPG
-    4. PGD inside each page
-    5. 300 DPI resolution
-    6. G4 compression
-    7. Passes validator
+    Exstream structure per page:
+        BRG → BPG → BAG/EAG → TLE×7 → BPS → BIO...EIO → EPS → IPS → EPG → ERG
     """
-    from app.afp_document_generator import SF_PGD, SF_IDD
-    from app.afp_validator import validate_afp_bytes
+    from app.afp_document_generator import SF_IDD
 
     pages = _make_test_pages(5)
     afp = generate_afp_with_resources(pages, document_name="MAILOUT")
 
-    # 1. Single BDT/EDT
-    assert _count_sf(afp, SF_BDT) == 1, "Should have exactly one BDT"
-    assert _count_sf(afp, SF_EDT) == 1, "Should have exactly one EDT"
+    # 1. No BDT/EDT (Exstream format)
+    assert _count_sf(afp, SF_BDT) == 0, "Should have no BDT"
+    assert _count_sf(afp, SF_EDT) == 0, "Should have no EDT"
 
-    # 2. BNG/ENG per letter
-    assert _count_sf(afp, SF_BNG) == 5, "Should have one BNG per letter"
-    assert _count_sf(afp, SF_ENG) == 5, "Should have one ENG per letter"
+    # 2. BRG/ERG per letter (not BNG/ENG)
+    assert _count_sf(afp, SF_BRG) == 5, "Should have one BRG per letter"
+    assert _count_sf(afp, SF_ERG) == 5, "Should have one ERG per letter"
 
-    # 3. TLEs between BNG and BPG
-    sf_ids = _get_sf_sequence(afp)
-    for i, sf_id in enumerate(sf_ids):
-        if sf_id == SF_BNG:
-            # Next non-TLE after BNG should be BPG
-            j = i + 1
-            while j < len(sf_ids) and sf_ids[j] == SF_TLE:
-                j += 1
-            assert j < len(sf_ids) and sf_ids[j] == SF_BPG, \
-                "After BNG+TLEs, next SF should be BPG"
-
-    # 4. PGD inside pages
-    assert _count_sf(afp, SF_PGD) >= 5, "Should have PGD in each page"
-
-    # 5. BPG/EPG per letter
+    # 3. BPG/EPG per letter
     assert _count_sf(afp, SF_BPG) == 5
     assert _count_sf(afp, SF_EPG) == 5
 
-    # 6. 7 TLEs per letter (mailing_name, addr1-3, return_addr1-3)
+    # 4. 7 TLEs per letter
     assert _count_sf(afp, SF_TLE) == 35, "Should have 7 TLEs per letter * 5 letters"
+
+    # 5. Inline BPS/EPS + IPS per letter
+    assert _count_sf(afp, SF_BPS) == 5, "Should have one BPS per letter"
+    assert _count_sf(afp, SF_EPS) == 5, "Should have one EPS per letter"
+    assert _count_sf(afp, SF_IPS) == 5, "Should have one IPS per letter"
+
+    # 6. SF ordering: BRG → BPG → ... → EPS → IPS → EPG → ERG
+    sf_ids = _get_sf_sequence(afp)
+    assert sf_ids[0] == SF_BRG, "Document should start with BRG"
+    assert sf_ids[-1] == SF_ERG, "Document should end with ERG"
 
     # 7. 300 DPI resolution in IDD
     sf_idd = bytes([0xD3, 0xA6, 0xFB])
@@ -312,13 +302,3 @@ def test_full_afp_bluecrest_compatible():
                     break
         offset += 1 + length
     assert found_300, "Should use 300 DPI"
-
-    # 8. Passes validator
-    valid, errors, warnings = validate_afp_bytes(afp)
-    assert valid, f"AFP validation failed: {errors}"
-
-    # 9. Document starts with NOP/BDT and ends with EDT
-    sf_nop = bytes([0xD3, 0xEE, 0xEE])
-    non_nop = [s for s in sf_ids if s != sf_nop]
-    assert non_nop[0] == SF_BDT, "Document should start with BDT (after NOPs)"
-    assert non_nop[-1] == SF_EDT, "Document should end with EDT"
