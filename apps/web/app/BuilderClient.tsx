@@ -76,6 +76,8 @@ const SidebarButton = ({
     onMouseLeave={onLeave}
     onClick={onClick}
     type="button"
+    title={label}
+    aria-label={label}
   >
     {icon ? <span className="tool-icon">{icon}</span> : null}
     <span className="tool-label">{label}</span>
@@ -1603,6 +1605,18 @@ export default function BuilderClient() {
     return htmlText.replace(/<[^>]*>/g, "").trim().length === 0;
   }, [activePage, bodyContentByPage]);
 
+  // Warn before leaving with unsaved work
+  useEffect(() => {
+    const hasContent = !bodyIsEmpty || spreadsheetName || Object.values(blocksByPage).some((b) => b.length > 0);
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasContent) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [bodyIsEmpty, spreadsheetName, blocksByPage]);
+
   const returnLines = useMemo(() => {
     const content = selectedReturn?.content ?? "";
     const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
@@ -1911,8 +1925,18 @@ export default function BuilderClient() {
       setShowPreview(false);
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : `Failed to generate ${format.toUpperCase()}`;
-      alert(`Error: ${message}\n\nMake sure the API server is running.`);
+      const raw = error instanceof Error ? error.message : "";
+      let message: string;
+      if (raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
+        message = "Cannot reach the server. Make sure it is running and try again.";
+      } else if (raw.includes("500") || raw.includes("Internal Server")) {
+        message = "The server encountered an error while generating your file. Check the server logs for details.";
+      } else if (raw.includes("413") || raw.includes("too large")) {
+        message = "The data file is too large. Try reducing the number of records or image sizes.";
+      } else {
+        message = raw || `Failed to generate ${format.toUpperCase()}`;
+      }
+      alert(`Error: ${message}`);
     } finally {
       setGenerating(false);
     }
@@ -2049,6 +2073,7 @@ export default function BuilderClient() {
   };
 
   const handleLibraryItemDelete = (tab: string, id: string) => {
+    if (!window.confirm("Delete this item? This cannot be undone.")) return;
     setLibrary((prev) => ({
       ...prev,
       [tab]: (prev[tab] ?? []).filter((item) => item.id !== id),
@@ -3041,7 +3066,18 @@ export default function BuilderClient() {
                   />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
-                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
+                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && !spreadsheetName && (
+                  <div className="empty-state welcome-guide">
+                    <p className="welcome-title">Get started</p>
+                    <ol className="welcome-steps">
+                      <li>Upload a spreadsheet in the Data panel</li>
+                      <li>Type your letter and use [ColumnName] for placeholders</li>
+                      <li>Drag logos, taglines, and verbiage from the sidebar</li>
+                      <li>Map your mailing fields, then generate</li>
+                    </ol>
+                  </div>
+                )}
+                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && spreadsheetName && (
                   <div className="empty-state">Drop content here or start typing</div>
                 )}
                 {(blocksByPage[activePage] ?? []).map((block) => (
@@ -3216,6 +3252,9 @@ export default function BuilderClient() {
             >
               <p>{spreadsheetName ? "Data file loaded" : "Drag data file here"}</p>
               <span>{spreadsheetName ?? "Upload Excel file"}</span>
+              {spreadsheetName && spreadsheetRows.length > 0 && (
+                <span className="record-count">{spreadsheetRows.length} records loaded</span>
+              )}
               <label className="file-input">
                 Upload file
                 <input
@@ -4192,7 +4231,14 @@ export default function BuilderClient() {
                     Cancel
                   </button>
                   <button className="primary" onClick={() => handleGenerate(outputFormat)} disabled={generating}>
-                    {generating ? "Generating..." : `Download ${outputFormat.toUpperCase()}`}
+                    {generating ? (
+                      <>
+                        <span className="spinner" aria-hidden="true" />
+                        Generating...
+                      </>
+                    ) : (
+                      `Download ${outputFormat.toUpperCase()}`
+                    )}
                   </button>
                 </div>
               </div>
