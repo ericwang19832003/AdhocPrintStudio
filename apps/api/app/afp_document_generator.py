@@ -167,10 +167,13 @@ def _build_pgd(width: int = 2550, height: int = 3300, resolution: int = 300) -> 
     # Flag bytes
     data.extend([0x00, 0x00, 0x00])
 
-    # XpgBase and YpgBase - L-units per unit base (240 per inch * 10 = 2400)
-    # Using 2400 L-units per 10 inches
-    data.extend([0x00, 0x09, 0x60])  # 2400 in 3 bytes
-    data.extend([0x00, 0x09, 0x60])  # 2400 in 3 bytes
+    # XpgBase and YpgBase - L-units per unit base (resolution * 10)
+    # Must match the resolution used for page width/height values
+    base = resolution * 10
+    data.extend([0x00])
+    data.extend(struct.pack('>H', base))
+    data.extend([0x00])
+    data.extend(struct.pack('>H', base))
 
     # XpgSize - page width in L-units (8.5 * 240 = 2040)
     data.extend([0x00])
