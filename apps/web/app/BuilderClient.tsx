@@ -1439,10 +1439,9 @@ export default function BuilderClient() {
         editor.commands.setContent(cleanHtml);
       }
 
-      // Reset blocks and assets on current page to avoid stale state
+      // Reset blocks and page-level tagline on current page.
+      // Logo and return address are document-level, so keep them.
       setBlocksByPage((prev: any) => ({ ...prev, [activePage]: [] }));
-      setSelectedLogo(null);
-      setSelectedReturn(null);
       setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: null }));
 
     } catch (err) {
