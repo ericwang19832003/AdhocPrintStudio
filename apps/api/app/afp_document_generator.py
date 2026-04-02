@@ -524,7 +524,11 @@ def _to_bilevel(gray: bytes, w: int, h: int) -> bytes:
 
 
 def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
-    """Extract raw compressed strip data from a TIFF file."""
+    """Extract and concatenate all compressed strip data from a TIFF file.
+
+    Large images may produce multiple strips. All strips must be concatenated
+    to avoid truncating the G4 compressed image data.
+    """
     if tiff_bytes[:2] == b'II':
         endian = '<'
     else:
@@ -533,8 +537,8 @@ def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
     ifd_offset = struct.unpack(endian + 'I', tiff_bytes[4:8])[0]
     num_entries = struct.unpack(endian + 'H', tiff_bytes[ifd_offset:ifd_offset+2])[0]
 
-    strip_offset = 0
-    strip_length = 0
+    strip_offsets: list[int] = []
+    strip_lengths: list[int] = []
 
     for i in range(num_entries):
         entry_off = ifd_offset + 2 + i * 12
@@ -542,21 +546,39 @@ def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
         typ = struct.unpack(endian + 'H', tiff_bytes[entry_off+2:entry_off+4])[0]
         count = struct.unpack(endian + 'I', tiff_bytes[entry_off+4:entry_off+8])[0]
 
-        # For SHORT type (3) with count=1, value is in first 2 bytes of value field
-        # For LONG type (4) with count=1, value is the 4-byte value field
-        if typ == 3 and count == 1:
-            value = struct.unpack(endian + 'H', tiff_bytes[entry_off+8:entry_off+10])[0]
+        if tag not in (273, 279):
+            continue
+
+        # Single value: stored inline in the 4-byte value field
+        if count == 1:
+            if typ == 3:  # SHORT
+                val = struct.unpack(endian + 'H', tiff_bytes[entry_off+8:entry_off+10])[0]
+            else:  # LONG
+                val = struct.unpack(endian + 'I', tiff_bytes[entry_off+8:entry_off+12])[0]
+            if tag == 273:
+                strip_offsets = [val]
+            else:
+                strip_lengths = [val]
         else:
-            value = struct.unpack(endian + 'I', tiff_bytes[entry_off+8:entry_off+12])[0]
+            # Multiple values: value field is a pointer to the array
+            arr_offset = struct.unpack(endian + 'I', tiff_bytes[entry_off+8:entry_off+12])[0]
+            fmt = endian + ('H' if typ == 3 else 'I')
+            sz = 2 if typ == 3 else 4
+            vals = [struct.unpack(fmt, tiff_bytes[arr_offset + j * sz:arr_offset + j * sz + sz])[0]
+                    for j in range(count)]
+            if tag == 273:
+                strip_offsets = vals
+            else:
+                strip_lengths = vals
 
-        if tag == 273:  # StripOffsets
-            strip_offset = value
-        elif tag == 279:  # StripByteCounts
-            strip_length = value
+    if not strip_offsets or not strip_lengths:
+        return b''
 
-    if strip_offset and strip_length:
-        return tiff_bytes[strip_offset:strip_offset + strip_length]
-    return b''
+    # Concatenate all strips
+    result = bytearray()
+    for off, length in zip(strip_offsets, strip_lengths):
+        result.extend(tiff_bytes[off:off + length])
+    return bytes(result)
 
 
 def _compress_g4(bilevel_data: bytes, width: int, height: int) -> bytes:

@@ -33,9 +33,15 @@ def _reset() -> None:
 
 def _safe_path(key: str) -> Path:
     """Resolve *key* under the storage root, rejecting path traversal."""
-    root = _get_storage_root()
+    root = _get_storage_root().resolve()
     resolved = (root / key).resolve()
-    if not str(resolved).startswith(str(root)):
+    # Use os.path.commonpath to avoid prefix false-positives
+    # (e.g. /tmp/storage vs /tmp/storage2)
+    try:
+        common = Path(os.path.commonpath([root, resolved]))
+    except ValueError:
+        raise ValueError(f"Path traversal detected: {key}")
+    if common != root:
         raise ValueError(f"Path traversal detected: {key}")
     return resolved
 

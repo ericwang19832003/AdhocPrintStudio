@@ -1439,8 +1439,11 @@ export default function BuilderClient() {
         editor.commands.setContent(cleanHtml);
       }
 
-      // Reset blocks on current page
+      // Reset blocks and assets on current page to avoid stale state
       setBlocksByPage((prev: any) => ({ ...prev, [activePage]: [] }));
+      setSelectedLogo(null);
+      setSelectedReturn(null);
+      setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: null }));
 
     } catch (err) {
       setDocxError("Could not read this file. Please check it opens correctly in Word.");

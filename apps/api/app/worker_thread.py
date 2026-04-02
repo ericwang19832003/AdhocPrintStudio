@@ -98,8 +98,20 @@ def _process_run(run_id: str, job_id: str) -> None:
         "Return_Addr3": return_addr3,
     }
 
-    # 6. Generate stub AFP output
-    afp_bytes = b"STUB_AFP_OUTPUT"
+    # 6. Generate AFP output with TLE data
+    from app.afp_document_generator import generate_afp_with_resources
+    pages = [{
+        'tle_data': {
+            'mailing_name': name or '',
+            'mailing_addr1': addr1 or '',
+            'mailing_addr2': addr2 or '',
+            'mailing_addr3': addr3 or '',
+            'return_addr1': return_addr1 or '',
+            'return_addr2': return_addr2 or '',
+            'return_addr3': return_addr3 or '',
+        }
+    }]
+    afp_bytes = generate_afp_with_resources(pages, document_name="MAILOUT")
     tle_bytes = json.dumps(tle_manifest).encode("utf-8")
 
     output_key = f"outputs/{run_id}.afp"
