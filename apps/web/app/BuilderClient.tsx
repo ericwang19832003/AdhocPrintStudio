@@ -11,7 +11,7 @@ import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
 
-const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false });
+const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
 type LibraryItem = {
   id: string;
@@ -622,19 +622,8 @@ export default function BuilderClient() {
     pendingBlocksRef.current = [];
   }, [blocksByPage]);
 
-  // Track editor instance for toolbar
-  useEffect(() => {
-    const checkEditor = () => {
-      const editor = editorRef.current?.getEditor();
-      if (editor && editor !== editorInstance) {
-        setEditorInstance(editor);
-      }
-    };
-    // Check immediately and then poll until editor is available
-    checkEditor();
-    const interval = setInterval(checkEditor, 100);
-    return () => clearInterval(interval);
-  }, [editorInstance]);
+  // Editor instance is now set directly via onEditorReady callback
+  // (bypasses dynamic() ref-forwarding issues)
 
   // Load library preferences from localStorage
   useEffect(() => {
@@ -1172,6 +1161,21 @@ export default function BuilderClient() {
     }
     if (item.type === "tagline") {
       setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: item }));
+      return;
+    }
+    // Insert verbiage/full-letter content into the TipTap editor
+    // so the toolbar (font, size, bold, etc.) works on it
+    if (item.type === "verbiage" || item.type === "full-letter") {
+      const editor = editorRef.current?.getEditor();
+      if (editor && item.content) {
+        const escape = (s: string) =>
+          s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const html = item.content
+          .split(/\n\n+/)
+          .map((para) => `<p>${para.split(/\n/).map(escape).join("<br>")}</p>`)
+          .join("");
+        editor.chain().focus().insertContent(html).run();
+      }
       return;
     }
     const size = getBodyZoneSize();
@@ -3062,9 +3066,10 @@ export default function BuilderClient() {
                   <EditorClient
                     ref={editorRef}
                     value={bodyContentByPage[activePage] ?? ""}
-                    onChange={(html) => updateBodyContent(activePageRef.current, html)}
+                    onChange={(html: string) => updateBodyContent(activePageRef.current, html)}
                     placeholder="Start typing your letter..."
                     columns={columns}
+                    onEditorReady={setEditorInstance}
                   />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}

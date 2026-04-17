@@ -1745,6 +1745,66 @@ textarea:focus-visible {
   border-left: 1px solid #e5e7eb;
 }
 
+.toolbar-dropdown {
+  position: relative;
+}
+
+.toolbar-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 70px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.8rem;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.toolbar-dropdown-trigger:hover {
+  background: white;
+  color: #374151;
+}
+
+.toolbar-dropdown-arrow {
+  font-size: 0.6rem;
+  opacity: 0.5;
+}
+
+.toolbar-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+}
+
+.toolbar-dropdown-item {
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toolbar-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
 .editor-toolbar-bar select {
   min-width: 90px;
   padding: 6px 8px;
