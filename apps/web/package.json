@@ -1,0 +1,40 @@
+{
+  "name": "adhocprintstudio-web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@swc/helpers": "^0.5.18",
+    "@tiptap/core": "^2.11.1",
+    "@tiptap/extension-color": "^2.11.1",
+    "@tiptap/extension-font-family": "^2.11.1",
+    "@tiptap/extension-highlight": "^2.11.1",
+    "@tiptap/extension-link": "^2.11.1",
+    "@tiptap/extension-placeholder": "^2.11.1",
+    "@tiptap/extension-text-align": "^2.11.1",
+    "@tiptap/extension-text-style": "^2.11.1",
+    "@tiptap/extension-underline": "^2.11.1",
+    "@tiptap/react": "^2.11.1",
+    "@tiptap/starter-kit": "^2.11.1",
+    "dompurify": "^3.0.8",
+    "isomorphic-dompurify": "^2.4.0",
+    "mammoth": "^1.12.0",
+    "next": "14.2.7",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "20.16.5",
+    "@types/react": "18.3.7",
+    "dotenv": "16.4.5",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.7",
+    "typescript": "5.6.2"
+  }
+}

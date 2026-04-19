@@ -1,0 +1,23 @@
+version: 1.0
+runtime: nodejs18
+build:
+  commands:
+    build:
+      - echo "Build v4 - force API URL in build"
+      - npm install
+      - NEXT_PUBLIC_API_BASE_URL=https://2tpyxda24h.us-east-1.awsapprunner.com npm run build
+      - cp -r public .next/standalone/ || true
+      - cp -r .next/static .next/standalone/.next/
+  env:
+    - name: NEXT_PUBLIC_API_BASE_URL
+      value: "https://2tpyxda24h.us-east-1.awsapprunner.com"
+run:
+  command: node .next/standalone/server.js
+  network:
+    port: 3000
+    env: PORT
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: HOSTNAME
+      value: "0.0.0.0"

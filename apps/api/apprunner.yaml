@@ -1,0 +1,26 @@
+version: 1.0
+runtime: python311
+build:
+  commands:
+    pre-build:
+      - yum install -y libjpeg-turbo-devel zlib-devel
+    build:
+      - echo "Build timestamp v3 - forcing fresh build"
+      - pip3 install --upgrade pip
+      - mkdir -p ./vendor
+      - pip3 install --no-cache-dir -r requirements.txt -t ./vendor
+      - ls -la ./vendor
+run:
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8080
+  network:
+    port: 8080
+    env: PORT
+  env:
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: CORS_ORIGINS
+      value: "*"
+    - name: PYTHONPATH
+      value: "/app/apps/api/vendor"
+    - name: DATABASE_URL
+      value: "postgresql://***REMOVED***"

@@ -1,0 +1,26 @@
+.DS_Store
+.env
+.env.local
+.env.local.bak
+.env*.local
+*.bak
+.venv
+__pycache__/
+*.pyc
+node_modules/
+.next/
+dist/
+coverage/
+
+.npm-cache/
+
+.npm-cache/
+
+.pnpm-store/
+tsconfig.tsbuildinfo
+=*
+
+# Build artifacts
+apps/web/out/
+apps/api/web/
+build/
