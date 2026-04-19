@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Section 3 — Primitives</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-900:#0b1220;--ink-700:#1f2937;--ink-500:#4b5563;
+    --ink-300:#9ca3af;--ink-150:#e5e7eb;--ink-50:#f8fafc;
+    --accent:#b3502f;--accent-hover:#9a4326;--accent-ink:#7a3318;--accent-soft:#fdeee6;
+    --success:#0f7a55;--warn:#b45309;--danger:#b42318;--info:#1d5fbe;
+    --text-primary:var(--ink-900);--text-secondary:var(--ink-500);
+    --text-muted:var(--ink-300);--text-inverse:#fff;
+    --surface-page:var(--ink-50);--surface-card:#fff;--surface-sunken:var(--ink-150);
+    --border-subtle:var(--ink-150);--border-strong:var(--ink-300);
+    --radius-xs:4px;--radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-pill:999px;
+    --shadow-sm:0 1px 2px rgba(11,18,32,.06),0 1px 1px rgba(11,18,32,.04);
+    --shadow-md:0 6px 16px rgba(11,18,32,.08),0 2px 4px rgba(11,18,32,.04);
+    --font-sans:"Inter",ui-sans-serif,system-ui,sans-serif;
+    --font-serif:"Source Serif 4",ui-serif,Georgia,serif;
+    --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  html,body{margin:0;background:var(--surface-page);color:var(--text-primary);
+    font-family:var(--font-sans);font-size:14px;line-height:1.5;}
+  header{padding:32px 40px 16px;border-bottom:1px solid var(--border-subtle);background:#fff;}
+  h1{margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-0.01em;}
+  header p{margin:0;color:var(--text-secondary);}
+  main{padding:32px 40px;max-width:1100px;}
+  section{margin:0 0 40px;padding:24px;background:#fff;border:1px solid var(--border-subtle);border-radius:var(--radius-md);}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);margin:0 0 12px;font-weight:600;font-family:var(--font-mono);}
+  h3{font-size:13px;color:var(--text-secondary);margin:18px 0 10px;font-weight:500;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .col{display:grid;gap:8px;}
+
+  /* Button */
+  .btn{display:inline-flex;align-items:center;gap:6px;font:500 14px/1 var(--font-sans);
+    padding:8px 14px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid transparent;
+    transition:background 120ms ease;}
+  .btn-primary{background:var(--ink-900);color:#fff;}
+  .btn-primary:hover{background:var(--ink-700);}
+  .btn-secondary{background:#fff;color:var(--text-primary);border-color:var(--border-strong);}
+  .btn-secondary:hover{background:var(--ink-50);}
+  .btn-ghost{background:transparent;color:var(--text-primary);}
+  .btn-ghost:hover{background:var(--ink-50);}
+  .btn-link{background:transparent;color:var(--text-secondary);padding:8px 4px;text-decoration:underline;}
+  .btn-accent{background:var(--accent);color:#fff;}
+  .btn-accent:hover{background:var(--accent-hover);}
+  .btn-danger{background:#fff;color:var(--danger);border-color:var(--danger);}
+  .btn-sm{padding:6px 10px;font-size:13px;}
+  .btn[disabled]{opacity:.4;cursor:not-allowed;}
+
+  /* Badge */
+  .badge{display:inline-flex;align-items:center;gap:6px;font:500 11px/1 var(--font-sans);
+    padding:3px 8px;border-radius:var(--radius-pill);background:var(--ink-150);color:var(--text-secondary);}
+  .badge-accent{background:var(--accent-soft);color:var(--accent-ink);}
+  .badge-success{background:#dcfce7;color:var(--success);}
+  .badge-warn{background:#fef3c7;color:var(--warn);}
+  .badge-danger{background:#fee2e2;color:var(--danger);}
+  .badge-info{background:#dbeafe;color:var(--info);}
+  .badge-caps{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:4px 8px;}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;}
+
+  /* Card */
+  .card{background:#fff;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:16px;}
+  .card-interactive{cursor:pointer;transition:box-shadow 120ms ease,transform 120ms ease;}
+  .card-interactive:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px);}
+
+  /* Input */
+  .input{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm);padding:8px 12px;font-family:var(--font-sans);font-size:14px;
+    color:var(--text-primary);width:280px;}
+  .input:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .input input{border:none;outline:none;flex:1;font:inherit;color:inherit;background:transparent;}
+  .input .leading{color:var(--text-muted);}
+  .input .kbd{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+    background:var(--ink-150);padding:2px 6px;border-radius:var(--radius-xs);}
+  .label{font:500 13px/1.4 var(--font-sans);color:var(--text-primary);display:block;margin-bottom:6px;}
+  .hint{font:11px/1.4 var(--font-sans);color:var(--text-secondary);margin-top:6px;}
+
+  /* Textarea */
+  .textarea{display:block;background:#fff;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+    padding:10px 12px;font-family:var(--font-sans);font-size:14px;color:var(--text-primary);width:380px;min-height:80px;resize:vertical;}
+  .textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .counter{font:11px/1.4 var(--font-mono);color:var(--text-muted);text-align:right;margin-top:4px;}
+
+  /* Select (visual only — Radix in real impl) */
+  .select{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;
+    border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 12px;font:14px var(--font-sans);
+    color:var(--text-primary);min-width:180px;cursor:pointer;}
+  .select::after{content:"▾";color:var(--text-muted);font-size:10px;}
+
+  /* Tabs */
+  .tabs{display:flex;gap:0;border-bottom:1px solid var(--border-subtle);}
+  .tab{padding:10px 16px;font:500 14px/1 var(--font-sans);color:var(--text-secondary);
+    background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;}
+  .tab-active{color:var(--text-primary);border-bottom-color:var(--ink-900);}
+  .tab:hover:not(.tab-active){color:var(--text-primary);}
+
+  /* Modal (visual only) */
+  .modal-shell{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);width:520px;border:1px solid var(--border-subtle);}
+  .modal-h{padding:18px 20px 8px;}
+  .modal-h h4{margin:0;font-size:16px;font-weight:600;}
+  .modal-h p{margin:4px 0 0;color:var(--text-secondary);font-size:13px;}
+  .modal-b{padding:12px 20px;}
+  .modal-f{padding:14px 20px;border-top:1px solid var(--border-subtle);display:flex;justify-content:flex-end;gap:8px;}
+
+  /* Tooltip */
+  .tip{position:relative;display:inline-block;}
+  .tip-bubble{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    background:var(--ink-900);color:#fff;padding:6px 10px;border-radius:var(--radius-sm);
+    font:12px var(--font-sans);white-space:nowrap;}
+  .tip-bubble::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:4px solid transparent;border-top-color:var(--ink-900);}
+
+  /* ToggleGroup */
+  .tg{display:inline-flex;background:var(--ink-150);border-radius:var(--radius-sm);padding:2px;}
+  .tg button{background:transparent;border:none;padding:6px 12px;font:500 12px var(--font-sans);
+    color:var(--text-secondary);border-radius:var(--radius-xs);cursor:pointer;}
+  .tg .on{background:#fff;color:var(--text-primary);box-shadow:var(--shadow-sm);}
+
+  /* Checkbox */
+  .check{display:inline-flex;align-items:center;gap:8px;cursor:pointer;}
+  .check .box{width:16px;height:16px;border:1.5px solid var(--border-strong);border-radius:var(--radius-xs);
+    display:inline-flex;align-items:center;justify-content:center;background:#fff;}
+  .check .box.on{background:var(--ink-900);border-color:var(--ink-900);color:#fff;font-size:11px;}
+
+  /* DropZone */
+  .dropzone{border:1.5px dashed var(--border-strong);border-radius:var(--radius-md);padding:32px;
+    background:#fff;text-align:center;color:var(--text-secondary);cursor:pointer;}
+  .dropzone:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);}
+  .dropzone .arrow{font-size:24px;color:var(--text-muted);}
+
+  /* Table */
+  table.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+  table.tbl th{text-align:left;font:600 11px/1 var(--font-mono);text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-secondary);padding:10px 12px;border-bottom:1px solid var(--border-subtle);}
+  table.tbl td{padding:12px;border-bottom:1px solid var(--border-subtle);}
+  table.tbl tr:hover td{background:var(--surface-page);}
+
+  a.back{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);text-decoration:none;}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/">← Back to companion index</a>
+  <h1 style="margin-top:8px;">Section 3 — Primitives (Tier A + B)</h1>
+  <p>Visual reference. Real implementation wraps Radix headless components for behavior.</p>
+</header>
+<main>
+
+<section>
+  <h2>Button — variants &amp; sizes</h2>
+  <div class="row">
+    <button class="btn btn-primary">Generate</button>
+    <button class="btn btn-secondary">Preview</button>
+    <button class="btn btn-secondary">Export</button>
+    <button class="btn btn-ghost">Cancel</button>
+    <button class="btn btn-link">Need help?</button>
+    <button class="btn btn-accent">Add to library</button>
+    <button class="btn btn-danger">Remove</button>
+  </div>
+  <h3>Sizes</h3>
+  <div class="row">
+    <button class="btn btn-primary btn-sm">Generate</button>
+    <button class="btn btn-primary">Generate</button>
+  </div>
+  <h3>States</h3>
+  <div class="row">
+    <button class="btn btn-primary" disabled>Disabled</button>
+    <button class="btn btn-primary"><span style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 800ms linear infinite;"></span> Loading</button>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</section>
+
+<section>
+  <h2>Badge — tones &amp; status caps</h2>
+  <h3>Inline tones</h3>
+  <div class="row">
+    <span class="badge">neutral</span>
+    <span class="badge badge-accent">accent</span>
+    <span class="badge badge-success"><span class="dot"></span>success</span>
+    <span class="badge badge-warn"><span class="dot"></span>warn</span>
+    <span class="badge badge-danger"><span class="dot"></span>danger</span>
+    <span class="badge badge-info"><span class="dot"></span>info</span>
+  </div>
+  <h3>Status caps (READY / PENDING / DRAFT / ADVANCED)</h3>
+  <div class="row">
+    <span class="badge badge-success badge-caps">READY</span>
+    <span class="badge badge-warn badge-caps">PENDING</span>
+    <span class="badge badge-caps">DRAFT</span>
+    <span class="badge badge-info badge-caps">ADVANCED</span>
+    <span class="badge badge-caps">CUSTOM</span>
+    <span class="badge badge-caps">SYSTEM</span>
+  </div>
+</section>
+
+<section>
+  <h2>Card — surface &amp; interactive</h2>
+  <div class="row">
+    <div class="card" style="width:240px;">
+      <div style="font-weight:600;">APS Primary</div>
+      <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">328 × 140 px · 4.2 KB</div>
+    </div>
+    <div class="card card-interactive" style="width:240px;">
+      <div style="font-weight:600;">Late payment notice</div>
+      <div style="color:var(--text-secondary);font-size:13px;margin-top:6px;line-height:1.4;">Our records show an outstanding balance. Please remit payment within 10 days...</div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-top:8px;">107 chars · #billing</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Input — text &amp; search variants</h2>
+  <div class="col">
+    <div>
+      <label class="label">Display name</label>
+      <div class="input"><input value="APS Primary" /></div>
+      <div class="hint">Visible only to you in the library.</div>
+    </div>
+    <div>
+      <label class="label">Find logos</label>
+      <div class="input">
+        <span class="leading">⌕</span>
+        <input placeholder="Search logos by name or brand..." />
+        <span class="kbd">⌘K</span>
+      </div>
+    </div>
+    <div>
+      <label class="label">Position X</label>
+      <div class="input" style="width:120px;"><input value="72" /></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Textarea — with character counter</h2>
+  <label class="label">Verbiage text</label>
+  <textarea class="textarea">Protect yourself from fraud. Never share your account number, PIN, or password with anyone claiming to be from our company. We will never ask for this information via email or phone.</textarea>
+  <div class="counter">192 chars · 1 paragraph</div>
+</section>
+
+<section>
+  <h2>Select — trigger appearance</h2>
+  <div class="row">
+    <div class="select">Source Serif 4</div>
+    <div class="select" style="min-width:80px;">13pt</div>
+    <div class="select">— Choose column —</div>
+    <div class="select">first_name</div>
+  </div>
+  <div class="hint">Trigger visual matches Input. Content panel uses --shadow-md, --radius-md.</div>
+</section>
+
+<section>
+  <h2>Tabs — underline triggers</h2>
+  <div class="tabs">
+    <button class="tab tab-active">Block</button>
+    <button class="tab">Document</button>
+    <button class="tab">Merge</button>
+  </div>
+  <div style="padding:16px 0;color:var(--text-secondary);font-size:13px;">Active panel content goes here. Arrow keys cycle triggers (Radix).</div>
+</section>
+
+<section>
+  <h2>Modal — header / body / footer</h2>
+  <div style="background:rgba(11,18,32,.4);padding:32px;border-radius:var(--radius-md);">
+    <div class="modal-shell">
+      <div class="modal-h">
+        <h4>Upload logo</h4>
+        <p>Supported formats: PNG, JPG, SVG · Max 5 MB</p>
+      </div>
+      <div class="modal-b">
+        <div class="dropzone">
+          <div class="arrow">↥</div>
+          <div style="margin-top:8px;font-weight:500;color:var(--text-primary);">Drop your logo here</div>
+          <div style="font-size:12px;margin-top:4px;">or <a href="#" style="color:var(--accent);">browse files</a></div>
+        </div>
+      </div>
+      <div class="modal-f">
+        <button class="btn btn-secondary">Cancel</button>
+        <button class="btn btn-primary">Add to library</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Tooltip</h2>
+  <div class="row" style="padding:32px 0 16px;">
+    <div class="tip">
+      <div class="tip-bubble">Open library (⌘K)</div>
+      <button class="btn btn-ghost">⌕</button>
+    </div>
+  </div>
+  <div class="hint">200ms delay default, dismisses on blur or pointer leave.</div>
+</section>
+
+<section>
+  <h2>ToggleGroup — Static/Dynamic, PDF/AFP, Table/Single row</h2>
+  <div class="row">
+    <div class="tg"><button class="on">Static</button><button>Dynamic</button></div>
+    <div class="tg"><button class="on">PDF</button><button>AFP</button></div>
+    <div class="tg"><button class="on">Table</button><button>Single row</button></div>
+  </div>
+</section>
+
+<section>
+  <h2>Checkbox</h2>
+  <div class="col">
+    <label class="check"><span class="box on">✓</span> Send via USPS window envelope</label>
+    <label class="check"><span class="box"></span> Include marketing insert</label>
+  </div>
+</section>
+
+<section>
+  <h2>DropZone</h2>
+  <div class="dropzone">
+    <div class="arrow">↥</div>
+    <div style="margin-top:8px;font-weight:500;color:var(--text-primary);">Drop a .docx file</div>
+    <div style="font-size:12px;margin-top:4px;">or <a href="#" style="color:var(--accent);">browse files</a></div>
+  </div>
+</section>
+
+<section>
+  <h2>Table</h2>
+  <table class="tbl">
+    <thead><tr>
+      <th>NAME</th><th>UPDATED</th><th>SOURCE</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>APS Primary</td><td>Updated 3d ago</td><td><span class="badge badge-caps">CUSTOM</span></td></tr>
+      <tr><td>APS Mono</td><td>Updated 3d ago</td><td><span class="badge badge-caps">SYSTEM</span></td></tr>
+      <tr><td>Acme Corp</td><td>Updated 3d ago</td><td><span class="badge badge-caps">CUSTOM</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+</body>
+</html>
