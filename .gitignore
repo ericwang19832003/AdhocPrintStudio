@@ -24,3 +24,7 @@ tsconfig.tsbuildinfo
 apps/web/out/
 apps/api/web/
 build/
+
+# Claude task memory — local working state, except the README
+.claude-task/*
+!.claude-task/README.md
