@@ -1,0 +1,13 @@
+/* Minimal reset — loaded before tokens.css and globals.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+button, input, textarea, select {
+  font: inherit;
+  color: inherit;
+}
+
+/* :focus is replaced by :focus-visible in primitives.css */
+:focus { outline: none; }

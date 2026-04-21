@@ -3,8 +3,8 @@
   --panel: #ffffff;
   --ink: #0f172a;
   --muted: #64748b;
-  --accent: #0f172a;
-  --accent-strong: #0b1220;
+  --legacy-accent: #0f172a;
+  --legacy-accent-strong: #0b1220;
   --outline: #e2e8f0;
   --success: #1c7c54;
   --warn: #b04a00;
@@ -40,12 +40,12 @@ button {
 }
 
 button.primary {
-  background: var(--accent);
+  background: var(--legacy-accent);
   color: white;
 }
 
 button.primary:hover {
-  background: var(--accent-strong);
+  background: var(--legacy-accent-strong);
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
 }
@@ -1222,7 +1222,7 @@ textarea:focus-visible {
 }
 
 .tab.active {
-  background: var(--accent);
+  background: var(--legacy-accent);
   color: white;
   border-color: transparent;
 }
