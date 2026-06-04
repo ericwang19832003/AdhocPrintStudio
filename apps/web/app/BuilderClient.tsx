@@ -2198,6 +2198,7 @@ export default function BuilderClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [openMenuTab, flyoutQuery]);
 
+  const mappedValues = Object.values(placeholderMap ?? {});
   const readiness: ReadinessItem[] = [
     {
       label: "Logo set",
@@ -2216,12 +2217,8 @@ export default function BuilderClient() {
     },
     {
       label: "Placeholders mapped",
-      status:
-        Object.values(placeholderMap ?? {}).length > 0 &&
-        Object.values(placeholderMap ?? {}).every(Boolean)
-          ? "ok"
-          : "warn",
-      detail: Object.values(placeholderMap ?? {}).every(Boolean) ? "All mapped" : "Some unmapped",
+      status: mappedValues.length > 0 && mappedValues.every(Boolean) ? "ok" : "warn",
+      detail: mappedValues.every(Boolean) ? "All mapped" : "Some unmapped",
     },
   ];
 

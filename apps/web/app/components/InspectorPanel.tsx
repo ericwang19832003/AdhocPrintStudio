@@ -27,6 +27,23 @@ type InspectorPanelProps = {
   onOpenMerge: () => void;
 };
 
+function ReadinessList({ items }: { items: ReadinessItem[] }) {
+  if (items.length === 0) {
+    return <p className="inspector-empty">No readiness checks defined.</p>;
+  }
+  return (
+    <div className="readiness-list">
+      {items.map((item) => (
+        <div key={item.label} className={`readiness-row readiness-${item.status}`}>
+          {item.status === "ok" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+          <span className="readiness-label">{item.label}</span>
+          {item.detail && <span className="readiness-detail">{item.detail}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function InspectorPanel({
   selectedBlock,
   onAlignChange,
@@ -129,17 +146,7 @@ export function InspectorPanel({
         {activeTab === "merge" && (
           <div className="inspector-section">
             <label className="inspector-label">MERGE READINESS</label>
-            <div className="readiness-list">
-              {readiness.map((item) => (
-                <div key={item.label} className={`readiness-row readiness-${item.status}`}>
-                  {item.status === "ok"
-                    ? <CheckCircle2 size={14} />
-                    : <AlertTriangle size={14} />}
-                  <span className="readiness-label">{item.label}</span>
-                  {item.detail && <span className="readiness-detail">{item.detail}</span>}
-                </div>
-              ))}
-            </div>
+            <ReadinessList items={readiness} />
             <button type="button" className="btn-accent readiness-merge-btn" onClick={onOpenMerge}>
               Open merge panel →
             </button>
@@ -150,17 +157,7 @@ export function InspectorPanel({
       {activeTab !== "merge" && (
         <div className="inspector-readiness-footer">
           <label className="inspector-label">MERGE READINESS</label>
-          <div className="readiness-list">
-            {readiness.map((item) => (
-              <div key={item.label} className={`readiness-row readiness-${item.status}`}>
-                {item.status === "ok"
-                  ? <CheckCircle2 size={14} />
-                  : <AlertTriangle size={14} />}
-                <span className="readiness-label">{item.label}</span>
-                {item.detail && <span className="readiness-detail">{item.detail}</span>}
-              </div>
-            ))}
-          </div>
+          <ReadinessList items={readiness} />
         </div>
       )}
     </aside>
