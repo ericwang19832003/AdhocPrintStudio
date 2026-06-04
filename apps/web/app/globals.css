@@ -3908,3 +3908,63 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 8px;
 }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 40px;
+  text-align: center;
+  color: var(--ink-500);
+  flex: 1;
+}
+
+.empty-state-icon { color: var(--accent); opacity: 0.6; }
+
+.empty-state-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink-900);
+  margin: 0;
+}
+
+.empty-state-sub {
+  font-size: 14px;
+  color: var(--ink-500);
+  max-width: 320px;
+  margin: 0;
+}
+
+.empty-state-cards {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 24px;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  width: 140px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  color: var(--ink-700);
+}
+
+.empty-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.empty-card-title { font-size: 13px; font-weight: 600; color: var(--ink-900); }
+.empty-card-sub { font-size: 11px; color: var(--ink-500); }

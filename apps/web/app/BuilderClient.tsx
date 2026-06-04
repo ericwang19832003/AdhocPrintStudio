@@ -13,6 +13,7 @@ import { env } from "@/lib/env";
 import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
+import { EmptyState } from "./components/EmptyState";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -3120,19 +3121,13 @@ export default function BuilderClient() {
                   />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
-                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && !spreadsheetName && (
-                  <div className="empty-state welcome-guide">
-                    <p className="welcome-title">Get started</p>
-                    <ol className="welcome-steps">
-                      <li>Upload a spreadsheet in the Data panel</li>
-                      <li>Type your letter and use [ColumnName] for placeholders</li>
-                      <li>Drag logos, taglines, and verbiage from the sidebar</li>
-                      <li>Map your mailing fields, then generate</li>
-                    </ol>
-                  </div>
-                )}
-                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && spreadsheetName && (
-                  <div className="empty-state">Drop content here or start typing</div>
+                {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
+                  <EmptyState
+                    onBlank={() => { /* canvas is blank — user can start typing */ }}
+                    onTemplate={() => setOpenMenuTab("Full Letters")}
+                    onImportWord={() => docxInputRef.current?.click()}
+                    templateCount={fullLetterSeed.length}
+                  />
                 )}
                 {(blocksByPage[activePage] ?? []).map((block) => (
                   <div
