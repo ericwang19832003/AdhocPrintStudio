@@ -4804,3 +4804,51 @@ textarea:focus-visible {
 }
 
 .usps-hint-icon { color: var(--warn); flex-shrink: 0; margin-top: 1px; }
+
+/* ── Import Word Modal ───────────────────────────────────────────── */
+.import-file-selected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+}
+
+.import-file-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.import-file-size {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.import-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-700);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+.import-warning-icon { color: var(--warn); flex-shrink: 0; margin-top: 1px; }
+
+.import-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-700);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+.import-tip-icon { color: var(--info); flex-shrink: 0; margin-top: 1px; }

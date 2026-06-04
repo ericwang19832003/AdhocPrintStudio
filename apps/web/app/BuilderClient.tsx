@@ -21,6 +21,7 @@ import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
 import { MergePreview, type MergeRow } from "./components/MergePreview";
 import { UploadLogoModal } from "./components/UploadLogoModal";
 import { ReturnAddressModal } from "./components/ReturnAddressModal";
+import { ImportWordModal } from "./components/ImportWordModal";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -458,6 +459,7 @@ export default function BuilderClient() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [showImportWordModal, setShowImportWordModal] = useState(false);
   const [showTaglineModal, setShowTaglineModal] = useState(false);
   const [showVerbiageModal, setShowVerbiageModal] = useState(false);
   const [hoverPreviewId, setHoverPreviewId] = useState<string | null>(null);
@@ -2761,7 +2763,7 @@ export default function BuilderClient() {
                   <EmptyState
                     onBlank={() => { editorInstance?.commands.focus(); }}
                     onTemplate={() => setOpenMenuTab("Full Letters")}
-                    onImportWord={() => docxInputRef.current?.click()}
+                    onImportWord={() => setShowImportWordModal(true)}
                     templateCount={fullLetterSeed.length}
                   />
                 )}
@@ -3211,6 +3213,12 @@ export default function BuilderClient() {
             setShowLogoModal(false);
           }}
           onClose={() => setShowLogoModal(false)}
+        />
+      )}
+      {showImportWordModal && (
+        <ImportWordModal
+          onImport={(file) => handleDocxUpload(file)}
+          onClose={() => setShowImportWordModal(false)}
         />
       )}
       {showMergePreview && (
