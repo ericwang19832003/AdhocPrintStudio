@@ -2345,7 +2345,10 @@ export default function BuilderClient() {
                 selectedId={selectedLogo?.id ?? null}
                 onSelect={(logo: LibraryLogo) => {
                   const item = (library.Logos ?? []).find((l) => l.id === logo.id);
-                  if (item) addLibraryItemToCanvas(item);
+                  if (item) {
+                    setSelectedLogo(item);
+                    addLibraryItemToCanvas(item);
+                  }
                 }}
                 onUpload={() => setShowLogoModal(true)}
               />

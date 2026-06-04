@@ -114,14 +114,14 @@ export function LogoLibrary({ logos, selectedId, onSelect, onUpload }: LogoLibra
         ) : (
           <div className="logo-grid">
             {filtered.map((logo) => (
-              <div
+              <button
                 key={logo.id}
+                type="button"
                 className={`logo-card${selectedId === logo.id ? " selected" : ""}`}
                 onClick={() => handleSelect(logo)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && handleSelect(logo)}
                 title={logo.label}
+                aria-label={logo.label}
+                aria-pressed={selectedId === logo.id}
               >
                 <img src={logo.url} alt={logo.label} className="logo-card-img" />
                 <button
@@ -132,7 +132,7 @@ export function LogoLibrary({ logos, selectedId, onSelect, onUpload }: LogoLibra
                 >
                   <Star size={12} fill={favorites.has(logo.id) ? "currentColor" : "none"} />
                 </button>
-              </div>
+              </button>
             ))}
           </div>
         )}
