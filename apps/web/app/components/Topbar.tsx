@@ -32,6 +32,8 @@ export function Topbar({
 
       <div className="topbar-center">
         <input
+          type="text"
+          aria-label="Letter title"
           className="topbar-title-input"
           value={letterTitle}
           onChange={(e) => onTitleChange(e.target.value)}
@@ -48,9 +50,9 @@ export function Topbar({
       </div>
 
       <div className="topbar-actions-v2">
-        <button className="btn-ghost-sm" onClick={onExport}>Export</button>
-        <button className="btn-outline-sm" onClick={onPreview}>Preview</button>
-        <button className="btn-accent" onClick={onGenerate} disabled={generateDisabled}>
+        <button type="button" className="btn-ghost-sm" onClick={onExport}>Export</button>
+        <button type="button" className="btn-outline-sm" onClick={onPreview}>Preview</button>
+        <button type="button" className="btn-accent" onClick={onGenerate} disabled={generateDisabled}>
           Generate
         </button>
       </div>
