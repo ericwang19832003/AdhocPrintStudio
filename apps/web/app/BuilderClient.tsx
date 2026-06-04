@@ -10,6 +10,7 @@ import DOMPurify from "isomorphic-dompurify";
 import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
+import { Topbar } from "./components/Topbar";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -586,6 +587,8 @@ export default function BuilderClient() {
   });
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [letterTitle, setLetterTitle] = useState("Untitled letter");
+  const [savedAgo, setSavedAgo] = useState<string | null>("just now");
 
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
@@ -2195,18 +2198,15 @@ export default function BuilderClient() {
 
   return (
     <div className="builder">
-      <header className="topbar">
-        <div className="brand">
-          <div>
-            <h1>Adhoc Print Studio <span className="brand-suffix">By PSD</span></h1>
-            <p>Compose letters from approved building blocks</p>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <button className="ghost" onClick={handleExportWord}>Export</button>
-          <button className="primary" onClick={handleSaveToLibrary}>Save</button>
-        </div>
-      </header>
+      <Topbar
+        letterTitle={letterTitle}
+        onTitleChange={setLetterTitle}
+        savedAgo={savedAgo}
+        onExport={handleExportWord}
+        onPreview={() => setShowPreview(true)}
+        onGenerate={() => handleGenerate(outputFormat)}
+        generateDisabled={generating || !columns.length}
+      />
 
       <div className="builder-body">
         <div className="sidebar-shell">
