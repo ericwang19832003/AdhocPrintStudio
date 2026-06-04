@@ -59,7 +59,7 @@ input,
 button,
 textarea,
 select {
-  font-family: "IBM Plex Sans", "Space Grotesk", sans-serif;
+  font-family: inherit;
 }
 
 button {
