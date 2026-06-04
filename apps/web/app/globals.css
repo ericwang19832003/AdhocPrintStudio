@@ -3991,11 +3991,12 @@ textarea:focus-visible {
 .lib-tabs {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .lib-tab {
-  flex: 1;
-  padding: 5px 4px;
+  flex: 0 0 auto;
+  padding: 5px 10px;
   border: 1px solid var(--outline);
   border-radius: 6px;
   background: white;

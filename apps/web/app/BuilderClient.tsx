@@ -2599,8 +2599,13 @@ export default function BuilderClient() {
                   category: t.category ?? undefined,
                 }))}
                 onApply={(item: TemplateItem) => {
-                  const sourceItem = (library["Full Letters"] ?? []).find((t) => t.id === item.id);
-                  if (sourceItem) addLibraryItemToCanvas(sourceItem);
+                  const sourceItem = (library["Full Letters"] ?? []).find((l) => l.id === item.id);
+                  if (!sourceItem) return;
+                  const html = sourceItem.content
+                    ? sourceItem.content.split("\n").map((p: string) => `<p>${p}</p>`).join("")
+                    : "";
+                  editorInstance?.commands.setContent(html, true);
+                  trackTemplateUsage(sourceItem.id);
                 }}
               />
             ) : openMenuTab === "Verbiage" ? (
