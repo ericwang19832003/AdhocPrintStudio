@@ -8,11 +8,12 @@ import {
   FileText,
   Upload,
   Database,
+  type LucideIcon,
 } from "lucide-react";
 
 export type SidebarTab = "Logo" | "Return" | "Verbiage" | "Tagline" | "Templates" | "Import" | "Data";
 
-const NAV_ITEMS: { id: SidebarTab; label: string; Icon: React.FC<{ size?: number; strokeWidth?: number }> }[] = [
+const NAV_ITEMS: { id: SidebarTab; label: string; Icon: LucideIcon }[] = [
   { id: "Logo",      label: "Logo",      Icon: ImageIcon },
   { id: "Return",    label: "Return",    Icon: MapPin },
   { id: "Verbiage",  label: "Verbiage",  Icon: MessageSquare },
@@ -37,6 +38,8 @@ export function SidebarNav({ active, onSelect }: SidebarNavProps) {
           className={`sidebar-nav-btn${active === id ? " active" : ""}`}
           onClick={() => onSelect(id)}
           title={label}
+          aria-label={label}
+          aria-pressed={active === id}
         >
           <Icon size={20} strokeWidth={1.8} />
           <span className="sidebar-nav-label">{label}</span>

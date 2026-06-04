@@ -3741,7 +3741,7 @@ textarea:focus-visible {
 .sidebar-nav-btn.active::before {
   content: "";
   position: absolute;
-  left: -6px;
+  left: 0;
   top: 8px;
   bottom: 8px;
   width: 3px;
