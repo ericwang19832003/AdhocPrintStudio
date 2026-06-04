@@ -16,6 +16,7 @@ import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel"
 import { EmptyState } from "./components/EmptyState";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
+import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -27,6 +28,7 @@ type LibraryItem = {
   imageUrl?: string;
   isCustom?: boolean;
   tags?: string[];
+  category?: string;
 };
 
 type PlacedBlock = {
@@ -412,26 +414,26 @@ const verbiageSeed: LibraryItem[] = [
 
 // 20 Full Letters with varied lengths (2 paragraphs to 6 paragraphs)
 const fullLetterSeed: LibraryItem[] = [
-  { id: "full-1", label: "Dunning Letter A", type: "full-letter", content: "Hello [Customer Name],\n\nOur records indicate your account has an overdue balance. Please submit payment at your earliest convenience to avoid any disruption.\n\nIf you have already sent payment, please disregard this notice." },
-  { id: "full-2", label: "Welcome Letter", type: "full-letter", content: "Welcome to APS!\n\nWe are pleased to have you with us. This letter confirms your enrollment and provides information about how to manage your account online." },
-  { id: "full-3", label: "Policy Update Notice", type: "full-letter", content: "We are writing to inform you of updates to our service terms. These changes take effect on the first of next month. Please review the enclosed summary for details." },
-  { id: "full-4", label: "Service Confirmation", type: "full-letter", content: "This letter confirms your recent service request. Our team will process your request within 3 business days and notify you once complete." },
-  { id: "full-5", label: "Annual Statement Cover", type: "full-letter", content: "Enclosed is your annual statement. Please review it carefully and contact us if any information appears incorrect." },
-  { id: "full-6", label: "Account Closure Confirmation", type: "full-letter", content: "Dear Valued Customer,\n\nThis letter confirms that your account has been closed as requested. Any remaining balance has been refunded to your original payment method.\n\nWe appreciate the opportunity to serve you and hope you will consider us again in the future.\n\nThank you for your business." },
-  { id: "full-7", label: "Payment Plan Offer", type: "full-letter", content: "Dear [Customer Name],\n\nWe understand that financial circumstances can change. If you are having difficulty paying your balance, we want to help.\n\nWe are pleased to offer you a payment plan that allows you to pay your balance over time. Please call us at 800-555-0199 to discuss your options.\n\nOur goal is to work with you to find a solution that fits your budget." },
-  { id: "full-8", label: "Rate Increase Notice (Long)", type: "full-letter", content: "Important Notice Regarding Your Account\n\nDear [Customer Name],\n\nWe are writing to inform you of changes to your account terms. Effective [Date], your Annual Percentage Rate (APR) will increase from [Current Rate] to [New Rate].\n\nThis change is being made due to market conditions and applies to new purchases made after the effective date. Your current balance will continue to accrue interest at your existing rate.\n\nYou have the right to reject this change by notifying us in writing before [Opt-Out Date]. If you reject, you may use your account under the current terms until the end of your current membership year, but your account will be closed for future transactions.\n\nIf you have questions about this notice, please call us at 800-555-0199.\n\nThank you for being a valued customer." },
-  { id: "full-9", label: "Renewal Notice", type: "full-letter", content: "Dear Member,\n\nYour membership is up for renewal. To continue enjoying your benefits, please renew by [Date].\n\nYou can renew online at myaccount.example.com or by calling 800-555-0199." },
-  { id: "full-10", label: "Collections Final Notice", type: "full-letter", content: "FINAL NOTICE\n\nDear [Customer Name],\n\nDespite our previous attempts to contact you, your account remains seriously past due. The total amount owed is [Amount].\n\nUnless we receive payment in full or hear from you within 10 days of this letter, we will have no choice but to refer your account to a collection agency. This action may negatively impact your credit score.\n\nPlease contact us immediately at 800-555-0199 to discuss your options.\n\nWe hope to resolve this matter without further action." },
-  { id: "full-11", label: "Thank You Letter", type: "full-letter", content: "Dear [Customer Name],\n\nThank you for your recent purchase. We truly appreciate your business and hope you are satisfied with your order.\n\nIf you have any questions or concerns, please don't hesitate to reach out. We're here to help." },
-  { id: "full-12", label: "Insurance Claim Acknowledgment", type: "full-letter", content: "Re: Claim Number [Claim ID]\n\nDear [Policyholder Name],\n\nWe have received your claim dated [Date] and it is currently being reviewed. A claims adjuster will contact you within 5-7 business days.\n\nIn the meantime, please gather any additional documentation that may support your claim, including photos, receipts, and police reports if applicable.\n\nThank you for your patience during this process." },
-  { id: "full-13", label: "Benefits Enrollment Reminder", type: "full-letter", content: "Important: Open Enrollment Ends Soon\n\nDear Employee,\n\nThis is a reminder that open enrollment for employee benefits ends on [Date]. If you wish to make changes to your health insurance, dental, vision, or retirement plans, you must do so before the deadline.\n\nTo review your options and make elections, visit benefits.company.com or contact HR at ext. 4500.\n\nIf you do not make any changes, your current elections will continue for the next plan year.\n\nPlease take action before the deadline to ensure your coverage meets your needs." },
-  { id: "full-14", label: "Address Verification Request", type: "full-letter", content: "Dear [Customer Name],\n\nWe recently attempted to deliver important documents to your address on file, but they were returned as undeliverable.\n\nPlease verify and update your mailing address by calling 800-555-0199 or logging into your account online.\n\nUntil we receive your updated information, we may be unable to send you important account notices." },
-  { id: "full-15", label: "Loan Approval Letter", type: "full-letter", content: "Congratulations!\n\nDear [Applicant Name],\n\nWe are pleased to inform you that your loan application has been approved. The details of your loan are as follows:\n\nLoan Amount: [Amount]\nInterest Rate: [Rate]\nTerm: [Term]\nMonthly Payment: [Payment]\n\nPlease review the enclosed documents carefully and sign where indicated. Return the signed documents within 10 business days to finalize your loan.\n\nIf you have any questions, please contact your loan officer at [Phone].\n\nThank you for choosing us for your financial needs." },
-  { id: "full-16", label: "Service Interruption Notice", type: "full-letter", content: "Service Interruption Notice\n\nDear Customer,\n\nDue to scheduled maintenance, your service will be temporarily unavailable on [Date] from [Start Time] to [End Time].\n\nWe apologize for any inconvenience this may cause and appreciate your patience." },
-  { id: "full-17", label: "Referral Program Invitation", type: "full-letter", content: "Share the Savings!\n\nDear [Customer Name],\n\nWe hope you're enjoying your experience with us. Did you know you can earn rewards by referring friends and family?\n\nFor every new customer you refer, you'll receive a $50 credit on your account, and your friend will receive $25 off their first purchase.\n\nSimply share your unique referral code [CODE] or visit referrals.example.com to get started.\n\nThere's no limit to how much you can earn. Start referring today!" },
-  { id: "full-18", label: "Privacy Policy Update (Long)", type: "full-letter", content: "Notice of Privacy Policy Changes\n\nDear [Customer Name],\n\nWe are committed to protecting your personal information. This notice is to inform you of updates to our Privacy Policy, effective [Date].\n\nKey changes include:\n\n• How we collect and use your information\n• Your choices regarding data sharing\n• Enhanced security measures we have implemented\n• Your rights under applicable privacy laws\n\nThe updated policy is available at privacy.example.com or by calling 800-555-0199 to request a printed copy.\n\nThese changes reflect our ongoing commitment to transparency and your privacy rights. No action is required on your part, but we encourage you to review the updated policy.\n\nIf you have questions or concerns, please contact our Privacy Office at privacy@example.com.\n\nThank you for trusting us with your information." },
-  { id: "full-19", label: "Appointment Reminder", type: "full-letter", content: "Appointment Reminder\n\nDear [Patient Name],\n\nThis is a reminder of your upcoming appointment:\n\nDate: [Date]\nTime: [Time]\nLocation: [Address]\n\nPlease arrive 15 minutes early to complete any necessary paperwork. Remember to bring your insurance card and photo ID.\n\nIf you need to reschedule, please call us at least 24 hours in advance." },
-  { id: "full-20", label: "Warranty Expiration Notice", type: "full-letter", content: "Warranty Expiration Notice\n\nDear [Customer Name],\n\nThe warranty on your [Product Name] (Serial: [Serial Number]) will expire on [Date].\n\nTo continue protecting your investment, consider purchasing an extended warranty. Our extended coverage plans offer:\n\n• Full parts and labor coverage\n• No deductibles\n• 24/7 customer support\n• Transferable coverage if you sell the product\n\nVisit warranty.example.com or call 800-555-0199 before your warranty expires to take advantage of special pricing available only to existing customers.\n\nDon't wait until it's too late to protect your purchase." },
+  { id: "full-1", label: "Dunning Letter A", type: "full-letter", category: "Collections", content: "Hello [Customer Name],\n\nOur records indicate your account has an overdue balance. Please submit payment at your earliest convenience to avoid any disruption.\n\nIf you have already sent payment, please disregard this notice." },
+  { id: "full-2", label: "Welcome Letter", type: "full-letter", category: "Onboarding", content: "Welcome to APS!\n\nWe are pleased to have you with us. This letter confirms your enrollment and provides information about how to manage your account online." },
+  { id: "full-3", label: "Policy Update Notice", type: "full-letter", category: "Notifications", content: "We are writing to inform you of updates to our service terms. These changes take effect on the first of next month. Please review the enclosed summary for details." },
+  { id: "full-4", label: "Service Confirmation", type: "full-letter", category: "Confirmations", content: "This letter confirms your recent service request. Our team will process your request within 3 business days and notify you once complete." },
+  { id: "full-5", label: "Annual Statement Cover", type: "full-letter", category: "Confirmations", content: "Enclosed is your annual statement. Please review it carefully and contact us if any information appears incorrect." },
+  { id: "full-6", label: "Account Closure Confirmation", type: "full-letter", category: "Confirmations", content: "Dear Valued Customer,\n\nThis letter confirms that your account has been closed as requested. Any remaining balance has been refunded to your original payment method.\n\nWe appreciate the opportunity to serve you and hope you will consider us again in the future.\n\nThank you for your business." },
+  { id: "full-7", label: "Payment Plan Offer", type: "full-letter", category: "Offers", content: "Dear [Customer Name],\n\nWe understand that financial circumstances can change. If you are having difficulty paying your balance, we want to help.\n\nWe are pleased to offer you a payment plan that allows you to pay your balance over time. Please call us at 800-555-0199 to discuss your options.\n\nOur goal is to work with you to find a solution that fits your budget." },
+  { id: "full-8", label: "Rate Increase Notice (Long)", type: "full-letter", category: "Notifications", content: "Important Notice Regarding Your Account\n\nDear [Customer Name],\n\nWe are writing to inform you of changes to your account terms. Effective [Date], your Annual Percentage Rate (APR) will increase from [Current Rate] to [New Rate].\n\nThis change is being made due to market conditions and applies to new purchases made after the effective date. Your current balance will continue to accrue interest at your existing rate.\n\nYou have the right to reject this change by notifying us in writing before [Opt-Out Date]. If you reject, you may use your account under the current terms until the end of your current membership year, but your account will be closed for future transactions.\n\nIf you have questions about this notice, please call us at 800-555-0199.\n\nThank you for being a valued customer." },
+  { id: "full-9", label: "Renewal Notice", type: "full-letter", category: "Notifications", content: "Dear Member,\n\nYour membership is up for renewal. To continue enjoying your benefits, please renew by [Date].\n\nYou can renew online at myaccount.example.com or by calling 800-555-0199." },
+  { id: "full-10", label: "Collections Final Notice", type: "full-letter", category: "Collections", content: "FINAL NOTICE\n\nDear [Customer Name],\n\nDespite our previous attempts to contact you, your account remains seriously past due. The total amount owed is [Amount].\n\nUnless we receive payment in full or hear from you within 10 days of this letter, we will have no choice but to refer your account to a collection agency. This action may negatively impact your credit score.\n\nPlease contact us immediately at 800-555-0199 to discuss your options.\n\nWe hope to resolve this matter without further action." },
+  { id: "full-11", label: "Thank You Letter", type: "full-letter", category: "Engagement", content: "Dear [Customer Name],\n\nThank you for your recent purchase. We truly appreciate your business and hope you are satisfied with your order.\n\nIf you have any questions or concerns, please don't hesitate to reach out. We're here to help." },
+  { id: "full-12", label: "Insurance Claim Acknowledgment", type: "full-letter", category: "Confirmations", content: "Re: Claim Number [Claim ID]\n\nDear [Policyholder Name],\n\nWe have received your claim dated [Date] and it is currently being reviewed. A claims adjuster will contact you within 5-7 business days.\n\nIn the meantime, please gather any additional documentation that may support your claim, including photos, receipts, and police reports if applicable.\n\nThank you for your patience during this process." },
+  { id: "full-13", label: "Benefits Enrollment Reminder", type: "full-letter", category: "Onboarding", content: "Important: Open Enrollment Ends Soon\n\nDear Employee,\n\nThis is a reminder that open enrollment for employee benefits ends on [Date]. If you wish to make changes to your health insurance, dental, vision, or retirement plans, you must do so before the deadline.\n\nTo review your options and make elections, visit benefits.company.com or contact HR at ext. 4500.\n\nIf you do not make any changes, your current elections will continue for the next plan year.\n\nPlease take action before the deadline to ensure your coverage meets your needs." },
+  { id: "full-14", label: "Address Verification Request", type: "full-letter", category: "Notifications", content: "Dear [Customer Name],\n\nWe recently attempted to deliver important documents to your address on file, but they were returned as undeliverable.\n\nPlease verify and update your mailing address by calling 800-555-0199 or logging into your account online.\n\nUntil we receive your updated information, we may be unable to send you important account notices." },
+  { id: "full-15", label: "Loan Approval Letter", type: "full-letter", category: "Confirmations", content: "Congratulations!\n\nDear [Applicant Name],\n\nWe are pleased to inform you that your loan application has been approved. The details of your loan are as follows:\n\nLoan Amount: [Amount]\nInterest Rate: [Rate]\nTerm: [Term]\nMonthly Payment: [Payment]\n\nPlease review the enclosed documents carefully and sign where indicated. Return the signed documents within 10 business days to finalize your loan.\n\nIf you have any questions, please contact your loan officer at [Phone].\n\nThank you for choosing us for your financial needs." },
+  { id: "full-16", label: "Service Interruption Notice", type: "full-letter", category: "Notifications", content: "Service Interruption Notice\n\nDear Customer,\n\nDue to scheduled maintenance, your service will be temporarily unavailable on [Date] from [Start Time] to [End Time].\n\nWe apologize for any inconvenience this may cause and appreciate your patience." },
+  { id: "full-17", label: "Referral Program Invitation", type: "full-letter", category: "Offers", content: "Share the Savings!\n\nDear [Customer Name],\n\nWe hope you're enjoying your experience with us. Did you know you can earn rewards by referring friends and family?\n\nFor every new customer you refer, you'll receive a $50 credit on your account, and your friend will receive $25 off their first purchase.\n\nSimply share your unique referral code [CODE] or visit referrals.example.com to get started.\n\nThere's no limit to how much you can earn. Start referring today!" },
+  { id: "full-18", label: "Privacy Policy Update (Long)", type: "full-letter", category: "Notifications", content: "Notice of Privacy Policy Changes\n\nDear [Customer Name],\n\nWe are committed to protecting your personal information. This notice is to inform you of updates to our Privacy Policy, effective [Date].\n\nKey changes include:\n\n• How we collect and use your information\n• Your choices regarding data sharing\n• Enhanced security measures we have implemented\n• Your rights under applicable privacy laws\n\nThe updated policy is available at privacy.example.com or by calling 800-555-0199 to request a printed copy.\n\nThese changes reflect our ongoing commitment to transparency and your privacy rights. No action is required on your part, but we encourage you to review the updated policy.\n\nIf you have questions or concerns, please contact our Privacy Office at privacy@example.com.\n\nThank you for trusting us with your information." },
+  { id: "full-19", label: "Appointment Reminder", type: "full-letter", category: "Confirmations", content: "Appointment Reminder\n\nDear [Patient Name],\n\nThis is a reminder of your upcoming appointment:\n\nDate: [Date]\nTime: [Time]\nLocation: [Address]\n\nPlease arrive 15 minutes early to complete any necessary paperwork. Remember to bring your insurance card and photo ID.\n\nIf you need to reschedule, please call us at least 24 hours in advance." },
+  { id: "full-20", label: "Warranty Expiration Notice", type: "full-letter", category: "Notifications", content: "Warranty Expiration Notice\n\nDear [Customer Name],\n\nThe warranty on your [Product Name] (Serial: [Serial Number]) will expire on [Date].\n\nTo continue protecting your investment, consider purchasing an extended warranty. Our extended coverage plans offer:\n\n• Full parts and labor coverage\n• No deductibles\n• 24/7 customer support\n• Transferable coverage if you sell the product\n\nVisit warranty.example.com or call 800-555-0199 before your warranty expires to take advantage of special pricing available only to existing customers.\n\nDon't wait until it's too late to protect your purchase." },
 ];
 
 const librarySeed: Record<string, LibraryItem[]> = {
@@ -2589,125 +2591,18 @@ export default function BuilderClient() {
                 </div>
               </div>
             ) : openMenuTab === "Full Letters" ? (
-              <div className="library-panel-enhanced">
-                {/* Recently Used Section */}
-                {recentlyUsedTemplates.length > 0 && !flyoutQuery && (
-                  <div className="library-section">
-                    <div className="library-section-header">
-                      <span className="library-section-title">Recently Used</span>
-                    </div>
-                    <div className="library-recent-chips">
-                      {recentlyUsedTemplates
-                        .map((id) => (library["Full Letters"] ?? []).find((t) => t.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="library-chip"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.content ?? item.label}
-                          >
-                            {item.label}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="library-section">
-                  <div className="library-section-header">
-                    <span className="library-section-title">
-                      {flyoutQuery ? `Results` : "All Templates"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="library-sort-select"
-                        value={templateSortOrder}
-                        onChange={(e) => setTemplateSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="full-letter-two-column">
-                    <div className="full-letter-list">
-                      {(() => {
-                        let items = filterFlyoutItems(openMenuTab);
-                        if (!flyoutQuery) {
-                          if (templateSortOrder === "a-z") {
-                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                          } else if (templateSortOrder === "favorites") {
-                            items = [...items].sort((a, b) => {
-                              const aFav = favoriteTemplates.includes(a.id) ? 0 : 1;
-                              const bFav = favoriteTemplates.includes(b.id) ? 0 : 1;
-                              return aFav - bFav || a.label.localeCompare(b.label);
-                            });
-                          } else if (templateSortOrder === "recent") {
-                            items = [...items].sort((a, b) => {
-                              const aRecent = recentlyUsedTemplates.indexOf(a.id);
-                              const bRecent = recentlyUsedTemplates.indexOf(b.id);
-                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
-                            });
-                          }
-                        }
-                        return items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`full-letter-list-item${selectedFullLetterId === item.id ? " active" : ""}${favoriteTemplates.includes(item.id) ? " favorited" : ""}`}
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => {
-                              addLibraryItemToCanvas(item);
-                              setSelectedFullLetterId(item.id);
-                            }}
-                            onMouseEnter={() => setHoverFullLetterId(item.id)}
-                            onMouseLeave={() => setHoverFullLetterId(null)}
-                            onFocus={() => setHoverFullLetterId(item.id)}
-                            onBlur={() => setHoverFullLetterId(null)}
-                            tabIndex={0}
-                          >
-                            <span className="library-item-label">{item.label}</span>
-                            <button
-                              className={`library-favorite-btn${favoriteTemplates.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleTemplateFavorite(item.id, e)}
-                              title={favoriteTemplates.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteTemplates.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="full-letter-preview-panel">
-                      {(() => {
-                        const activeId = hoverFullLetterId ?? selectedFullLetterId;
-                        if (!activeId) {
-                          return <p className="hint">Hover a letter to preview.</p>;
-                        }
-                        const activeItem = (library[openMenuTab] ?? []).find(
-                          (entry) => entry.id === activeId
-                        );
-                        if (!activeItem) {
-                          return <p className="hint">Hover a letter to preview.</p>;
-                        }
-                        return (
-                          <>
-                            <div className="full-letter-preview-title">{activeItem.label}</div>
-                            <p>{activeItem.content ?? activeItem.label}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TemplateLibrary
+                items={(library["Full Letters"] ?? []).map((t) => ({
+                  id: t.id,
+                  label: t.label,
+                  content: t.content ?? "",
+                  category: t.category ?? undefined,
+                }))}
+                onApply={(item: TemplateItem) => {
+                  const sourceItem = (library["Full Letters"] ?? []).find((t) => t.id === item.id);
+                  if (sourceItem) addLibraryItemToCanvas(sourceItem);
+                }}
+              />
             ) : openMenuTab === "Verbiage" ? (
               <VerbiageLibrary
                 items={(library.Verbiage ?? []).map((v) => ({
