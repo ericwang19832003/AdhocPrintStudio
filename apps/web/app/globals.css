@@ -3956,3 +3956,146 @@ textarea:focus-visible {
 
 .empty-card-title { font-size: 13px; font-weight: 600; color: var(--ink-900); }
 .empty-card-sub { font-size: 11px; color: var(--ink-500); }
+
+/* ── Logo Library ────────────────────────────────────────────────── */
+.logo-library {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  width: 320px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.lib-search-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.lib-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--ink-300);
+  pointer-events: none;
+}
+
+.lib-search-input {
+  width: 100%;
+  padding: 7px 10px 7px 32px !important;
+  border-radius: 8px !important;
+  font-size: 13px;
+}
+
+.lib-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.lib-tab {
+  flex: 1;
+  padding: 5px 4px;
+  border: 1px solid var(--outline);
+  border-radius: 6px;
+  background: white;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.lib-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lib-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lib-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-300);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.logo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.logo-card {
+  position: relative;
+  aspect-ratio: 1;
+  border: 2px solid var(--outline);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color 0.15s;
+}
+
+.logo-card:hover { border-color: var(--accent); }
+.logo-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+.logo-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+}
+
+.logo-star {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--warn);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.logo-card:hover .logo-star,
+.logo-star.active { opacity: 1; }
+
+.lib-empty {
+  font-size: 12px;
+  color: var(--ink-300);
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}
+
+.lib-upload-btn {
+  width: 100%;
+  padding: 9px;
+  border: 1px dashed var(--outline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-500);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.lib-upload-btn:hover { border-color: var(--accent); color: var(--accent); }

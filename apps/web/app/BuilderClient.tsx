@@ -14,6 +14,7 @@ import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
 import { EmptyState } from "./components/EmptyState";
+import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -2334,110 +2335,20 @@ export default function BuilderClient() {
             }}
           >
             {openMenuTab === "Logos" ? (
-              <div className="logo-panel">
-                {/* Recently Used Section */}
-                {recentlyUsedLogos.length > 0 && !flyoutQuery && (
-                  <div className="logo-section">
-                    <div className="logo-section-header">
-                      <span className="logo-section-title">Recently Used</span>
-                    </div>
-                    <div className="logo-recent-row">
-                      {recentlyUsedLogos
-                        .map((id) => (library.Logos ?? []).find((l) => l.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="logo-card-mini"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.label}
-                          >
-                            <div className="logo-card-mini-thumb">
-                              {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* All Logos Section */}
-                <div className="logo-section">
-                  <div className="logo-section-header">
-                    <span className="logo-section-title">
-                      {flyoutQuery ? `Results for "${flyoutQuery}"` : "All Logos"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="logo-sort-select"
-                        value={logoSortOrder}
-                        onChange={(e) => setLogoSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="logo-grid">
-                    {(() => {
-                      let items = filterFlyoutItems(openMenuTab);
-                      // Apply sorting
-                      if (!flyoutQuery) {
-                        if (logoSortOrder === "a-z") {
-                          items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                        } else if (logoSortOrder === "favorites") {
-                          items = [...items].sort((a, b) => {
-                            const aFav = favoriteLogos.includes(a.id) ? 0 : 1;
-                            const bFav = favoriteLogos.includes(b.id) ? 0 : 1;
-                            return aFav - bFav || a.label.localeCompare(b.label);
-                          });
-                        } else if (logoSortOrder === "recent") {
-                          items = [...items].sort((a, b) => {
-                            const aRecent = recentlyUsedLogos.indexOf(a.id);
-                            const bRecent = recentlyUsedLogos.indexOf(b.id);
-                            const aScore = aRecent === -1 ? 999 : aRecent;
-                            const bScore = bRecent === -1 ? 999 : bRecent;
-                            return aScore - bScore || a.label.localeCompare(b.label);
-                          });
-                        }
-                      }
-                      return items.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`logo-card${favoriteLogos.includes(item.id) ? " favorited" : ""}`}
-                          draggable
-                          onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                          onClick={() => addLibraryItemToCanvas(item)}
-                          title={`${item.label} - Drag to canvas or click to insert`}
-                        >
-                          <div className="logo-card-drag-handle">
-                            <span className="drag-dots">⋮⋮</span>
-                          </div>
-                          <div className="logo-card-thumb">
-                            {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
-                          </div>
-                          <div className="logo-card-title">
-                            <span className="logo-card-label">{item.label}</span>
-                            <button
-                              className={`logo-favorite-btn${favoriteLogos.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleLogoFavorite(item.id, e)}
-                              title={favoriteLogos.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteLogos.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                          {item.isCustom && <span className="logo-badge">Custom</span>}
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </div>
-              </div>
+              <LogoLibrary
+                logos={(library.Logos ?? []).map((l) => ({
+                  id: l.id,
+                  label: l.label,
+                  url: l.imageUrl ?? "",
+                  custom: l.isCustom ?? false,
+                }))}
+                selectedId={selectedLogo?.id ?? null}
+                onSelect={(logo: LibraryLogo) => {
+                  const item = (library.Logos ?? []).find((l) => l.id === logo.id);
+                  if (item) addLibraryItemToCanvas(item);
+                }}
+                onUpload={() => setShowLogoModal(true)}
+              />
             ) : openMenuTab === "Return Address" ? (
               <div className="library-panel-enhanced">
                 {/* Recently Used Section */}
