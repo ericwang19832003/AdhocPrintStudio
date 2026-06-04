@@ -18,6 +18,7 @@ import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
 import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary";
 import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
+import { MergePreview, type MergeRow } from "./components/MergePreview";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -596,6 +597,7 @@ export default function BuilderClient() {
   });
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [showMergePreview, setShowMergePreview] = useState(false);
   const [letterTitle, setLetterTitle] = useState("Untitled letter");
   const [savedAgo, setSavedAgo] = useState<string | null>("just now");
 
@@ -2251,7 +2253,7 @@ export default function BuilderClient() {
         onTitleChange={setLetterTitle}
         savedAgo={savedAgo}
         onExport={handleExportWord}
-        onPreview={() => setShowPreview(true)}
+        onPreview={() => setShowMergePreview(true)}
         onGenerate={() => handleGenerate(outputFormat)}
         generateDisabled={generating || !columns.length}
       />
@@ -2972,7 +2974,7 @@ export default function BuilderClient() {
             }));
           }}
           readiness={readiness}
-          onOpenMerge={() => setOpenMenuTab("Data")}
+          onOpenMerge={() => { setOpenMenuTab("Data"); setShowMergePreview(true); }}
         />
       </div>
 
@@ -3357,6 +3359,18 @@ export default function BuilderClient() {
           }
         }}
       />
+      {showMergePreview && (
+        <MergePreview
+          rows={spreadsheetRows as MergeRow[]}
+          columns={columns}
+          placeholderMap={placeholderMap}
+          letterHtml={bodyContentByPage[activePage] ?? ""}
+          outputFormat={outputFormat}
+          onFormatChange={(fmt) => setOutputFormat(fmt as "afp" | "pdf")}
+          onGenerate={() => { handleGenerate(outputFormat); setShowMergePreview(false); }}
+          onClose={() => setShowMergePreview(false)}
+        />
+      )}
       {showPreview && (
         <div className="modal-backdrop" onClick={() => setShowPreview(false)}>
           <div className="modal preview-modal" onClick={(event) => event.stopPropagation()}>
