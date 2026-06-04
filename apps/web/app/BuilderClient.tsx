@@ -11,6 +11,7 @@ import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
 import { Topbar } from "./components/Topbar";
+import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -2210,26 +2211,30 @@ export default function BuilderClient() {
 
       <div className="builder-body">
         <div className="sidebar-shell">
-          <aside className="library">
-            <div className="library-nav">
-              {libraryButtons.map((button) => (
-                <div key={button.tab} className="sidebar-button-wrap">
-                  <SidebarButton
-                    label={button.label}
-                    icon={button.icon}
-                    isActive={button.tab === activeTab}
-                    onClick={() => {
-                      setActiveTab(button.tab);
-                      setOpenMenuTab((current) => (current === button.tab ? null : button.tab));
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <button className="ghost admin" onClick={() => setShowAdmin(true)}>
-              ⚙️ Manage Library
-            </button>
-          </aside>
+          <SidebarNav
+            active={
+              openMenuTab === "Logos" ? "Logo"
+              : openMenuTab === "Return Address" ? "Return"
+              : openMenuTab === "Verbiage" ? "Verbiage"
+              : openMenuTab === "Taglines" ? "Tagline"
+              : openMenuTab === "Full Letters" ? "Templates"
+              : openMenuTab === "Upload" ? "Import"
+              : null
+            }
+            onSelect={(tab: SidebarTab) => {
+              const legacyTab =
+                tab === "Logo" ? "Logos"
+                : tab === "Return" ? "Return Address"
+                : tab === "Verbiage" ? "Verbiage"
+                : tab === "Tagline" ? "Taglines"
+                : tab === "Templates" ? "Full Letters"
+                : tab === "Import" ? "Upload"
+                : null;
+              if (!legacyTab) return;
+              setActiveTab(legacyTab);
+              setOpenMenuTab((current) => (current === legacyTab ? null : legacyTab));
+            }}
+          />
         </div>
 
         {openMenuTab && (

@@ -3696,3 +3696,62 @@ textarea:focus-visible {
 }
 .btn-accent:hover:not(:disabled) { background: var(--accent-hover); }
 .btn-accent:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Sidebar nav v2 ──────────────────────────────────────────────── */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 72px;
+  flex: 0 0 72px;
+  border-right: 1px solid var(--outline);
+  background: var(--panel);
+  padding: 8px 0;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.sidebar-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 60px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink-500);
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sidebar-nav-btn:hover {
+  color: var(--ink-900);
+  background: var(--ink-50);
+}
+
+.sidebar-nav-btn.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sidebar-nav-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.sidebar-nav-label {
+  font-size: 10px;
+  line-height: 1;
+  text-align: center;
+  font-weight: 500;
+}
