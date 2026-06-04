@@ -4743,3 +4743,9 @@ textarea:focus-visible {
   white-space: nowrap;
   border: 0;
 }
+
+.upload-size-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: -8px 0 0;
+}

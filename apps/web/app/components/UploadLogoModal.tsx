@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Upload, X, CheckCircle } from "lucide-react";
 
 type UploadLogoModalProps = {
@@ -13,9 +13,15 @@ export function UploadLogoModal({ onUpload, onClose }: UploadLogoModalProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [sizeError, setSizeError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function processFile(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      setSizeError("File is too large (max 5 MB). Please use a smaller image.");
+      return;
+    }
+    setSizeError(null);
     if (!file.type.startsWith("image/")) return;
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -28,16 +34,12 @@ export function UploadLogoModal({ onUpload, onClose }: UploadLogoModalProps) {
     reader.readAsDataURL(file);
   }
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) processFile(file);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [displayName]
-  );
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -80,13 +82,14 @@ export function UploadLogoModal({ onUpload, onClose }: UploadLogoModalProps) {
               {/* Drop zone */}
               <div
                 className={`upload-drop-zone${dragging ? " dragging" : ""}${preview ? " has-preview" : ""}`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragging(true);
-                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Upload logo — drop an image or press Enter to browse"
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
               >
                 {preview ? (
                   <img
@@ -113,6 +116,7 @@ export function UploadLogoModal({ onUpload, onClose }: UploadLogoModalProps) {
                 className="sr-only"
                 onChange={handleInputChange}
               />
+              {sizeError && <p className="upload-size-error">{sizeError}</p>}
 
               {/* Display name */}
               <div className="modal-field">
