@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 
 export type MergeRow = Record<string, string>;
 
@@ -43,6 +44,25 @@ export function MergePreview({
   onClose,
 }: MergePreviewProps) {
   const [selectedRow, setSelectedRow] = useState(0);
+
+  if (rows.length === 0) {
+    return (
+      <div className="merge-preview-overlay" role="dialog" aria-modal="true" aria-label="Merge preview">
+        <div className="merge-preview-header">
+          <div className="merge-preview-title">
+            <FileText size={16} />
+            <span>Merge Preview</span>
+          </div>
+          <button type="button" className="merge-close-btn" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-300)", fontSize: "14px" }}>
+          No data rows loaded. Upload a CSV from the Data panel first.
+        </div>
+      </div>
+    );
+  }
 
   const currentRow = rows[selectedRow] ?? {};
   const mergedHtml = mergeLetter(letterHtml, currentRow, placeholderMap);
@@ -142,7 +162,7 @@ export function MergePreview({
           </div>
           <div
             className="merge-letter-body"
-            dangerouslySetInnerHTML={{ __html: mergedHtml }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mergedHtml) }}
           />
         </div>
       </div>

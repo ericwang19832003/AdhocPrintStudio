@@ -2253,7 +2253,13 @@ export default function BuilderClient() {
         onTitleChange={setLetterTitle}
         savedAgo={savedAgo}
         onExport={handleExportWord}
-        onPreview={() => setShowMergePreview(true)}
+        onPreview={() => {
+          if (spreadsheetRows.length === 0) {
+            setOpenMenuTab("Data");
+          } else {
+            setShowMergePreview(true);
+          }
+        }}
         onGenerate={() => handleGenerate(outputFormat)}
         generateDisabled={generating || !columns.length}
       />
