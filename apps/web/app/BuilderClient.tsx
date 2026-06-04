@@ -12,6 +12,7 @@ import mammoth from "mammoth";
 import { env } from "@/lib/env";
 import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
+import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -2197,6 +2198,48 @@ export default function BuilderClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [openMenuTab, flyoutQuery]);
 
+  const readiness: ReadinessItem[] = [
+    {
+      label: "Logo set",
+      status: selectedLogo ? "ok" : "warn",
+      detail: selectedLogo?.label,
+    },
+    {
+      label: "Return address",
+      status: selectedReturn ? "ok" : "warn",
+      detail: selectedReturn?.label,
+    },
+    {
+      label: "Data file",
+      status: columns.length > 0 ? "ok" : "warn",
+      detail: columns.length > 0 ? spreadsheetName ?? undefined : undefined,
+    },
+    {
+      label: "Placeholders mapped",
+      status:
+        Object.values(placeholderMap ?? {}).length > 0 &&
+        Object.values(placeholderMap ?? {}).every(Boolean)
+          ? "ok"
+          : "warn",
+      detail: Object.values(placeholderMap ?? {}).every(Boolean) ? "All mapped" : "Some unmapped",
+    },
+  ];
+
+  const selectedBlockData =
+    selectedBlockId
+      ? (blocksByPage[activePage] ?? []).find((b) => b.id === selectedBlockId) ?? null
+      : null;
+  const inspectorBlock = selectedBlockData
+    ? {
+        label: selectedBlockData.label,
+        type: selectedBlockData.type,
+        x: selectedBlockData.x,
+        y: selectedBlockData.y,
+        align: selectedBlockData.align as "left" | "center" | "right",
+        content: selectedBlockData.content,
+      }
+    : null;
+
   return (
     <div className="builder">
       <Topbar
@@ -3188,566 +3231,35 @@ export default function BuilderClient() {
           </div>
         </main>
 
-        <aside className="properties">
-          <h3>Document</h3>
-          <div className="property-group">
-            <button className="ghost full-width" onClick={handleAddPage}>
-              + Add page
-            </button>
-          </div>
-
-          <h3>Babel Pages</h3>
-          <div className="property-group">
-            <p className="hint">Upload PDF pages to append after each letter</p>
-            <div
-              className={`drop-zone babel-drop${babelLoading ? " loading" : ""}`}
-              onDragEnter={(e) => e.preventDefault()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                const file = event.dataTransfer.files?.[0];
-                if (file) handleBabelPdfUpload(file);
-              }}
-            >
-              <p>{babelLoading ? "Processing PDF..." : "Drop PDF here"}</p>
-              <label className="file-input">
-                Upload PDF
-                <input
-                  type="file"
-                  accept=".pdf"
-                  disabled={babelLoading}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) handleBabelPdfUpload(file);
-                    event.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-            {babelError && <div className="alert warning">{babelError}</div>}
-            {babelPages.length > 0 && (
-              <div className="babel-pages-list">
-                {babelPages.map((page) => (
-                  <div key={page.id} className="babel-page-item">
-                    <img src={page.dataUrl} alt={page.name} className="babel-thumb" />
-                    <span className="babel-name" title={page.name}>
-                      {page.name.length > 20 ? page.name.slice(0, 20) + "..." : page.name}
-                    </span>
-                    <button
-                      className="babel-remove"
-                      onClick={() => removeBabelPage(page.id)}
-                      title="Remove"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <h3>Data</h3>
-          <div className="property-group">
-            <div
-              className={`drop-zone${isDragging ? " dragging" : ""}`}
-              onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsDragging(false);
-                const file = event.dataTransfer.files?.[0];
-                if (file) {
-                  handleSpreadsheetFile(file).catch((error) => {
-                    console.error(error);
-                  });
-                }
-              }}
-            >
-              <p>{spreadsheetName ? "Data file loaded" : "Drag data file here"}</p>
-              <span>{spreadsheetName ?? "Upload Excel file"}</span>
-              {spreadsheetName && spreadsheetRows.length > 0 && (
-                <span className="record-count">{spreadsheetRows.length} records loaded</span>
-              )}
-              <label className="file-input">
-                Upload file
-                <input
-                  type="file"
-                  accept=".xlsx"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      handleSpreadsheetFile(file).catch((error) => {
-                        console.error(error);
-                      });
-                    }
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-          {spreadsheetLoading && (
-            <div className="property-group">
-              <p className="hint">Parsing spreadsheet...</p>
-            </div>
-          )}
-          {spreadsheetError && (
-            <div className="property-group">
-              <div className="alert warning">{spreadsheetError}</div>
-            </div>
-          )}
-          {columns.length > 0 && (
-            <div className="property-group">
-              <h4>Columns</h4>
-              <div className="pill-grid">
-                {columns.map((column) => (
-                  <span key={column} className="pill">
-                    {column}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {(previewRows.length > 0 || spreadsheetName) && (
-            <div className="property-group">
-              <h4>Spreadsheet preview {spreadsheetRows.length > 0 && <span className="hint-inline">({spreadsheetRows.length} rows)</span>}</h4>
-              {previewRows.length > 0 ? (
-                <div className="data-preview">
-                  <table>
-                    <thead>
-                      <tr>
-                        {previewRows[0].map((cell, index) => (
-                          <th key={`head-${index}`}>{cell}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewRows.slice(1).map((row, rowIndex) => (
-                        <tr key={`row-${rowIndex}`}>
-                          {row.map((cell, cellIndex) => (
-                            <td key={`cell-${rowIndex}-${cellIndex}`}>{cell}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="hint">No preview available yet.</p>
-              )}
-            </div>
-          )}
-          {columns.length > 0 && (
-            <div className="property-group">
-              <h4>Variables mapping</h4>
-              {unmappedMailing.length > 0 && (
-                <div className="alert warning">
-                  Please map mailing address fields to address columns in the data sheet
-                </div>
-              )}
-              <div className="mapping-table">
-                {["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"].map((key) => (
-                  <div key={key} className="mapping-row">
-                    <span className="mapping-key">{key}</span>
-                    <select
-                      value={mailingMap[key] || "__select__"}
-                      onChange={(event) =>
-                        setMailingMap((prev) => ({
-                          ...prev,
-                          [key]: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="__select__" disabled>
-                        Select column
-                      </option>
-                      <option value="__empty__">(empty)</option>
-                      {columns.map((column) => (
-                        <option key={column} value={column}>
-                          {column}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-              {placeholders.length === 0 && (
-                <div className="hint-box">
-                  <p>No variables found in your letter.</p>
-                  <p>Type text in [brackets] to create variables that map to spreadsheet columns.</p>
-                  <p className="hint-example">Example: Dear [FirstName], ...</p>
-                </div>
-              )}
-              {placeholders.length > 0 && (
-                <>
-                  <div className="mapping-progress">
-                    <div className="mapping-progress-bar">
-                      <div
-                        className="mapping-progress-fill"
-                        style={{ width: `${((placeholders.length - unmappedPlaceholders.length) / placeholders.length) * 100}%` }}
-                      />
-                    </div>
-                    <span className="mapping-progress-text">
-                      {placeholders.length - unmappedPlaceholders.length}/{placeholders.length} mapped
-                    </span>
-                  </div>
-                  {unmappedPlaceholders.length > 0 && (
-                    <div className="alert warning">
-                      Unmapped: {unmappedPlaceholders.join(", ")}
-                    </div>
-                  )}
-                  {autoMatchSuggestions.length > 0 && (
-                    <div className="auto-match-banner">
-                      <div className="auto-match-header">
-                        <span className="auto-match-icon">✨</span>
-                        <span className="auto-match-title">
-                          {autoMatchSuggestions.length} of {placeholders.length} fields auto-matched
-                        </span>
-                        <button
-                          className="auto-match-apply-all"
-                          onClick={applyAllAutoMatches}
-                        >
-                          Apply All
-                        </button>
-                      </div>
-                      <div className="auto-match-list">
-                        {autoMatchSuggestions.map((suggestion) => (
-                          <div key={suggestion.placeholder} className="auto-match-row">
-                            <span className="auto-match-placeholder">{suggestion.placeholder}</span>
-                            <span className="auto-match-arrow">→</span>
-                            <span className="auto-match-column">{suggestion.column}</span>
-                            <span className={`auto-match-confidence ${suggestion.confidence}`}>
-                              {suggestion.confidence === "high" ? "●●" : "●○"}
-                            </span>
-                            <button
-                              className="auto-match-apply"
-                              onClick={() => applyAutoMatch(suggestion.placeholder, suggestion.column)}
-                            >
-                              Apply
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="mapping-table">
-                    {placeholders.map((placeholder) => (
-                      <div key={placeholder} className="mapping-row">
-                        <span className="mapping-key">{placeholder}</span>
-                        <select
-                          value={placeholderMap[placeholder] ?? ""}
-                          onChange={(event) =>
-                            setPlaceholderMap((prev) => ({
-                              ...prev,
-                              [placeholder]: event.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">Select column</option>
-                          {columns.map((column) => (
-                            <option key={column} value={column}>
-                              {column}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Dynamic Asset Selection */}
-          {columns.length > 0 && (
-            <div className="property-group">
-              <h4>Dynamic Assets</h4>
-              <p className="hint">Use different logos, taglines, or return addresses based on data values.</p>
-
-              {/* Logo Selection */}
-              <div className="dynamic-asset-section">
-                <div className="dynamic-asset-header">
-                  <span className="dynamic-asset-label">Logo</span>
-                </div>
-                <div className="dynamic-asset-mode">
-                  <label className={`mode-option${logoMode === "static" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="logoMode"
-                      checked={logoMode === "static"}
-                      onChange={() => setLogoMode("static")}
-                    />
-                    Same for all
-                  </label>
-                  <label className={`mode-option${logoMode === "dynamic" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="logoMode"
-                      checked={logoMode === "dynamic"}
-                      onChange={() => setLogoMode("dynamic")}
-                    />
-                    Based on data
-                  </label>
-                </div>
-                {logoMode === "static" ? (
-                  <div className="static-asset-select">
-                    <select
-                      value={selectedLogo?.id ?? ""}
-                      onChange={(e) => {
-                        const logo = (library.Logos ?? []).find((l) => l.id === e.target.value);
-                        setSelectedLogo(logo ?? null);
-                      }}
-                    >
-                      <option value="">Select logo...</option>
-                      {(library.Logos ?? []).map((logo) => (
-                        <option key={logo.id} value={logo.id}>{logo.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dynamic-asset-config">
-                    <select
-                      value={logoColumn}
-                      onChange={(e) => setLogoColumn(e.target.value)}
-                      className="column-select"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
-                    </select>
-                    {logoColumn && uniqueLogoValues.length > 0 && (
-                      <>
-                        {uniqueLogoValues.length > 20 && (
-                          <div className="alert warning">
-                            {uniqueLogoValues.length} unique values found. Consider using a different column.
-                          </div>
-                        )}
-                        <div className="value-mapping-table">
-                          <div className="value-mapping-header">
-                            <span>Value</span>
-                            <span>Logo</span>
-                          </div>
-                          {uniqueLogoValues.slice(0, 50).map((value) => (
-                            <div key={value} className="value-mapping-row">
-                              <span className="value-cell">{value}</span>
-                              <select
-                                value={logoValueMap[value] ?? ""}
-                                onChange={(e) =>
-                                  setLogoValueMap((prev) => ({ ...prev, [value]: e.target.value }))
-                                }
-                                className={logoValueMap[value] ? "mapped" : "unmapped"}
-                              >
-                                <option value="">Select...</option>
-                                {(library.Logos ?? []).map((logo) => (
-                                  <option key={logo.id} value={logo.id}>{logo.label}</option>
-                                ))}
-                              </select>
-                              {logoValueMap[value] && <span className="match-indicator">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mapping-stats">
-                          {Object.keys(logoValueMap).filter((k) => uniqueLogoValues.includes(k) && logoValueMap[k]).length} of {uniqueLogoValues.length} mapped
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Tagline Selection */}
-              <div className="dynamic-asset-section">
-                <div className="dynamic-asset-header">
-                  <span className="dynamic-asset-label">Tagline</span>
-                </div>
-                <div className="dynamic-asset-mode">
-                  <label className={`mode-option${taglineMode === "static" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="taglineMode"
-                      checked={taglineMode === "static"}
-                      onChange={() => setTaglineMode("static")}
-                    />
-                    Same for all
-                  </label>
-                  <label className={`mode-option${taglineMode === "dynamic" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="taglineMode"
-                      checked={taglineMode === "dynamic"}
-                      onChange={() => setTaglineMode("dynamic")}
-                    />
-                    Based on data
-                  </label>
-                </div>
-                {taglineMode === "static" ? (
-                  <div className="static-asset-select">
-                    <select
-                      value={selectedTaglineByPage[activePage]?.id ?? ""}
-                      onChange={(e) => {
-                        const tagline = (library.Taglines ?? []).find((t) => t.id === e.target.value);
-                        setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: tagline ?? null }));
-                      }}
-                    >
-                      <option value="">Select tagline...</option>
-                      {(library.Taglines ?? []).map((tagline) => (
-                        <option key={tagline.id} value={tagline.id}>{tagline.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dynamic-asset-config">
-                    <select
-                      value={taglineColumn}
-                      onChange={(e) => setTaglineColumn(e.target.value)}
-                      className="column-select"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
-                    </select>
-                    {taglineColumn && uniqueTaglineValues.length > 0 && (
-                      <>
-                        {uniqueTaglineValues.length > 20 && (
-                          <div className="alert warning">
-                            {uniqueTaglineValues.length} unique values found. Consider using a different column.
-                          </div>
-                        )}
-                        <div className="value-mapping-table">
-                          <div className="value-mapping-header">
-                            <span>Value</span>
-                            <span>Tagline</span>
-                          </div>
-                          {uniqueTaglineValues.slice(0, 50).map((value) => (
-                            <div key={value} className="value-mapping-row">
-                              <span className="value-cell">{value}</span>
-                              <select
-                                value={taglineValueMap[value] ?? ""}
-                                onChange={(e) =>
-                                  setTaglineValueMap((prev) => ({ ...prev, [value]: e.target.value }))
-                                }
-                                className={taglineValueMap[value] ? "mapped" : "unmapped"}
-                              >
-                                <option value="">Select...</option>
-                                {(library.Taglines ?? []).map((tagline) => (
-                                  <option key={tagline.id} value={tagline.id}>{tagline.label}</option>
-                                ))}
-                              </select>
-                              {taglineValueMap[value] && <span className="match-indicator">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mapping-stats">
-                          {Object.keys(taglineValueMap).filter((k) => uniqueTaglineValues.includes(k) && taglineValueMap[k]).length} of {uniqueTaglineValues.length} mapped
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Return Address Selection */}
-              <div className="dynamic-asset-section">
-                <div className="dynamic-asset-header">
-                  <span className="dynamic-asset-label">Return Address</span>
-                </div>
-                <div className="dynamic-asset-mode">
-                  <label className={`mode-option${returnMode === "static" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="returnMode"
-                      checked={returnMode === "static"}
-                      onChange={() => setReturnMode("static")}
-                    />
-                    Same for all
-                  </label>
-                  <label className={`mode-option${returnMode === "dynamic" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="returnMode"
-                      checked={returnMode === "dynamic"}
-                      onChange={() => setReturnMode("dynamic")}
-                    />
-                    Based on data
-                  </label>
-                </div>
-                {returnMode === "static" ? (
-                  <div className="static-asset-select">
-                    <select
-                      value={selectedReturn?.id ?? ""}
-                      onChange={(e) => {
-                        const ret = (library["Return Address"] ?? []).find((r) => r.id === e.target.value);
-                        setSelectedReturn(ret ?? null);
-                      }}
-                    >
-                      <option value="">Select return address...</option>
-                      {(library["Return Address"] ?? []).map((ret) => (
-                        <option key={ret.id} value={ret.id}>{ret.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dynamic-asset-config">
-                    <select
-                      value={returnColumn}
-                      onChange={(e) => setReturnColumn(e.target.value)}
-                      className="column-select"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
-                    </select>
-                    {returnColumn && uniqueReturnValues.length > 0 && (
-                      <>
-                        {uniqueReturnValues.length > 20 && (
-                          <div className="alert warning">
-                            {uniqueReturnValues.length} unique values found. Consider using a different column.
-                          </div>
-                        )}
-                        <div className="value-mapping-table">
-                          <div className="value-mapping-header">
-                            <span>Value</span>
-                            <span>Return Address</span>
-                          </div>
-                          {uniqueReturnValues.slice(0, 50).map((value) => (
-                            <div key={value} className="value-mapping-row">
-                              <span className="value-cell">{value}</span>
-                              <select
-                                value={returnValueMap[value] ?? ""}
-                                onChange={(e) =>
-                                  setReturnValueMap((prev) => ({ ...prev, [value]: e.target.value }))
-                                }
-                                className={returnValueMap[value] ? "mapped" : "unmapped"}
-                              >
-                                <option value="">Select...</option>
-                                {(library["Return Address"] ?? []).map((ret) => (
-                                  <option key={ret.id} value={ret.id}>{ret.label}</option>
-                                ))}
-                              </select>
-                              {returnValueMap[value] && <span className="match-indicator">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mapping-stats">
-                          {Object.keys(returnValueMap).filter((k) => uniqueReturnValues.includes(k) && returnValueMap[k]).length} of {uniqueReturnValues.length} mapped
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="property-group">
-            <button className="primary" onClick={handleMergePreview} disabled={!spreadsheetContent}>
-              Merge/Preview/Print
-            </button>
-          </div>
-        </aside>
+        <InspectorPanel
+          selectedBlock={inspectorBlock}
+          onAlignChange={(align) => {
+            setBlocksByPage((prev) => ({
+              ...prev,
+              [activePage]: (prev[activePage] ?? []).map((b) =>
+                b.id === selectedBlockId ? { ...b, align } : b
+              ),
+            }));
+          }}
+          onXChange={(x) => {
+            setBlocksByPage((prev) => ({
+              ...prev,
+              [activePage]: (prev[activePage] ?? []).map((b) =>
+                b.id === selectedBlockId ? { ...b, x } : b
+              ),
+            }));
+          }}
+          onYChange={(y) => {
+            setBlocksByPage((prev) => ({
+              ...prev,
+              [activePage]: (prev[activePage] ?? []).map((b) =>
+                b.id === selectedBlockId ? { ...b, y } : b
+              ),
+            }));
+          }}
+          readiness={readiness}
+          onOpenMerge={() => setOpenMenuTab("Data")}
+        />
       </div>
 
       {showAdmin && (
