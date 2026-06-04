@@ -2081,18 +2081,6 @@ textarea:focus-visible {
   height: 1px;
 }
 
-.empty-state {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: #9ca3af;
-  font-size: 0.9rem;
-  border-radius: 12px;
-  background: #f9fafb;
-  z-index: 1;
-  pointer-events: none;
-}
 
 .welcome-guide {
   text-align: left;

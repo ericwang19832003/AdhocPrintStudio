@@ -3123,7 +3123,7 @@ export default function BuilderClient() {
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
                 {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
                   <EmptyState
-                    onBlank={() => { /* canvas is blank — user can start typing */ }}
+                    onBlank={() => { editorInstance?.commands.focus(); }}
                     onTemplate={() => setOpenMenuTab("Full Letters")}
                     onImportWord={() => docxInputRef.current?.click()}
                     templateCount={fullLetterSeed.length}
