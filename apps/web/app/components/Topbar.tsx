@@ -10,6 +10,7 @@ type TopbarProps = {
   onPreview: () => void;
   onGenerate: () => void;
   generateDisabled?: boolean;
+  onManageLibrary?: () => void;
 };
 
 export function Topbar({
@@ -20,6 +21,7 @@ export function Topbar({
   onPreview,
   onGenerate,
   generateDisabled,
+  onManageLibrary,
 }: TopbarProps) {
   return (
     <header className="topbar-v2">
@@ -50,6 +52,11 @@ export function Topbar({
       </div>
 
       <div className="topbar-actions-v2">
+        {onManageLibrary && (
+          <button type="button" className="btn-ghost-sm" onClick={onManageLibrary}>
+            Manage library
+          </button>
+        )}
         <button type="button" className="btn-ghost-sm" onClick={onExport}>Export</button>
         <button type="button" className="btn-outline-sm" onClick={onPreview}>Preview</button>
         <button type="button" className="btn-accent" onClick={onGenerate} disabled={generateDisabled}>

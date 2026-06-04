@@ -22,6 +22,7 @@ import { MergePreview, type MergeRow } from "./components/MergePreview";
 import { UploadLogoModal } from "./components/UploadLogoModal";
 import { ReturnAddressModal } from "./components/ReturnAddressModal";
 import { ImportWordModal } from "./components/ImportWordModal";
+import { ManageLibrary, type ManageSection } from "./components/ManageLibrary";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -457,6 +458,7 @@ export default function BuilderClient() {
   const [favoriteTemplates, setFavoriteTemplates] = useState<string[]>([]);
   const [templateSortOrder, setTemplateSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showManageLibrary, setShowManageLibrary] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showImportWordModal, setShowImportWordModal] = useState(false);
@@ -2161,6 +2163,7 @@ export default function BuilderClient() {
         onTitleChange={setLetterTitle}
         savedAgo={savedAgo}
         onExport={handleExportWord}
+        onManageLibrary={() => setShowManageLibrary(true)}
         onPreview={() => {
           if (spreadsheetRows.length === 0) {
             setOpenMenuTab("Data");
@@ -3161,6 +3164,41 @@ export default function BuilderClient() {
         <ImportWordModal
           onImport={(file) => handleDocxUpload(file)}
           onClose={() => setShowImportWordModal(false)}
+        />
+      )}
+      {showManageLibrary && (
+        <ManageLibrary
+          logos={(library.Logos ?? []).map((l) => ({
+            id: l.id,
+            label: l.label,
+            isCustom: l.isCustom ?? false,
+            preview: l.imageUrl,
+          }))}
+          verbiage={(library.Verbiage ?? []).map((v) => ({
+            id: v.id,
+            label: v.label,
+            isCustom: v.isCustom ?? false,
+            preview: v.content?.slice(0, 40),
+          }))}
+          returns={(library["Return Address"] ?? []).map((r) => ({
+            id: r.id,
+            label: r.label,
+            isCustom: r.isCustom ?? false,
+          }))}
+          onDelete={(section: ManageSection, id: string) => {
+            const sectionMap: Record<ManageSection, string> = {
+              logos: "Logos",
+              verbiage: "Verbiage",
+              returns: "Return Address",
+            };
+            const tab = sectionMap[section];
+            if (!window.confirm("Delete this item? This cannot be undone.")) return;
+            setLibrary((prev) => ({
+              ...prev,
+              [tab]: (prev[tab] ?? []).filter((item) => item.id !== id),
+            }));
+          }}
+          onClose={() => setShowManageLibrary(false)}
         />
       )}
       {showMergePreview && (
