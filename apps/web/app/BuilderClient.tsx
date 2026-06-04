@@ -19,6 +19,7 @@ import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary
 import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary";
 import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
 import { MergePreview, type MergeRow } from "./components/MergePreview";
+import { UploadLogoModal } from "./components/UploadLogoModal";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -202,82 +203,6 @@ const BlockMenu = ({ items, onInsert, onDragStart, query }: BlockMenuProps) => {
             <p>{hoveredItem.previewText}</p>
           </div>
         )}
-      </div>
-    </div>
-  );
-};
-
-type UploadLogoModalProps = {
-  isOpen: boolean;
-  previewUrl: string;
-  fileName: string;
-  errorMessage: string;
-  isUploading: boolean;
-  onCancel: () => void;
-  onFileSelect: (file: File) => void;
-  onUpload: () => void;
-};
-
-const UploadLogoModal = ({
-  isOpen,
-  previewUrl,
-  fileName,
-  errorMessage,
-  isUploading,
-  onCancel,
-  onFileSelect,
-  onUpload,
-}: UploadLogoModalProps) => {
-  if (!isOpen) return null;
-  return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal upload-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Upload logo</h3>
-          <button className="ghost" onClick={onCancel}>
-            Close
-          </button>
-        </div>
-        <div
-          className="upload-dropzone"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            const file = event.dataTransfer.files?.[0];
-            if (file) onFileSelect(file);
-          }}
-        >
-          {previewUrl ? (
-            <img src={previewUrl} alt="Logo preview" />
-          ) : (
-            <div className="upload-placeholder">
-              <strong>Drag and drop your logo here</strong>
-              <span>or</span>
-            </div>
-          )}
-          <label className="file-input">
-            Browse files
-            <input
-              type="file"
-              accept=".png,.jpg,.jpeg,.svg"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onFileSelect(file);
-              }}
-            />
-          </label>
-          <p className="hint">Supported formats: PNG, JPG, SVG</p>
-          {fileName && <p className="upload-filename">{fileName}</p>}
-          {errorMessage && <p className="upload-error">{errorMessage}</p>}
-        </div>
-        <div className="form-actions">
-          <button className="ghost" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="primary" onClick={onUpload} disabled={!previewUrl || isUploading}>
-            {isUploading ? "Uploading..." : "Upload"}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -549,10 +474,6 @@ export default function BuilderClient() {
   const [taglineText, setTaglineText] = useState("");
   const [verbiageTitle, setVerbiageTitle] = useState("");
   const [verbiageText, setVerbiageText] = useState("");
-  const [logoUploadPreview, setLogoUploadPreview] = useState("");
-  const [logoUploadName, setLogoUploadName] = useState("");
-  const [logoUploadError, setLogoUploadError] = useState("");
-  const [logoUploadLoading, setLogoUploadLoading] = useState(false);
   const [logoBox, setLogoBox] = useState({ width: 160, height: 70 });
   const [logoResizeState, setLogoResizeState] = useState<{
     corner: "tl" | "tr" | "bl" | "br";
@@ -2052,22 +1973,6 @@ export default function BuilderClient() {
     handleLogoFileUpload(file, (dataUrl) => setNewImagePreview(dataUrl));
   };
 
-  const handleLogoUploadFile = (file: File) => {
-    const validTypes = ["image/png", "image/jpeg", "image/svg+xml"];
-    const maxSize = 5 * 1024 * 1024;
-    if (!validTypes.includes(file.type)) {
-      setLogoUploadError("Invalid file type. Please upload PNG, JPG, or SVG.");
-      return;
-    }
-    if (file.size > maxSize) {
-      setLogoUploadError("File is too large. Max size is 5MB.");
-      return;
-    }
-    setLogoUploadError("");
-    setLogoUploadName(file.name.replace(/\.[^/.]+$/, ""));
-    handleLogoFileUpload(file, (dataUrl) => setLogoUploadPreview(dataUrl));
-  };
-
   const simulateLogoUpload = (name: string, url: string) =>
     new Promise<{ id: string; name: string; url: string; type: "custom" }>((resolve) => {
       setTimeout(() => {
@@ -3327,27 +3232,10 @@ export default function BuilderClient() {
           </div>
         </div>
       )}
-      <UploadLogoModal
-        isOpen={showLogoModal}
-        previewUrl={logoUploadPreview}
-        fileName={logoUploadName}
-        errorMessage={logoUploadError}
-        isUploading={logoUploadLoading}
-        onCancel={() => {
-          setShowLogoModal(false);
-          setLogoUploadPreview("");
-          setLogoUploadName("");
-          setLogoUploadError("");
-        }}
-        onFileSelect={handleLogoUploadFile}
-        onUpload={async () => {
-          if (!logoUploadPreview) return;
-          try {
-            setLogoUploadLoading(true);
-            const response = await simulateLogoUpload(
-              logoUploadName || "Uploaded logo",
-              logoUploadPreview
-            );
+      {showLogoModal && (
+        <UploadLogoModal
+          onUpload={async (name, dataUrl) => {
+            const response = await simulateLogoUpload(name, dataUrl);
             const createdItem = addLibraryItemForTab(
               "Logos",
               response.name,
@@ -3357,14 +3245,10 @@ export default function BuilderClient() {
             );
             if (createdItem) setSelectedLogo(createdItem);
             setShowLogoModal(false);
-            setLogoUploadPreview("");
-            setLogoUploadName("");
-            setLogoUploadError("");
-          } finally {
-            setLogoUploadLoading(false);
-          }
-        }}
-      />
+          }}
+          onClose={() => setShowLogoModal(false)}
+        />
+      )}
       {showMergePreview && (
         <MergePreview
           rows={spreadsheetRows as MergeRow[]}
