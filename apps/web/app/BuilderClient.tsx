@@ -17,6 +17,7 @@ import { EmptyState } from "./components/EmptyState";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
 import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary";
+import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -2682,6 +2683,18 @@ export default function BuilderClient() {
                   </p>
                 )}
               </div>
+            ) : openMenuTab === "Data" ? (
+              <DataPanel
+                spreadsheetName={spreadsheetName ?? null}
+                columns={columns}
+                rows={spreadsheetRows}
+                placeholders={placeholders}
+                placeholderMap={placeholderMap}
+                onPlaceholderMapChange={(map: PlaceholderMapping) => setPlaceholderMap(map)}
+                onUploadFile={(file) => handleSpreadsheetFile(file)}
+                mailingMap={mailingMap}
+                onMailingMapChange={setMailingMap}
+              />
             ) : (
               <BlockMenu
                 items={(library[openMenuTab] ?? []).map((item) => ({
