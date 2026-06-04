@@ -20,6 +20,7 @@ import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary
 import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
 import { MergePreview, type MergeRow } from "./components/MergePreview";
 import { UploadLogoModal } from "./components/UploadLogoModal";
+import { ReturnAddressModal } from "./components/ReturnAddressModal";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -3081,58 +3082,21 @@ export default function BuilderClient() {
         </div>
       )}
       {showAddressModal && (
-        <div className="modal-backdrop" onClick={() => setShowAddressModal(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create return address</h3>
-              <button className="ghost" onClick={() => setShowAddressModal(false)}>
-                Close
-              </button>
-            </div>
-            <div className="form-grid">
-              <input
-                value={addressName}
-                onChange={(event) => setAddressName(event.target.value)}
-                placeholder="Address label"
-              />
-              <textarea
-                value={addressContent}
-                onChange={(event) => setAddressContent(event.target.value)}
-                placeholder="Return address (one line per row)"
-                rows={4}
-              />
-            </div>
-            <div className="form-actions">
-              <button
-                className="ghost"
-                onClick={() => {
-                  setShowAddressModal(false);
-                  setAddressName("");
-                  setAddressContent("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  if (!addressName.trim()) return;
-                  const createdItem = addLibraryItemForTab(
-                    "Return Address",
-                    addressName.trim(),
-                    addressContent.trim()
-                  );
-                  if (createdItem) setSelectedReturn(createdItem);
-                  setAddressName("");
-                  setAddressContent("");
-                  setShowAddressModal(false);
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReturnAddressModal
+          onSave={(label, address) => {
+            const createdItem = addLibraryItemForTab(
+              "Return Address",
+              label,
+              address
+            );
+            if (createdItem) setSelectedReturn(createdItem);
+          }}
+          onClose={() => {
+            setShowAddressModal(false);
+            setAddressName("");
+            setAddressContent("");
+          }}
+        />
       )}
       {showTaglineModal && (
         <div className="modal-backdrop" onClick={() => setShowTaglineModal(false)}>

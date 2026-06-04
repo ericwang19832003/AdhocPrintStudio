@@ -4749,3 +4749,58 @@ textarea:focus-visible {
   color: var(--danger);
   margin: -8px 0 0;
 }
+
+/* ── Return Address Modal ────────────────────────────────────────── */
+.modal-field-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 80px;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.return-address-preview {
+  background: var(--ink-50);
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.return-preview-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-300);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.return-preview-block {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-900);
+  line-height: 1.8;
+}
+
+.return-preview-line { }
+
+.usps-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-500);
+  line-height: 1.5;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.usps-hint-icon { color: var(--warn); flex-shrink: 0; margin-top: 1px; }
