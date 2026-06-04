@@ -4098,4 +4098,99 @@ textarea:focus-visible {
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
+
+/* ── Verbiage Library ────────────────────────────────────────────── */
+.verbiage-library {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  width: 320px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.verbiage-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.verbiage-tag-chip {
+  padding: 3px 9px;
+  border-radius: 100px;
+  border: 1px solid var(--outline);
+  background: white;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-500);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.verbiage-tag-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.verbiage-list-new {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.verbiage-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+  width: 100%;
+}
+
+.verbiage-row:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.verbiage-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.verbiage-row-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.verbiage-row-tags {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.verbiage-tag-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--info);
+  background: #eff6ff;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.verbiage-row-preview {
+  font-size: 11px;
+  color: var(--ink-500);
+  margin: 0;
+  line-height: 1.5;
+}
 .lib-upload-btn:hover { border-color: var(--accent); color: var(--accent); }

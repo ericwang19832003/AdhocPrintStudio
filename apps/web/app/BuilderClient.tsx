@@ -15,6 +15,7 @@ import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
 import { EmptyState } from "./components/EmptyState";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
+import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -25,6 +26,7 @@ type LibraryItem = {
   content?: string;
   imageUrl?: string;
   isCustom?: boolean;
+  tags?: string[];
 };
 
 type PlacedBlock = {
@@ -381,31 +383,31 @@ const returnAddressSeed: LibraryItem[] = [
 
 // 25 Verbiage blocks with varied lengths (1 sentence to 4 sentences)
 const verbiageSeed: LibraryItem[] = [
-  { id: "verb-1", label: "Privacy notice", type: "verbiage", content: "We value your privacy. Your information is used only for account servicing and will not be shared without consent." },
-  { id: "verb-2", label: "Late payment block", type: "verbiage", content: "Our records show an outstanding balance. Please remit payment within 10 days to avoid service interruption." },
-  { id: "verb-3", label: "Billing assistance", type: "verbiage", content: "Need help with your bill? Call 800-555-0199, Monday through Friday, 8am-6pm, and we will assist you." },
-  { id: "verb-4", label: "Opt-out instructions", type: "verbiage", content: "To opt out of paper delivery, visit your account settings or call customer care at 800-555-0177." },
-  { id: "verb-5", label: "Account update reminder", type: "verbiage", content: "Please review your contact details to ensure your statements are delivered to the correct address." },
+  { id: "verb-1", label: "Privacy notice", type: "verbiage", tags: ["Legal"], content: "We value your privacy. Your information is used only for account servicing and will not be shared without consent." },
+  { id: "verb-2", label: "Late payment block", type: "verbiage", tags: ["Billing"], content: "Our records show an outstanding balance. Please remit payment within 10 days to avoid service interruption." },
+  { id: "verb-3", label: "Billing assistance", type: "verbiage", tags: ["Billing", "Support"], content: "Need help with your bill? Call 800-555-0199, Monday through Friday, 8am-6pm, and we will assist you." },
+  { id: "verb-4", label: "Opt-out instructions", type: "verbiage", tags: ["Support"], content: "To opt out of paper delivery, visit your account settings or call customer care at 800-555-0177." },
+  { id: "verb-5", label: "Account update reminder", type: "verbiage", tags: ["Support"], content: "Please review your contact details to ensure your statements are delivered to the correct address." },
   { id: "verb-6", label: "Thank you (Short)", type: "verbiage", content: "Thank you for your business." },
-  { id: "verb-7", label: "Contact us", type: "verbiage", content: "Questions? Contact us at support@example.com or call 1-800-555-0123." },
-  { id: "verb-8", label: "Legal disclaimer (Long)", type: "verbiage", content: "This document contains confidential information intended only for the named recipient. If you have received this in error, please notify the sender immediately and delete all copies. Unauthorized use, disclosure, or distribution is prohibited and may be unlawful. The sender accepts no liability for any damages arising from the unauthorized use of this information." },
-  { id: "verb-9", label: "Payment due", type: "verbiage", content: "Payment is due within 30 days of the statement date." },
-  { id: "verb-10", label: "Autopay enrollment", type: "verbiage", content: "Enroll in AutoPay for worry-free payments. Your payment will be automatically deducted on the due date, ensuring you never miss a payment. Sign up online at myaccount.example.com or call our automated line at 800-555-0188." },
-  { id: "verb-11", label: "Rate change notice", type: "verbiage", content: "Please be advised that your interest rate may change based on market conditions. Review your account terms for details." },
-  { id: "verb-12", label: "Paperless invitation", type: "verbiage", content: "Go green with paperless statements! Switch to electronic delivery and receive your statements faster, reduce clutter, and help the environment." },
-  { id: "verb-13", label: "Fraud alert", type: "verbiage", content: "Protect yourself from fraud. Never share your account number, PIN, or password with anyone claiming to be from our company. We will never ask for this information via email or phone." },
-  { id: "verb-14", label: "Service hours", type: "verbiage", content: "Our customer service team is available Monday through Friday, 8:00 AM to 8:00 PM EST, and Saturday, 9:00 AM to 5:00 PM EST." },
-  { id: "verb-15", label: "Minimum payment", type: "verbiage", content: "Paying only the minimum amount due will result in higher interest charges and a longer time to pay off your balance." },
-  { id: "verb-16", label: "Credit score impact", type: "verbiage", content: "Late payments may be reported to credit bureaus and could negatively impact your credit score. Please ensure timely payment to maintain good standing." },
+  { id: "verb-7", label: "Contact us", type: "verbiage", tags: ["Support"], content: "Questions? Contact us at support@example.com or call 1-800-555-0123." },
+  { id: "verb-8", label: "Legal disclaimer (Long)", type: "verbiage", tags: ["Legal"], content: "This document contains confidential information intended only for the named recipient. If you have received this in error, please notify the sender immediately and delete all copies. Unauthorized use, disclosure, or distribution is prohibited and may be unlawful. The sender accepts no liability for any damages arising from the unauthorized use of this information." },
+  { id: "verb-9", label: "Payment due", type: "verbiage", tags: ["Billing"], content: "Payment is due within 30 days of the statement date." },
+  { id: "verb-10", label: "Autopay enrollment", type: "verbiage", tags: ["Billing"], content: "Enroll in AutoPay for worry-free payments. Your payment will be automatically deducted on the due date, ensuring you never miss a payment. Sign up online at myaccount.example.com or call our automated line at 800-555-0188." },
+  { id: "verb-11", label: "Rate change notice", type: "verbiage", tags: ["Legal", "Billing"], content: "Please be advised that your interest rate may change based on market conditions. Review your account terms for details." },
+  { id: "verb-12", label: "Paperless invitation", type: "verbiage", tags: ["Support"], content: "Go green with paperless statements! Switch to electronic delivery and receive your statements faster, reduce clutter, and help the environment." },
+  { id: "verb-13", label: "Fraud alert", type: "verbiage", tags: ["Security"], content: "Protect yourself from fraud. Never share your account number, PIN, or password with anyone claiming to be from our company. We will never ask for this information via email or phone." },
+  { id: "verb-14", label: "Service hours", type: "verbiage", tags: ["Support"], content: "Our customer service team is available Monday through Friday, 8:00 AM to 8:00 PM EST, and Saturday, 9:00 AM to 5:00 PM EST." },
+  { id: "verb-15", label: "Minimum payment", type: "verbiage", tags: ["Billing"], content: "Paying only the minimum amount due will result in higher interest charges and a longer time to pay off your balance." },
+  { id: "verb-16", label: "Credit score impact", type: "verbiage", tags: ["Billing", "Legal"], content: "Late payments may be reported to credit bureaus and could negatively impact your credit score. Please ensure timely payment to maintain good standing." },
   { id: "verb-17", label: "Rewards program", type: "verbiage", content: "Earn points on every purchase! Redeem for cash back, travel, merchandise, and more. Visit rewards.example.com to view your balance and redeem points." },
-  { id: "verb-18", label: "Address change", type: "verbiage", content: "Moving? Update your address online or call us to ensure uninterrupted service." },
-  { id: "verb-19", label: "Dispute instructions", type: "verbiage", content: "If you believe there is an error on your statement, write to us at the address shown within 60 days. Include your name, account number, the dollar amount of the suspected error, and a description of the problem." },
-  { id: "verb-20", label: "Security reminder", type: "verbiage", content: "For your security, always sign out of your online account when finished. Use strong, unique passwords and enable two-factor authentication when available." },
-  { id: "verb-21", label: "Grace period", type: "verbiage", content: "You have a 21-day grace period on new purchases when you pay your balance in full each month." },
-  { id: "verb-22", label: "Fee disclosure", type: "verbiage", content: "A late fee of up to $40 may be charged if your minimum payment is not received by the due date." },
-  { id: "verb-23", label: "Balance transfer offer", type: "verbiage", content: "Transfer your high-interest balances and enjoy 0% APR for 12 months. A 3% transfer fee applies. Offer expires December 31, 2026." },
-  { id: "verb-24", label: "Annual fee notice", type: "verbiage", content: "Your annual membership fee of $95 will appear on your next statement." },
-  { id: "verb-25", label: "HIPAA notice (Long)", type: "verbiage", content: "This notice describes how medical information about you may be used and disclosed and how you can get access to this information. Please review it carefully. We are required by law to maintain the privacy of your protected health information, provide you with notice of our legal duties and privacy practices, and notify you following a breach of unsecured protected health information." },
+  { id: "verb-18", label: "Address change", type: "verbiage", tags: ["Support"], content: "Moving? Update your address online or call us to ensure uninterrupted service." },
+  { id: "verb-19", label: "Dispute instructions", type: "verbiage", tags: ["Legal", "Billing"], content: "If you believe there is an error on your statement, write to us at the address shown within 60 days. Include your name, account number, the dollar amount of the suspected error, and a description of the problem." },
+  { id: "verb-20", label: "Security reminder", type: "verbiage", tags: ["Security"], content: "For your security, always sign out of your online account when finished. Use strong, unique passwords and enable two-factor authentication when available." },
+  { id: "verb-21", label: "Grace period", type: "verbiage", tags: ["Billing"], content: "You have a 21-day grace period on new purchases when you pay your balance in full each month." },
+  { id: "verb-22", label: "Fee disclosure", type: "verbiage", tags: ["Legal", "Billing"], content: "A late fee of up to $40 may be charged if your minimum payment is not received by the due date." },
+  { id: "verb-23", label: "Balance transfer offer", type: "verbiage", tags: ["Billing"], content: "Transfer your high-interest balances and enjoy 0% APR for 12 months. A 3% transfer fee applies. Offer expires December 31, 2026." },
+  { id: "verb-24", label: "Annual fee notice", type: "verbiage", tags: ["Billing"], content: "Your annual membership fee of $95 will appear on your next statement." },
+  { id: "verb-25", label: "HIPAA notice (Long)", type: "verbiage", tags: ["Legal", "Security"], content: "This notice describes how medical information about you may be used and disclosed and how you can get access to this information. Please review it carefully. We are required by law to maintain the privacy of your protected health information, provide you with notice of our legal duties and privacy practices, and notify you following a breach of unsecured protected health information." },
 ];
 
 // 20 Full Letters with varied lengths (2 paragraphs to 6 paragraphs)
@@ -2707,125 +2709,18 @@ export default function BuilderClient() {
                 </div>
               </div>
             ) : openMenuTab === "Verbiage" ? (
-              <div className="library-panel-enhanced">
-                {/* Recently Used Section */}
-                {recentlyUsedVerbiage.length > 0 && !flyoutQuery && (
-                  <div className="library-section">
-                    <div className="library-section-header">
-                      <span className="library-section-title">Recently Used</span>
-                    </div>
-                    <div className="library-recent-chips">
-                      {recentlyUsedVerbiage
-                        .map((id) => (library.Verbiage ?? []).find((v) => v.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="library-chip"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.content ?? item.label}
-                          >
-                            {item.label}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="library-section">
-                  <div className="library-section-header">
-                    <span className="library-section-title">
-                      {flyoutQuery ? `Results` : "All Verbiage"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="library-sort-select"
-                        value={verbiageSortOrder}
-                        onChange={(e) => setVerbiageSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="verbiage-two-column">
-                    <div className="verbiage-list">
-                      {(() => {
-                        let items = filterFlyoutItems(openMenuTab);
-                        if (!flyoutQuery) {
-                          if (verbiageSortOrder === "a-z") {
-                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                          } else if (verbiageSortOrder === "favorites") {
-                            items = [...items].sort((a, b) => {
-                              const aFav = favoriteVerbiage.includes(a.id) ? 0 : 1;
-                              const bFav = favoriteVerbiage.includes(b.id) ? 0 : 1;
-                              return aFav - bFav || a.label.localeCompare(b.label);
-                            });
-                          } else if (verbiageSortOrder === "recent") {
-                            items = [...items].sort((a, b) => {
-                              const aRecent = recentlyUsedVerbiage.indexOf(a.id);
-                              const bRecent = recentlyUsedVerbiage.indexOf(b.id);
-                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
-                            });
-                          }
-                        }
-                        return items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`verbiage-list-item${selectedVerbiageId === item.id ? " active" : ""}${favoriteVerbiage.includes(item.id) ? " favorited" : ""}`}
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => {
-                              addLibraryItemToCanvas(item);
-                              setSelectedVerbiageId(item.id);
-                            }}
-                            onMouseEnter={() => setHoverPreviewId(item.id)}
-                            onMouseLeave={() => setHoverPreviewId(null)}
-                            onFocus={() => setHoverPreviewId(item.id)}
-                            onBlur={() => setHoverPreviewId(null)}
-                            tabIndex={0}
-                          >
-                            <span className="library-item-label">{item.label}</span>
-                            <button
-                              className={`library-favorite-btn${favoriteVerbiage.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleVerbiageFavorite(item.id, e)}
-                              title={favoriteVerbiage.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteVerbiage.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="verbiage-preview-panel">
-                      {(() => {
-                        const activeId = hoverPreviewId ?? selectedVerbiageId;
-                        if (!activeId) {
-                          return <p className="hint">Hover a verbiage to preview.</p>;
-                        }
-                        const activeItem = (library[openMenuTab] ?? []).find(
-                          (entry) => entry.id === activeId
-                        );
-                        if (!activeItem) {
-                          return <p className="hint">Hover a verbiage to preview.</p>;
-                        }
-                        return (
-                          <>
-                            <div className="verbiage-preview-title">{activeItem.label}</div>
-                            <p>{activeItem.content ?? activeItem.label}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <VerbiageLibrary
+                items={(library.Verbiage ?? []).map((v) => ({
+                  id: v.id,
+                  label: v.label,
+                  content: v.content ?? "",
+                  tags: v.tags ?? [],
+                }))}
+                onInsert={(item: VerbiageItem) => {
+                  const sourceItem = (library.Verbiage ?? []).find((v) => v.id === item.id);
+                  if (sourceItem) addLibraryItemToCanvas(sourceItem);
+                }}
+              />
             ) : openMenuTab === "Upload" ? (
               <div style={{ padding: "16px" }}>
                 <p style={{ marginBottom: "12px", fontSize: "14px", color: "#666" }}>
