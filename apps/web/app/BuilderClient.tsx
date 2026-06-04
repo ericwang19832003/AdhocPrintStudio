@@ -2181,18 +2181,21 @@ export default function BuilderClient() {
               : openMenuTab === "Verbiage" ? "Verbiage"
               : openMenuTab === "Taglines" ? "Tagline"
               : openMenuTab === "Full Letters" ? "Templates"
-              : openMenuTab === "Upload" ? "Import"
               : openMenuTab === "Data" ? "Data"
               : null
             }
             onSelect={(tab: SidebarTab) => {
+              if (tab === "Import") {
+                setShowImportWordModal(true);
+                setOpenMenuTab(null);
+                return;
+              }
               const legacyTab =
                 tab === "Logo" ? "Logos"
                 : tab === "Return" ? "Return Address"
                 : tab === "Verbiage" ? "Verbiage"
                 : tab === "Tagline" ? "Taglines"
                 : tab === "Templates" ? "Full Letters"
-                : tab === "Import" ? "Upload"
                 : tab === "Data" ? "Data"
                 : null;
               if (!legacyTab) return;
@@ -2538,67 +2541,6 @@ export default function BuilderClient() {
                   if (sourceItem) addLibraryItemToCanvas(sourceItem);
                 }}
               />
-            ) : openMenuTab === "Upload" ? (
-              <div style={{ padding: "16px" }}>
-                <p style={{ marginBottom: "12px", fontSize: "14px", color: "#666" }}>
-                  Upload a Word document (.docx) to replace the canvas content.
-                </p>
-                <div
-                  style={{
-                    border: "2px dashed #ccc",
-                    borderRadius: "8px",
-                    padding: "32px 16px",
-                    textAlign: "center",
-                    cursor: "pointer",
-                    background: docxLoading ? "#f9f9f9" : "#fff",
-                  }}
-                  onClick={() => docxInputRef.current?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) handleDocxUpload(file);
-                  }}
-                >
-                  {docxLoading ? (
-                    <p>Converting document...</p>
-                  ) : (
-                    <>
-                      <p style={{ fontWeight: 600, marginBottom: "4px" }}>
-                        Drag and drop a .docx file here
-                      </p>
-                      <p style={{ fontSize: "13px", color: "#999" }}>or click to browse</p>
-                    </>
-                  )}
-                  <input
-                    ref={docxInputRef}
-                    type="file"
-                    accept=".docx"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleDocxUpload(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-                {docxError && (
-                  <p style={{
-                    marginTop: "12px", padding: "8px 12px", background: "#FEE2E2",
-                    color: "#DC2626", borderRadius: "6px", fontSize: "13px",
-                  }}>
-                    {docxError}
-                  </p>
-                )}
-                {docxWarning && (
-                  <p style={{
-                    marginTop: "12px", padding: "8px 12px", background: "#FEF3C7",
-                    color: "#92400E", borderRadius: "6px", fontSize: "13px",
-                  }}>
-                    ⚠️ {docxWarning}
-                  </p>
-                )}
-              </div>
             ) : openMenuTab === "Data" ? (
               <DataPanel
                 spreadsheetName={spreadsheetName ?? null}
