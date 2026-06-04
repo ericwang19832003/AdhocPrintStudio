@@ -2219,6 +2219,7 @@ export default function BuilderClient() {
               : openMenuTab === "Taglines" ? "Tagline"
               : openMenuTab === "Full Letters" ? "Templates"
               : openMenuTab === "Upload" ? "Import"
+              : openMenuTab === "Data" ? "Data"
               : null
             }
             onSelect={(tab: SidebarTab) => {
@@ -2229,6 +2230,7 @@ export default function BuilderClient() {
                 : tab === "Tagline" ? "Taglines"
                 : tab === "Templates" ? "Full Letters"
                 : tab === "Import" ? "Upload"
+                : tab === "Data" ? "Data"
                 : null;
               if (!legacyTab) return;
               setActiveTab(legacyTab);
