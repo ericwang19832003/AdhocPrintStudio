@@ -1058,17 +1058,13 @@ export default function BuilderClient() {
   };
 
   const handleAddPage = () => {
-    const nextIndex = pages.length;
-    setPages((prev) => [...prev, `Page ${nextIndex + 1}`]);
-    setBlocksByPage((prev) => ({ ...prev, [nextIndex]: [] }));
-    setActivePage(nextIndex);
-    setSelectedBlockId(null);
-  };
-
-  const addPage = () => {
-    const next = pages.length;
-    setPages((prev) => [...prev, `Page ${next + 1}`]);
-    setActivePage(next);
+    setPages((prev) => {
+      const nextIndex = prev.length;
+      setBlocksByPage((b) => ({ ...b, [nextIndex]: [] }));
+      setActivePage(nextIndex);
+      setSelectedBlockId(null);
+      return [...prev, `Page ${nextIndex + 1}`];
+    });
   };
 
   const deletePage = (index: number) => {
@@ -1085,6 +1081,15 @@ export default function BuilderClient() {
     });
     setBlocksByPage((prev) => {
       const next: Record<number, PlacedBlock[]> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ki = parseInt(k);
+        if (ki < index) next[ki] = v;
+        else if (ki > index) next[ki - 1] = v;
+      });
+      return next;
+    });
+    setSelectedTaglineByPage((prev) => {
+      const next: Record<number, LibraryItem | null> = {};
       Object.entries(prev).forEach(([k, v]) => {
         const ki = parseInt(k);
         if (ki < index) next[ki] = v;
@@ -2635,7 +2640,7 @@ export default function BuilderClient() {
                   )}
                 </div>
               ))}
-              <button type="button" className="page-add-btn" onClick={addPage}>
+              <button type="button" className="page-add-btn" onClick={handleAddPage}>
                 + Add page
               </button>
             </div>
