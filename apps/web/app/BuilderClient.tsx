@@ -16,6 +16,7 @@ import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel"
 import { EmptyState } from "./components/EmptyState";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
+import { TaglineLibrary, type TaglineItem } from "./components/TaglineLibrary";
 import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary";
 import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
 import { MergePreview, type MergeRow } from "./components/MergePreview";
@@ -557,7 +558,6 @@ export default function BuilderClient() {
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const inlineDraftsRef = useRef(new Map<string, string>());
   const flyoutSearchRef = useRef<HTMLInputElement | null>(null);
-  const taglineListRef = useRef<HTMLDivElement | null>(null);
   const logoAspectRef = useRef(160 / 70);
   const activePageRef = useRef(activePage);
   const [docxError, setDocxError] = useState<string | null>(null);
@@ -1495,32 +1495,6 @@ export default function BuilderClient() {
       setDocxError("Could not read this file. Please check it opens correctly in Word.");
     } finally {
       setDocxLoading(false);
-    }
-  };
-
-  const handleTaglineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    // Always stop propagation to prevent parent scroll
-    event.stopPropagation();
-
-    const list = taglineListRef.current;
-    if (!list) return;
-
-    const target = event.target as Node;
-    const isInsideList = list.contains(target);
-
-    if (isInsideList) {
-      // Check if at scroll boundaries to prevent scroll chaining
-      const { scrollTop, scrollHeight, clientHeight } = list;
-      const atTop = scrollTop <= 0 && event.deltaY < 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight && event.deltaY > 0;
-
-      if (atTop || atBottom) {
-        event.preventDefault();
-      }
-    } else {
-      // Scrolling outside list (e.g., preview panel) - scroll the list
-      event.preventDefault();
-      list.scrollTop += event.deltaY;
     }
   };
 
@@ -2506,122 +2480,30 @@ export default function BuilderClient() {
                 </div>
               </div>
             ) : openMenuTab === "Taglines" ? (
-              <div className="library-panel-enhanced">
-                {/* Recently Used Section */}
-                {recentlyUsedTaglines.length > 0 && !flyoutQuery && (
-                  <div className="library-section">
-                    <div className="library-section-header">
-                      <span className="library-section-title">Recently Used</span>
-                    </div>
-                    <div className="library-recent-chips">
-                      {recentlyUsedTaglines
-                        .map((id) => (library.Taglines ?? []).find((t) => t.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="library-chip"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.content ?? item.label}
-                          >
-                            {item.label}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="library-section">
-                  <div className="library-section-header">
-                    <span className="library-section-title">
-                      {flyoutQuery ? `Results` : "All Taglines"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="library-sort-select"
-                        value={taglineSortOrder}
-                        onChange={(e) => setTaglineSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="tagline-two-column" onWheel={handleTaglineWheel}>
-                    <div className="tagline-list" ref={taglineListRef}>
-                      {(() => {
-                        let items = filterFlyoutItems(openMenuTab);
-                        if (!flyoutQuery) {
-                          if (taglineSortOrder === "a-z") {
-                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                          } else if (taglineSortOrder === "favorites") {
-                            items = [...items].sort((a, b) => {
-                              const aFav = favoriteTaglines.includes(a.id) ? 0 : 1;
-                              const bFav = favoriteTaglines.includes(b.id) ? 0 : 1;
-                              return aFav - bFav || a.label.localeCompare(b.label);
-                            });
-                          } else if (taglineSortOrder === "recent") {
-                            items = [...items].sort((a, b) => {
-                              const aRecent = recentlyUsedTaglines.indexOf(a.id);
-                              const bRecent = recentlyUsedTaglines.indexOf(b.id);
-                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
-                            });
-                          }
-                        }
-                        return items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`tagline-list-item${favoriteTaglines.includes(item.id) ? " favorited" : ""}`}
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            onMouseEnter={() => setHoverTaglineId(item.id)}
-                            onMouseLeave={() => setHoverTaglineId(null)}
-                            onFocus={() => setHoverTaglineId(item.id)}
-                            onBlur={() => setHoverTaglineId(null)}
-                            tabIndex={0}
-                          >
-                            <span className="drag-handle-icon">⋮⋮</span>
-                            <span className="library-item-label">{item.label}</span>
-                            <button
-                              className={`library-favorite-btn${favoriteTaglines.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleTaglineFavorite(item.id, e)}
-                              title={favoriteTaglines.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteTaglines.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="tagline-preview-panel">
-                      {(() => {
-                        if (!hoverTaglineId) {
-                          return <p className="hint">Hover a tagline to preview.</p>;
-                        }
-                        const activeItem = (library[openMenuTab] ?? []).find(
-                          (entry) => entry.id === hoverTaglineId
-                        );
-                        if (!activeItem) {
-                          return <p className="hint">Hover a tagline to preview.</p>;
-                        }
-                        return (
-                          <>
-                            <div className="tagline-preview-title">{activeItem.label}</div>
-                            <p>{activeItem.content ?? activeItem.label}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TaglineLibrary
+                items={(library.Taglines ?? []).map((t) => ({
+                  id: t.id,
+                  label: t.label,
+                  content: t.content ?? undefined,
+                }))}
+                query={flyoutQuery}
+                sortOrder={taglineSortOrder}
+                onSortChange={setTaglineSortOrder}
+                recentlyUsed={recentlyUsedTaglines}
+                favorites={favoriteTaglines}
+                hoverTaglineId={hoverTaglineId}
+                onHoverChange={setHoverTaglineId}
+                onToggleFavorite={toggleTaglineFavorite}
+                onSelect={(item: TaglineItem) => {
+                  const full = (library.Taglines ?? []).find((t) => t.id === item.id);
+                  if (full) addLibraryItemToCanvas(full);
+                }}
+                onDragStart={(event: React.DragEvent, item: TaglineItem) => {
+                  const full = (library.Taglines ?? []).find((t) => t.id === item.id);
+                  if (full) handleDragStart(event as React.DragEvent<HTMLDivElement>, full);
+                }}
+                onDragEnd={handleDragEnd}
+              />
             ) : openMenuTab === "Full Letters" ? (
               <TemplateLibrary
                 items={(library["Full Letters"] ?? []).map((t) => ({
