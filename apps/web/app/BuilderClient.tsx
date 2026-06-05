@@ -1058,13 +1058,11 @@ export default function BuilderClient() {
   };
 
   const handleAddPage = () => {
-    setPages((prev) => {
-      const nextIndex = prev.length;
-      setBlocksByPage((b) => ({ ...b, [nextIndex]: [] }));
-      setActivePage(nextIndex);
-      setSelectedBlockId(null);
-      return [...prev, `Page ${nextIndex + 1}`];
-    });
+    const nextIndex = pages.length;
+    setPages((prev) => [...prev, `Page ${nextIndex + 1}`]);
+    setBlocksByPage((prev) => ({ ...prev, [nextIndex]: [] }));
+    setActivePage(nextIndex);
+    setSelectedBlockId(null);
   };
 
   const deletePage = (index: number) => {
