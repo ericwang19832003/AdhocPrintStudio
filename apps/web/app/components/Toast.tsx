@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export type ToastVariant = "success" | "error" | "info";
 
@@ -21,11 +21,14 @@ const AUTO_DISMISS_MS: Record<ToastVariant, number> = {
 };
 
 export function Toast({ toast, onDismiss }: ToastProps) {
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => { onDismissRef.current = onDismiss; });
+
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(onDismiss, AUTO_DISMISS_MS[toast.variant]);
+    const timer = setTimeout(() => onDismissRef.current(), AUTO_DISMISS_MS[toast.variant]);
     return () => clearTimeout(timer);
-  }, [toast, onDismiss]);
+  }, [toast]);
 
   if (!toast) return null;
 
