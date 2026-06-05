@@ -16,6 +16,7 @@ type DataPanelProps = {
   // TLE / mailing fields (4 slots used by the TLE engine)
   mailingMap: Record<string, string>;
   onMailingMapChange: (map: Record<string, string>) => void;
+  spreadsheetNotPersisted?: boolean;
 };
 
 const TLE_FIELDS: { key: string; label: string }[] = [
@@ -35,6 +36,7 @@ export function DataPanel({
   onUploadFile,
   mailingMap,
   onMailingMapChange,
+  spreadsheetNotPersisted,
 }: DataPanelProps) {
   const [activeSection, setActiveSection] = useState<"placeholders" | "tle" | "preview">(
     "placeholders"
@@ -89,6 +91,12 @@ export function DataPanel({
             Change
           </button>
         </div>
+      )}
+
+      {spreadsheetNotPersisted && (
+        <p className="data-warn-small">
+          Spreadsheet is too large to auto-save — re-upload after refresh.
+        </p>
       )}
 
       {spreadsheetName && (

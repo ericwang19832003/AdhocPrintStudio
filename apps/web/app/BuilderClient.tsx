@@ -401,6 +401,27 @@ function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | nul
   };
 }
 
+const DRAFT_KEY = "adhoc_letter_draft";
+
+interface LetterDraft {
+  title: string;
+  bodyContentByPage: Record<number, string>;
+  blocksByPage: Record<number, Array<{
+    id: string; label: string; type: string;
+    content?: string; x: number; y: number; width: number;
+    align: "left" | "center" | "right";
+  }>>;
+  pages: string[];
+  activePage: number;
+  spreadsheetName: string;
+  spreadsheetContent: string;
+  spreadsheetNotSaved?: boolean;
+  placeholderMap: Record<string, string>;
+  mailingMap: { mailing_name: string; mailing_addr1: string; mailing_addr2: string; mailing_addr3: string };
+  selectedLogoId?: string;
+  selectedReturnId?: string;
+}
+
 export default function BuilderClient() {
   const [activeTab, setActiveTab] = useState(tabs[0]);
   const [library, setLibrary] = useState(librarySeed);
@@ -528,6 +549,7 @@ export default function BuilderClient() {
   const [showMergePreview, setShowMergePreview] = useState(false);
   const [letterTitle, setLetterTitle] = useState("Untitled letter");
   const [savedAgo, setSavedAgo] = useState<string | null>("just now");
+  const [spreadsheetNotPersisted, setSpreadsheetNotPersisted] = useState(false);
 
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
@@ -602,6 +624,41 @@ export default function BuilderClient() {
     } catch (e) {
       console.error("Failed to load library preferences:", e);
     }
+
+    // Restore letter draft
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft: LetterDraft = JSON.parse(raw);
+        if (draft.title) setLetterTitle(draft.title);
+        if (draft.bodyContentByPage && Object.keys(draft.bodyContentByPage).length) {
+          setBodyContentByPage(draft.bodyContentByPage);
+        }
+        if (draft.blocksByPage && Object.keys(draft.blocksByPage).length) {
+          setBlocksByPage(draft.blocksByPage as Record<number, PlacedBlock[]>);
+        }
+        if (draft.pages?.length) {
+          setPages(draft.pages);
+          setActivePage(Math.min(draft.activePage ?? 0, draft.pages.length - 1));
+        }
+        if (draft.spreadsheetName) setSpreadsheetName(draft.spreadsheetName);
+        if (!draft.spreadsheetNotSaved && draft.spreadsheetContent) {
+          setSpreadsheetContent(draft.spreadsheetContent);
+        }
+        if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
+        if (draft.mailingMap) setMailingMap(draft.mailingMap);
+        if (draft.selectedLogoId) {
+          const logo = library.Logos?.find((l) => l.id === draft.selectedLogoId);
+          if (logo) setSelectedLogo(logo);
+        }
+        if (draft.selectedReturnId) {
+          const ret = library["Return Address"]?.find((r) => r.id === draft.selectedReturnId);
+          if (ret) setSelectedReturn(ret);
+        }
+      }
+    } catch {
+      // Corrupted draft — ignore and start fresh
+    }
   }, []);
 
   // Save recently used items to localStorage
@@ -627,6 +684,44 @@ export default function BuilderClient() {
   useEffect(() => { localStorage.setItem("favoriteTaglines", JSON.stringify(favoriteTaglines)); }, [favoriteTaglines]);
   useEffect(() => { localStorage.setItem("favoriteVerbiage", JSON.stringify(favoriteVerbiage)); }, [favoriteVerbiage]);
   useEffect(() => { localStorage.setItem("favoriteTemplates", JSON.stringify(favoriteTemplates)); }, [favoriteTemplates]);
+
+  // Autosave letter draft — debounced 500ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const draft: LetterDraft = {
+          title: letterTitle,
+          bodyContentByPage,
+          blocksByPage,
+          pages,
+          activePage,
+          spreadsheetName: spreadsheetName ?? "",
+          spreadsheetContent: spreadsheetContent ?? "",
+          placeholderMap,
+          mailingMap: mailingMap as LetterDraft["mailingMap"],
+          selectedLogoId: selectedLogo?.id,
+          selectedReturnId: selectedReturn?.id,
+        };
+        const serialized = JSON.stringify(draft);
+        if (serialized.length > 4 * 1024 * 1024) {
+          const slim = { ...draft, spreadsheetContent: "", spreadsheetNotSaved: true };
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(slim));
+          setSpreadsheetNotPersisted(true);
+        } else {
+          localStorage.setItem(DRAFT_KEY, serialized);
+          setSpreadsheetNotPersisted(false);
+        }
+        setSavedAgo("just now");
+      } catch {
+        // localStorage quota exceeded — skip silently
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    letterTitle, bodyContentByPage, blocksByPage, pages, activePage,
+    spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
+    selectedLogo?.id, selectedReturn?.id,
+  ]);
 
   // Track usage for "Recently Used" sections
   const trackLogoUsage = (id: string) => {
@@ -2563,6 +2658,7 @@ export default function BuilderClient() {
                 onUploadFile={(file) => handleSpreadsheetFile(file)}
                 mailingMap={mailingMap}
                 onMailingMapChange={setMailingMap}
+                spreadsheetNotPersisted={spreadsheetNotPersisted}
               />
             ) : (
               <BlockMenu

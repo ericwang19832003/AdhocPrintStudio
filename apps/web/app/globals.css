@@ -5057,3 +5057,10 @@ textarea:focus-visible {
   vertical-align: middle;
 }
 .import-tip-icon { color: var(--info); flex-shrink: 0; margin-top: 1px; }
+
+/* ── Autosave ── */
+.data-warn-small {
+  font-size: 0.75rem;
+  color: var(--warn);
+  margin-top: 6px;
+}
