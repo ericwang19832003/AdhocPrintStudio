@@ -1065,6 +1065,36 @@ export default function BuilderClient() {
     setSelectedBlockId(null);
   };
 
+  const addPage = () => {
+    const next = pages.length;
+    setPages((prev) => [...prev, `Page ${next + 1}`]);
+    setActivePage(next);
+  };
+
+  const deletePage = (index: number) => {
+    if (pages.length <= 1) return;
+    setPages((prev) => prev.filter((_, i) => i !== index));
+    setBodyContentByPage((prev) => {
+      const next: Record<number, string> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ki = parseInt(k);
+        if (ki < index) next[ki] = v;
+        else if (ki > index) next[ki - 1] = v;
+      });
+      return next;
+    });
+    setBlocksByPage((prev) => {
+      const next: Record<number, PlacedBlock[]> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ki = parseInt(k);
+        if (ki < index) next[ki] = v;
+        else if (ki > index) next[ki - 1] = v;
+      });
+      return next;
+    });
+    setActivePage((prev) => Math.max(0, prev >= index ? prev - 1 : prev));
+  };
+
   const handleBabelPdfUpload = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       setBabelError("Please upload a PDF file");
@@ -1896,7 +1926,10 @@ export default function BuilderClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          template_html: stripInlineControls(bodyContentByPage[0] ?? ""),
+          template_html: pages
+            .map((_, i) => stripInlineControls(bodyContentByPage[i] ?? ""))
+            .map((html, i) => i === 0 ? html : `<div style="page-break-before:always">${html}</div>`)
+            .join(""),
           block_texts: [],
           placeholder_map: placeholderMap,
           mailing_map: {
@@ -2500,6 +2533,7 @@ export default function BuilderClient() {
                 }}
                 onDragStart={(event: React.DragEvent, item: TaglineItem) => {
                   const full = (library.Taglines ?? []).find((t) => t.id === item.id);
+                  // TaglineItem uses generic DragEvent; handleDragStart expects the narrower HTMLDivElement variant — safe at runtime
                   if (full) handleDragStart(event as React.DragEvent<HTMLDivElement>, full);
                 }}
                 onDragEnd={handleDragEnd}
@@ -2578,6 +2612,33 @@ export default function BuilderClient() {
 
         <main className="canvas-panel">
           <div className="workspace">
+            {/* Page navigator strip */}
+            <div className="page-navigator">
+              {pages.map((label, i) => (
+                <div key={i} className={`page-tab${activePage === i ? " active" : ""}`}>
+                  <button
+                    type="button"
+                    className="page-tab-label"
+                    onClick={() => setActivePage(i)}
+                  >
+                    {label}
+                  </button>
+                  {pages.length > 1 && (
+                    <button
+                      type="button"
+                      className="page-tab-delete"
+                      aria-label={`Delete ${label}`}
+                      onClick={() => deletePage(i)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" className="page-add-btn" onClick={addPage}>
+                + Add page
+              </button>
+            </div>
             <div className="canvas-area" onMouseDown={() => setOpenMenuTab(null)}>
           <section className="canvas">
             {/* Toolbar above the page */}
