@@ -644,6 +644,12 @@ export default function BuilderClient() {
         if (draft.spreadsheetName) setSpreadsheetName(draft.spreadsheetName);
         if (!draft.spreadsheetNotSaved && draft.spreadsheetContent) {
           setSpreadsheetContent(draft.spreadsheetContent);
+          // Re-derive columns from CSV header row
+          const [headerLine] = draft.spreadsheetContent.split(/\r?\n/);
+          const parsedColumns = headerLine
+            ? headerLine.split(",").map((v: string) => v.trim()).filter(Boolean)
+            : [];
+          if (parsedColumns.length > 0) setColumns(parsedColumns);
         }
         if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
         if (draft.mailingMap) setMailingMap(draft.mailingMap);
