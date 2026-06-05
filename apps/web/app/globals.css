@@ -5020,7 +5020,7 @@ textarea:focus-visible {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  z-index: 300;
+  z-index: 1100;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -5056,5 +5056,4 @@ textarea:focus-visible {
   margin-right: 6px;
   vertical-align: middle;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 .import-tip-icon { color: var(--info); flex-shrink: 0; margin-top: 1px; }
