@@ -549,7 +549,8 @@ export default function BuilderClient() {
   const [previewIndex, setPreviewIndex] = useState(0);
   const [showMergePreview, setShowMergePreview] = useState(false);
   const [letterTitle, setLetterTitle] = useState("Untitled letter");
-  const [savedAgo, setSavedAgo] = useState<string | null>("just now");
+  const [savedAgo, setSavedAgo] = useState<string | null>(null);
+  const savedAtRef = useRef<number | null>(null);
   const [spreadsheetNotPersisted, setSpreadsheetNotPersisted] = useState(false);
 
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
@@ -717,6 +718,7 @@ export default function BuilderClient() {
           localStorage.setItem(DRAFT_KEY, serialized);
           setSpreadsheetNotPersisted(false);
         }
+        savedAtRef.current = Date.now();
         setSavedAgo("just now");
       } catch {
         // localStorage quota exceeded — skip silently
@@ -728,6 +730,16 @@ export default function BuilderClient() {
     spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
     selectedLogo?.id, selectedReturn?.id,
   ]);
+
+  // Age the "Saved · X ago" badge every 30s
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (savedAtRef.current === null) return;
+      const mins = Math.floor((Date.now() - savedAtRef.current) / 60000);
+      setSavedAgo(mins < 1 ? "just now" : `${mins} min ago`);
+    }, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   // Track usage for "Recently Used" sections
   const trackLogoUsage = (id: string) => {
@@ -2618,7 +2630,7 @@ export default function BuilderClient() {
             {/* Page navigator strip */}
             <div className="page-navigator">
               {pages.map((label, i) => (
-                <div key={i} className={`page-tab${activePage === i ? " active" : ""}`}>
+                <div key={label} className={`page-tab${activePage === i ? " active" : ""}`}>
                   <button
                     type="button"
                     className="page-tab-label"

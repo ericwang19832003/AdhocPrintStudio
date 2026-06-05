@@ -33,7 +33,11 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   if (!toast) return null;
 
   return (
-    <div className={`toast toast-${toast.variant}`} role="status" aria-live="polite">
+    <div
+      className={`toast toast-${toast.variant}`}
+      role={toast.variant === "error" ? "alert" : "status"}
+      aria-live={toast.variant === "error" ? "assertive" : "polite"}
+    >
       <span className="toast-icon">
         {toast.variant === "success" ? "✓" : toast.variant === "error" ? "✕" : "ℹ"}
       </span>

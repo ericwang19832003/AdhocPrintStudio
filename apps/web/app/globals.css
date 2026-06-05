@@ -1501,6 +1501,9 @@ textarea:focus-visible {
   gap: 16px;
   min-height: 0;
 }
+.workspace > .page-navigator {
+  margin-bottom: -16px;
+}
 
 .library-panel {
   display: grid;
