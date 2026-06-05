@@ -10,6 +10,7 @@ type TopbarProps = {
   onPreview: () => void;
   onGenerate: () => void;
   generateDisabled?: boolean;
+  generating?: boolean;
   onManageLibrary?: () => void;
 };
 
@@ -21,6 +22,7 @@ export function Topbar({
   onPreview,
   onGenerate,
   generateDisabled,
+  generating,
   onManageLibrary,
 }: TopbarProps) {
   return (
@@ -59,8 +61,12 @@ export function Topbar({
         )}
         <button type="button" className="btn-ghost-sm" onClick={onExport}>Export</button>
         <button type="button" className="btn-outline-sm" onClick={onPreview}>Preview</button>
-        <button type="button" className="btn-accent" onClick={onGenerate} disabled={generateDisabled}>
-          Generate
+        <button type="button" className="btn-accent" onClick={onGenerate} disabled={generateDisabled || generating}>
+          {generating ? (
+            <><span className="topbar-spinner" aria-hidden="true" />Generating…</>
+          ) : (
+            "Generate"
+          )}
         </button>
       </div>
     </header>

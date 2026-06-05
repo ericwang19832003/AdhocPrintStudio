@@ -23,6 +23,7 @@ import { UploadLogoModal } from "./components/UploadLogoModal";
 import { ReturnAddressModal } from "./components/ReturnAddressModal";
 import { ImportWordModal } from "./components/ImportWordModal";
 import { ManageLibrary, type ManageSection } from "./components/ManageLibrary";
+import { Toast, type ToastMessage } from "./components/Toast";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -503,6 +504,7 @@ export default function BuilderClient() {
   const [placeholderMap, setPlaceholderMap] = useState<Record<string, string>>({});
   const [spreadsheetContent, setSpreadsheetContent] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const [outputFormat, setOutputFormat] = useState<"afp" | "pdf">("afp");
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
   const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null);
@@ -1047,7 +1049,7 @@ export default function BuilderClient() {
   const handleSaveToLibrary = () => {
     const bodyContent = bodyContentByPage[activePage] ?? "";
     if (!bodyContent.trim()) {
-      alert("Cannot save empty letter. Please add some content first.");
+      setToast({ message: "Add some content to the letter first.", variant: "info" });
       return;
     }
 
@@ -1070,7 +1072,7 @@ export default function BuilderClient() {
       "full-letter": [...(prev["full-letter"] ?? []), newLetter],
     }));
 
-    alert("Letter saved to Full Letters library!");
+    setToast({ message: "Letter saved to the Full Letters library.", variant: "success" });
   };
 
   const handleRemoveBlock = (blockId: string) => {
@@ -1774,7 +1776,7 @@ export default function BuilderClient() {
 
   const handleGenerate = async (format: "afp" | "pdf" = outputFormat) => {
     if (!spreadsheetContent) {
-      alert("Please upload a spreadsheet first.");
+      setToast({ message: "Upload a spreadsheet in the Data panel first.", variant: "info" });
       return;
     }
     setGenerating(true);
@@ -1868,6 +1870,11 @@ export default function BuilderClient() {
       link.download = fileName;
       link.click();
       URL.revokeObjectURL(url);
+      const rowCount = Math.max(0, (spreadsheetContent ?? "").split("\n").filter(Boolean).length - 1);
+      setToast({
+        message: `${format.toUpperCase()} downloaded — ${rowCount} letter${rowCount !== 1 ? "s" : ""} generated`,
+        variant: "success",
+      });
       setShowPreview(false);
     } catch (error) {
       console.error(error);
@@ -1882,7 +1889,7 @@ export default function BuilderClient() {
       } else {
         message = raw || `Failed to generate ${format.toUpperCase()}`;
       }
-      alert(`Error: ${message}`);
+      setToast({ message: message.slice(0, 160), variant: "error" });
     } finally {
       setGenerating(false);
     }
@@ -2172,6 +2179,7 @@ export default function BuilderClient() {
           }
         }}
         onGenerate={() => handleGenerate(outputFormat)}
+        generating={generating}
         generateDisabled={generating || !columns.length}
       />
 
@@ -3371,6 +3379,7 @@ export default function BuilderClient() {
           </button>
         </div>
       )}
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }
