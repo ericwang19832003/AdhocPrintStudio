@@ -26,7 +26,9 @@ import { ImportWordModal } from "./components/ImportWordModal";
 import { ManageLibrary, type ManageSection } from "./components/ManageLibrary";
 import { Toast, type ToastMessage } from "./components/Toast";
 import { AiSettingsModal } from "./components/AiSettingsModal";
+import { PreflightModal, type PreflightIssue } from "./components/PreflightModal";
 import { loadAiSettings, type AiSettings } from "@/lib/aiSettings";
+import { postAi } from "@/lib/aiFetch";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -534,6 +536,14 @@ export default function BuilderClient() {
   const [placeholderMap, setPlaceholderMap] = useState<Record<string, string>>({});
   const [spreadsheetContent, setSpreadsheetContent] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [preflightRunning, setPreflightRunning] = useState(false);
+  const [preflightReport, setPreflightReport] = useState<{
+    issues: PreflightIssue[];
+    truncated: boolean;
+    totalIssues: number;
+    rowCount: number;
+    format: "afp" | "pdf";
+  } | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [outputFormat, setOutputFormat] = useState<"afp" | "pdf">("afp");
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
@@ -1801,19 +1811,23 @@ export default function BuilderClient() {
         }
         return sample;
       });
-      const response = await fetch(`${env.apiBaseUrl}/ai/automap`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await postAi(
+        "/ai/automap",
+        {
           provider: aiSettings.provider,
           model: aiSettings.model,
           placeholders: unmapped.slice(0, 200),
           columns: boundedColumns,
           sample_rows: sampleRows,
-        }),
-      });
+        },
+        {
+          generic: "AI auto-map failed — try again.",
+          network: "AI auto-map failed — check your connection and try again.",
+        }
+      );
       // A different spreadsheet was uploaded while the request was in flight —
       // every part of this response (suggestions, TLE, toasts) is stale.
+      // Staleness wins over errors: check it before any error toast.
       if (columnsRef.current !== columnsAtRequest) {
         setToast({
           message: "Spreadsheet changed — AI suggestions discarded.",
@@ -1821,40 +1835,11 @@ export default function BuilderClient() {
         });
         return;
       }
-      if (!response.ok) {
-        let detail = "";
-        try {
-          const body = await response.json();
-          if (typeof body?.detail === "string") detail = body.detail.slice(0, 160);
-        } catch {
-          // Non-JSON error body — fall through to the generic messages.
-        }
-        if (response.status === 429) {
-          setToast({
-            message: "AI rate limit reached — try again in a minute.",
-            variant: "error",
-          });
-        } else if (response.status === 503) {
-          setToast({
-            message: `${detail || "AI provider unavailable."} Check your AI settings.`,
-            variant: "error",
-          });
-        } else {
-          setToast({
-            message: detail || "AI auto-map failed — try again.",
-            variant: "error",
-          });
-        }
+      if (!result.ok) {
+        setToast({ message: result.message, variant: "error" });
         return;
       }
-      const data = await response.json();
-      if (columnsRef.current !== columnsAtRequest) {
-        setToast({
-          message: "Spreadsheet changed — AI suggestions discarded.",
-          variant: "info",
-        });
-        return;
-      }
+      const data = result.data as { mapping?: unknown; tle?: unknown } | null;
       const mapping = (data?.mapping ?? {}) as Record<
         string,
         { column?: string; confidence?: string }
@@ -2198,6 +2183,91 @@ export default function BuilderClient() {
     }
   };
 
+  // Run the data preflight before generating. Hard rule: preflight
+  // infrastructure failures must never block generation — any error falls
+  // through to handleGenerate with a heads-up toast.
+  const runPreflightThenGenerate = async (format: "afp" | "pdf") => {
+    if (generating || preflightRunning) return;
+    if (spreadsheetRows.length === 0) {
+      // No data — keep the existing no-spreadsheet path (handleGenerate toasts).
+      void handleGenerate(format);
+      return;
+    }
+    const columnsAtRequest = columns;
+    setPreflightRunning(true);
+    try {
+      // Respect API bounds: ≤5000 rows, ≤500 columns, values ≤500 chars.
+      const boundedColumns = columns.slice(0, 500);
+      const rows = spreadsheetRows.slice(0, 5000).map((row) => {
+        const bounded: Record<string, string> = {};
+        for (const col of boundedColumns) {
+          bounded[col] = (row[col] ?? "").slice(0, 500);
+        }
+        return bounded;
+      });
+      const mappedColumns = Array.from(
+        new Set(Object.values(placeholderMap).filter((col) => col !== ""))
+      ).slice(0, 500);
+      const tleColumns: Record<string, string> = {};
+      for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
+        const value = normalizeMailingValue(mailingMap[key] ?? "");
+        if (value && value !== "__select__") tleColumns[key] = value;
+      }
+      const result = await postAi(
+        "/ai/preflight",
+        {
+          // Deterministic-only preflight when AI is off — the endpoint
+          // runs its checks without provider/model.
+          ...(aiSettings
+            ? { provider: aiSettings.provider, model: aiSettings.model }
+            : {}),
+          rows,
+          mapped_columns: mappedColumns,
+          tle_columns: tleColumns,
+        },
+        { generic: "Preflight failed.", network: "Preflight failed." }
+      );
+      // Spreadsheet swapped mid-flight — the report describes data that no
+      // longer exists. Discard it and let the user trigger Generate again.
+      if (columnsRef.current !== columnsAtRequest) {
+        setToast({
+          message: "Spreadsheet changed — preflight discarded. Click Generate again.",
+          variant: "info",
+        });
+        return;
+      }
+      if (!result.ok) {
+        setToast({
+          message: "Preflight unavailable — generating without checks.",
+          variant: "info",
+        });
+        void handleGenerate(format);
+        return;
+      }
+      const data = result.data as {
+        issues?: unknown;
+        truncated?: unknown;
+        total_issues?: unknown;
+      } | null;
+      const issues = (Array.isArray(data?.issues) ? data.issues : []) as PreflightIssue[];
+      if (issues.length === 0) {
+        setToast({ message: "Data checks passed.", variant: "success" });
+        void handleGenerate(format);
+        return;
+      }
+      setPreflightReport({
+        issues,
+        truncated: data?.truncated === true,
+        totalIssues:
+          typeof data?.total_issues === "number" ? data.total_issues : issues.length,
+        rowCount: spreadsheetRows.length,
+        format,
+      });
+    } finally {
+      setPreflightRunning(false);
+    }
+  };
+
   const handleMergePreview = () => {
     if (spreadsheetRows.length === 0) return;
     setPreviewIndex(0);
@@ -2482,9 +2552,9 @@ export default function BuilderClient() {
             setShowMergePreview(true);
           }
         }}
-        onGenerate={() => handleGenerate(outputFormat)}
-        generating={generating}
-        generateDisabled={generating || !columns.length}
+        onGenerate={() => runPreflightThenGenerate(outputFormat)}
+        generating={generating || preflightRunning}
+        generateDisabled={generating || preflightRunning || !columns.length}
       />
 
       <div className="builder-body">
@@ -3310,6 +3380,20 @@ export default function BuilderClient() {
             );
           }}
           onClose={() => setShowAiSettings(false)}
+        />
+      )}
+      {preflightReport && (
+        <PreflightModal
+          issues={preflightReport.issues}
+          truncated={preflightReport.truncated}
+          totalIssues={preflightReport.totalIssues}
+          rowCount={preflightReport.rowCount}
+          onCancel={() => setPreflightReport(null)}
+          onConfirm={() => {
+            const { format } = preflightReport;
+            setPreflightReport(null);
+            void handleGenerate(format);
+          }}
         />
       )}
       {showTaglineModal && (

@@ -4903,6 +4903,71 @@ textarea:focus-visible {
   margin: 0;
 }
 
+/* ── Preflight Report Modal ──────────────────────────────────────── */
+.preflight-dialog { width: 560px; }
+
+.preflight-summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-700);
+  margin: 0;
+}
+
+.preflight-issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.preflight-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-700);
+  border-bottom: 1px solid var(--outline);
+}
+.preflight-issue:last-child { border-bottom: none; }
+
+.preflight-icon-error   { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
+.preflight-icon-warning { color: var(--warn);   flex-shrink: 0; margin-top: 1px; }
+
+.preflight-issue-row {
+  font-weight: 600;
+  color: var(--ink-900);
+  flex-shrink: 0;
+}
+
+.preflight-issue-field {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-500);
+  background: var(--ink-50);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+.preflight-issue-message { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.preflight-ai-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
 /* ── Import Word Modal ───────────────────────────────────────────── */
 .import-file-selected {
   display: flex;
