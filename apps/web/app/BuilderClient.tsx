@@ -25,6 +25,8 @@ import { ReturnAddressModal } from "./components/ReturnAddressModal";
 import { ImportWordModal } from "./components/ImportWordModal";
 import { ManageLibrary, type ManageSection } from "./components/ManageLibrary";
 import { Toast, type ToastMessage } from "./components/Toast";
+import { AiSettingsModal } from "./components/AiSettingsModal";
+import { loadAiSettings, type AiSettings } from "@/lib/aiSettings";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -482,6 +484,8 @@ export default function BuilderClient() {
   const [templateSortOrder, setTemplateSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showManageLibrary, setShowManageLibrary] = useState(false);
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AiSettings>(null);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showImportWordModal, setShowImportWordModal] = useState(false);
@@ -580,6 +584,12 @@ export default function BuilderClient() {
   useEffect(() => {
     activePageRef.current = activePage;
   }, [activePage]);
+
+  // Load persisted AI settings client-side only (localStorage is unavailable
+  // during prerender; loadAiSettings already try/catches).
+  useEffect(() => {
+    setAiSettings(loadAiSettings());
+  }, []);
 
   // Clear pending blocks ref after React commits blocksByPage state updates
   // This prevents stale pending blocks from causing false overlap detections
@@ -2294,6 +2304,7 @@ export default function BuilderClient() {
         savedAgo={savedAgo}
         onExport={handleExportWord}
         onManageLibrary={() => setShowManageLibrary(true)}
+        onAiSettings={() => setShowAiSettings(true)}
         onPreview={() => {
           if (spreadsheetRows.length === 0) {
             setOpenMenuTab("Data");
@@ -3111,6 +3122,19 @@ export default function BuilderClient() {
             setAddressName("");
             setAddressContent("");
           }}
+        />
+      )}
+      {showAiSettings && (
+        <AiSettingsModal
+          onSaved={(settings) => {
+            setAiSettings(settings);
+            setToast(
+              settings
+                ? { message: "AI model updated", variant: "success" }
+                : { message: "AI disabled", variant: "info" }
+            );
+          }}
+          onClose={() => setShowAiSettings(false)}
         />
       )}
       {showTaglineModal && (

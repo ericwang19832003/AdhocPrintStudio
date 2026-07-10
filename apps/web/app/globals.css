@@ -4808,6 +4808,14 @@ textarea:focus-visible {
 
 .usps-hint-icon { color: var(--warn); flex-shrink: 0; margin-top: 1px; }
 
+/* ── AI Settings Modal ───────────────────────────────────────────── */
+.ai-modal-status {
+  font-size: 13px;
+  color: var(--ink-500);
+  line-height: 1.5;
+  margin: 0;
+}
+
 /* ── Import Word Modal ───────────────────────────────────────────── */
 .import-file-selected {
   display: flex;

@@ -12,6 +12,7 @@ type TopbarProps = {
   generateDisabled?: boolean;
   generating?: boolean;
   onManageLibrary?: () => void;
+  onAiSettings?: () => void;
 };
 
 export function Topbar({
@@ -24,6 +25,7 @@ export function Topbar({
   generateDisabled,
   generating,
   onManageLibrary,
+  onAiSettings,
 }: TopbarProps) {
   return (
     <header className="topbar-v2">
@@ -54,6 +56,11 @@ export function Topbar({
       </div>
 
       <div className="topbar-actions-v2">
+        {onAiSettings && (
+          <button type="button" className="btn-ghost-sm" onClick={onAiSettings}>
+            AI
+          </button>
+        )}
         {onManageLibrary && (
           <button type="button" className="btn-ghost-sm" onClick={onManageLibrary}>
             Manage library
