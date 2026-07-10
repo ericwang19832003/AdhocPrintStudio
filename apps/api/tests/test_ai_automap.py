@@ -113,6 +113,103 @@ def test_automap_unknown_model_returns_400(monkeypatch):
     assert response.status_code == 400
 
 
+def test_automap_oversized_request_rejected(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    install_mock(monkeypatch, CANNED)
+    client = TestClient(app)
+    base = {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "placeholders": ["[FirstName]"],
+        "columns": ["fname"],
+        "sample_rows": [],
+    }
+    # 501 columns exceeds the 500-item cap.
+    response = client.post(
+        "/ai/automap", json={**base, "columns": [f"c{i}" for i in range(501)]}
+    )
+    assert response.status_code == 422
+    # 6 sample rows exceeds the 5-row cap.
+    response = client.post(
+        "/ai/automap", json={**base, "sample_rows": [{"fname": "x"}] * 6}
+    )
+    assert response.status_code == 422
+    # Oversized sample-row value (>500 chars) is rejected.
+    response = client.post(
+        "/ai/automap", json={**base, "sample_rows": [{"fname": "x" * 501}]}
+    )
+    assert response.status_code == 422
+
+
+def test_automap_projects_mapping_entries(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    install_mock(
+        monkeypatch,
+        {
+            "mapping": {
+                "[FirstName]": {
+                    "column": "fname",
+                    "confidence": "banana",
+                    "EXTRA": "smuggled",
+                }
+            },
+            "tle": {},
+        },
+    )
+    client = TestClient(app)
+    body = client.post(
+        "/ai/automap",
+        json={
+            "provider": "anthropic",
+            "model": "claude-sonnet-5",
+            "placeholders": ["[FirstName]"],
+            "columns": ["fname"],
+            "sample_rows": [],
+        },
+    ).json()
+    # Only whitelisted fields survive; invalid confidence coerced to "low".
+    assert body["mapping"]["[FirstName]"] == {"column": "fname", "confidence": "low"}
+
+
+def test_automap_filters_invalid_tle_entries(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    install_mock(
+        monkeypatch,
+        {
+            "mapping": {},
+            "tle": {"mailing_bogus": "fname", "mailing_addr1": "nope"},
+        },
+    )
+    client = TestClient(app)
+    body = client.post(
+        "/ai/automap",
+        json={
+            "provider": "anthropic",
+            "model": "claude-sonnet-5",
+            "placeholders": [],
+            "columns": ["fname"],
+            "sample_rows": [],
+        },
+    ).json()
+    assert body["tle"] == {}  # bogus key and non-existent column both filtered
+
+
+def test_automap_rate_limited_after_20(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    install_mock(monkeypatch, CANNED)
+    client = TestClient(app)
+    body = {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "placeholders": ["[FirstName]"],
+        "columns": ["fname", "addr1"],
+        "sample_rows": [],
+    }
+    codes = [client.post("/ai/automap", json=body).status_code for _ in range(20)]
+    assert codes == [200] * 20
+    assert client.post("/ai/automap", json=body).status_code == 429
+
+
 def test_automap_openai_compatible_accepts_arbitrary_model(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

@@ -5,11 +5,11 @@
 # this module are runtime-valid on Python 3.11.
 import json
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -72,12 +72,20 @@ async def run_completion(**kwargs: Any) -> str | dict | list:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+# Payload bounds: this endpoint feeds user input into a paid LLM call, so cap
+# item counts and string lengths to put a ceiling on prompt size/cost.
+BoundedName = Annotated[str, StringConstraints(max_length=200)]
+BoundedValue = Annotated[str, StringConstraints(max_length=500)]
+
+
 class AutomapRequest(BaseModel):
     provider: str
     model: str
-    placeholders: list[str]
-    columns: list[str]
-    sample_rows: list[dict[str, str]] = []
+    placeholders: Annotated[list[BoundedName], Field(max_length=200)]
+    columns: Annotated[list[BoundedName], Field(max_length=500)]
+    sample_rows: Annotated[
+        list[dict[BoundedName, BoundedValue]], Field(max_length=5)
+    ] = []
 
 
 def build_automap_prompt(req: AutomapRequest) -> str:
@@ -103,14 +111,22 @@ async def automap(request: Request, payload: AutomapRequest) -> dict[str, Any]:
     )
     if not isinstance(result, dict):
         raise HTTPException(status_code=503, detail="AI returned an unexpected shape.")
+    placeholders = set(payload.placeholders)
     columns = set(payload.columns)
-    mapping = {
-        ph: entry
-        for ph, entry in (result.get("mapping") or {}).items()
-        if ph in payload.placeholders
-        and isinstance(entry, dict)
-        and entry.get("column") in columns
-    }
+    # Project mapping entries onto a fixed output contract — never pass LLM
+    # dict entries through verbatim.
+    mapping: dict[str, dict[str, str]] = {}
+    for ph, entry in (result.get("mapping") or {}).items():
+        if (
+            ph in placeholders
+            and isinstance(entry, dict)
+            and entry.get("column") in columns
+        ):
+            confidence = entry.get("confidence")
+            mapping[ph] = {
+                "column": entry["column"],
+                "confidence": confidence if confidence in ("high", "low") else "low",
+            }
     tle = {
         key: col
         for key, col in (result.get("tle") or {}).items()
