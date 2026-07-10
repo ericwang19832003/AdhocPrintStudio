@@ -139,6 +139,10 @@ def test_automap_oversized_request_rejected(monkeypatch):
         "/ai/automap", json={**base, "sample_rows": [{"fname": "x" * 501}]}
     )
     assert response.status_code == 422
+    # A row with 501 keys exceeds the per-row key-count cap.
+    wide_row = {f"k{i}": "v" for i in range(501)}
+    response = client.post("/ai/automap", json={**base, "sample_rows": [wide_row]})
+    assert response.status_code == 422
 
 
 def test_automap_projects_mapping_entries(monkeypatch):

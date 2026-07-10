@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -86,6 +86,17 @@ class AutomapRequest(BaseModel):
     sample_rows: Annotated[
         list[dict[BoundedName, BoundedValue]], Field(max_length=5)
     ] = []
+
+    @field_validator("sample_rows")
+    @classmethod
+    def _cap_row_width(
+        cls, rows: list[dict[str, str]]
+    ) -> list[dict[str, str]]:
+        # Per-row key count is otherwise unbounded; mirror the columns cap.
+        for row in rows:
+            if len(row) > 500:
+                raise ValueError("sample row has too many keys (max 500).")
+        return rows
 
 
 def build_automap_prompt(req: AutomapRequest) -> str:
