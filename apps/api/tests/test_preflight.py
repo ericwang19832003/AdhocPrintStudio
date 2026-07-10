@@ -109,6 +109,42 @@ def test_all_caps_short_name_skipped():
     assert any("caps" in i["message"].lower() for i in issues)
 
 
+def test_cap_on_all_caps_warnings():
+    rows = [{"name": "JOHN SMITH"} for _ in range(60)]
+    issues = run_checks(
+        rows=rows,
+        mapped_columns=[],
+        tle_columns={"mailing_name": "name"},
+    )
+    caps_issues = [i for i in issues if "caps" in i["message"].lower()]
+    assert len(caps_issues) == MAX_REPORTED_PER_CHECK == 50
+    # First 50 rows are the ones reported.
+    assert [i["row"] for i in caps_issues] == list(range(1, 51))
+
+
+def test_cap_on_mapped_column_empty_warnings():
+    rows = [{"fname": ""} for _ in range(60)]
+    issues = run_checks(
+        rows=rows,
+        mapped_columns=["fname"],
+        tle_columns={"mailing_addr1": "addr1"},
+    )
+    fname_issues = [i for i in issues if i["field"] == "fname"]
+    assert len(fname_issues) == MAX_REPORTED_PER_CHECK == 50
+    assert all(i["severity"] == "warning" for i in fname_issues)
+    assert [i["row"] for i in fname_issues] == list(range(1, 51))
+
+
+def test_duplicate_mapped_columns_single_warning_per_row():
+    issues = run_checks(
+        rows=[{"fname": ""}],
+        mapped_columns=["fname", "fname"],
+        tle_columns={"mailing_addr1": "addr1"},
+    )
+    fname_issues = [i for i in issues if i["field"] == "fname"]
+    assert len(fname_issues) == 1
+
+
 def test_deterministic_ordering_of_required_columns():
     issues = run_checks(
         rows=[{}],

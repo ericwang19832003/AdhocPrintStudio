@@ -19,12 +19,16 @@ def run_checks(
     tle_columns: dict[str, str],
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
+    # Dedupe while preserving order — duplicate mapped columns would otherwise
+    # produce duplicate warnings and burn the per-column cap twice as fast.
+    mapped_columns = list(dict.fromkeys(mapped_columns))
     required_cols = sorted(
         {tle_columns[k] for k in REQUIRED_TLE if tle_columns.get(k)}
     )
     name_col = tle_columns.get("mailing_name")
 
     empty_counts: dict[str, int] = {}
+    caps_count = 0
     for index, row in enumerate(rows, start=1):
         for col in required_cols:
             if not (row.get(col) or "").strip():
@@ -55,12 +59,17 @@ def run_checks(
         if name_col:
             value = (row.get(name_col) or "").strip()
             if len(value) > 3 and value.isupper():
-                issues.append(
-                    {
-                        "row": index,
-                        "field": name_col,
-                        "severity": "warning",
-                        "message": "Recipient name is in ALL CAPS.",
-                    }
-                )
+                if caps_count < MAX_REPORTED_PER_CHECK:
+                    issues.append(
+                        {
+                            "row": index,
+                            "field": name_col,
+                            "severity": "warning",
+                            "message": (
+                                "Recipient name is in ALL CAPS — it will print "
+                                "that way on the letter."
+                            ),
+                        }
+                    )
+                caps_count += 1
     return issues
