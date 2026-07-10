@@ -173,9 +173,11 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
           <div className="usps-hint">
             <AlertCircle size={13} className="usps-hint-icon" />
             <span>
-              AI features send a sample of your letter placeholders, column names,
-              and up to 20 rows of mapped recipient data to the selected provider.
-              Using a local (OpenAI-compatible) endpoint keeps data on your network.
+              AI features send your letter placeholders, column names, and a small
+              sample of spreadsheet rows (up to 5 full rows for auto-mapping; up to
+              20 rows of mapped/mailing columns for data checks) to the selected
+              provider. Using a local (OpenAI-compatible) endpoint keeps data on
+              your network.
             </span>
           </div>
 

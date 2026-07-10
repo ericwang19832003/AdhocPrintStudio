@@ -60,7 +60,7 @@ OPENAI_API_KEY=      # key for the OpenAI-compatible endpoint (optional for loca
 
 With no keys set, the AI settings modal reports that nothing is configured and no AI actions appear; the core workflow is unaffected.
 
-Privacy: AI features send letter placeholders, column names, and up to 20 rows of mapped recipient data (only mapped/mailing columns) to the selected provider. An OpenAI-compatible local endpoint (Ollama/vLLM/LM Studio) keeps everything on-network.
+Privacy: AI features send letter placeholders, column names, and a small sample of spreadsheet rows to the selected provider — up to 5 full rows for auto-mapping, and up to 20 rows of mapped/mailing columns for data checks. An OpenAI-compatible local endpoint (Ollama/vLLM/LM Studio) keeps everything on-network.
 
 Behavior notes:
 

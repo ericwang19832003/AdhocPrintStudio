@@ -33,7 +33,7 @@ CURATED_MODELS: dict[str, list[dict[str, str]]] = {
         {"id": "claude-haiku-4-5-20251001", "label": "Claude Haiku 4.5 (fast)"},
         {"id": "claude-opus-4-8", "label": "Claude Opus 4.8 (most capable)"},
     ],
-    "openai_compatible": [],  # populated live from the endpoint's /v1/models
+    "openai_compatible": [],  # intentionally empty — the UI shows a free-text model input
 }
 
 
