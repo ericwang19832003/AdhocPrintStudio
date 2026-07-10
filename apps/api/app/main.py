@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.env import load_env
 from app.db import get_alembic_revision, ping_db
+from app.ai import router as ai_router
 from app.assets import router as assets_router
 from app.jobs import router as jobs_router
 from app.runs import router as runs_router
@@ -68,6 +69,7 @@ app.include_router(assets_router)
 app.include_router(jobs_router)
 app.include_router(runs_router)
 app.include_router(print_output_router)
+app.include_router(ai_router)
 
 
 @app.exception_handler(Exception)

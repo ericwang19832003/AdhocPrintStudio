@@ -45,6 +45,7 @@ from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
+from app.ai import router as ai_router  # noqa: E402
 from app.local_storage import router as local_storage_router  # noqa: E402
 from app.assets_local import router as assets_local_router  # noqa: E402
 from app.runs_local import router as runs_local_router  # noqa: E402
@@ -138,6 +139,7 @@ app.include_router(assets_local_router)
 app.include_router(runs_local_router)
 app.include_router(jobs_router)
 app.include_router(print_output_router)
+app.include_router(ai_router)
 
 # ---------------------------------------------------------------------------
 # 7. Endpoints
