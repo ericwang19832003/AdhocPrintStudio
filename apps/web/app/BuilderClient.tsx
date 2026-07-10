@@ -542,6 +542,7 @@ export default function BuilderClient() {
     truncated: boolean;
     totalIssues: number;
     rowCount: number;
+    checkedRowCount: number;
     format: "afp" | "pdf";
   } | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -2205,27 +2206,34 @@ export default function BuilderClient() {
         }
         return bounded;
       });
+      // Skip columns mapped against a previous spreadsheet — they no longer
+      // exist and would only generate misleading "is empty" warnings.
       const mappedColumns = Array.from(
-        new Set(Object.values(placeholderMap).filter((col) => col !== ""))
+        new Set(
+          Object.values(placeholderMap).filter(
+            (col) => col !== "" && columns.includes(col)
+          )
+        )
       ).slice(0, 500);
       const tleColumns: Record<string, string> = {};
       for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
         const value = normalizeMailingValue(mailingMap[key] ?? "");
         if (value && value !== "__select__") tleColumns[key] = value;
       }
-      const result = await postAi(
+      const basePayload = {
+        rows,
+        mapped_columns: mappedColumns,
+        tle_columns: tleColumns,
+      };
+      const messages = { generic: "Preflight failed.", network: "Preflight failed." };
+      // Deterministic-only preflight when AI is off — the endpoint runs its
+      // checks without provider/model.
+      let result = await postAi(
         "/ai/preflight",
-        {
-          // Deterministic-only preflight when AI is off — the endpoint
-          // runs its checks without provider/model.
-          ...(aiSettings
-            ? { provider: aiSettings.provider, model: aiSettings.model }
-            : {}),
-          rows,
-          mapped_columns: mappedColumns,
-          tle_columns: tleColumns,
-        },
-        { generic: "Preflight failed.", network: "Preflight failed." }
+        aiSettings
+          ? { provider: aiSettings.provider, model: aiSettings.model, ...basePayload }
+          : basePayload,
+        messages
       );
       // Spreadsheet swapped mid-flight — the report describes data that no
       // longer exists. Discard it and let the user trigger Generate again.
@@ -2236,7 +2244,21 @@ export default function BuilderClient() {
         });
         return;
       }
+      if (!result.ok && aiSettings) {
+        // The AI-assisted call failed, but deterministic checks need no
+        // provider — degrade to deterministic-only before giving up.
+        console.warn("Preflight failed:", result.message);
+        result = await postAi("/ai/preflight", basePayload, messages);
+        if (columnsRef.current !== columnsAtRequest) {
+          setToast({
+            message: "Spreadsheet changed — preflight discarded. Click Generate again.",
+            variant: "info",
+          });
+          return;
+        }
+      }
       if (!result.ok) {
+        console.warn("Preflight failed:", result.message);
         setToast({
           message: "Preflight unavailable — generating without checks.",
           variant: "info",
@@ -2261,8 +2283,18 @@ export default function BuilderClient() {
         totalIssues:
           typeof data?.total_issues === "number" ? data.total_issues : issues.length,
         rowCount: spreadsheetRows.length,
+        checkedRowCount: rows.length,
         format,
       });
+    } catch (error) {
+      // Structural never-block guard: even an unexpected throw in the
+      // preflight path must not stop the user's print run.
+      console.warn("Preflight failed:", error);
+      setToast({
+        message: "Preflight unavailable — generating without checks.",
+        variant: "info",
+      });
+      void handleGenerate(format);
     } finally {
       setPreflightRunning(false);
     }
@@ -3388,6 +3420,7 @@ export default function BuilderClient() {
           truncated={preflightReport.truncated}
           totalIssues={preflightReport.totalIssues}
           rowCount={preflightReport.rowCount}
+          checkedRowCount={preflightReport.checkedRowCount}
           onCancel={() => setPreflightReport(null)}
           onConfirm={() => {
             const { format } = preflightReport;

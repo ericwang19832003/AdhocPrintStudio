@@ -15,6 +15,8 @@ type PreflightModalProps = {
   truncated: boolean;
   totalIssues: number;
   rowCount: number;
+  /** Rows actually checked — differs from rowCount only when capped (>5000). */
+  checkedRowCount?: number;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -24,11 +26,16 @@ export function PreflightModal({
   truncated,
   totalIssues,
   rowCount,
+  checkedRowCount,
   onCancel,
   onConfirm,
 }: PreflightModalProps) {
   const errorCount = issues.filter((issue) => issue.severity === "error").length;
   const warningCount = issues.length - errorCount;
+  const rowSummary =
+    checkedRowCount !== undefined && checkedRowCount < rowCount
+      ? `in first ${checkedRowCount.toLocaleString()} of ${rowCount.toLocaleString()} rows`
+      : `in ${rowCount.toLocaleString()} row${rowCount !== 1 ? "s" : ""}`;
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -59,8 +66,7 @@ export function PreflightModal({
         <div className="modal-body">
           <p className="preflight-summary">
             {errorCount} error{errorCount !== 1 ? "s" : ""}, {warningCount}{" "}
-            warning{warningCount !== 1 ? "s" : ""} in {rowCount} row
-            {rowCount !== 1 ? "s" : ""}
+            warning{warningCount !== 1 ? "s" : ""} {rowSummary}
             {truncated ? ` — showing first ${issues.length} of ${totalIssues}` : ""}
           </p>
 
