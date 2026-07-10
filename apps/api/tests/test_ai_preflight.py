@@ -128,6 +128,45 @@ def test_preflight_ai_issue_projected_to_fixed_fields(monkeypatch):
     assert set(ai_issue) == {"row", "field", "message", "severity", "source"}
 
 
+def test_preflight_ai_bool_row_dropped(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    # JSON true is a Python bool — an int subclass — and must not sneak
+    # through the integer row check as row 1.
+    install_mock(
+        monkeypatch,
+        {"issues": [
+            {"row": True, "field": "name", "severity": "warning", "message": "x"},
+        ]},
+    )
+    client = TestClient(app)
+    body = client.post("/ai/preflight", json=ai_payload()).json()
+    assert [i for i in body["issues"] if i.get("source") == "ai"] == []
+
+
+def test_preflight_skips_ai_call_when_nothing_to_sample(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(
+            200, json={"content": [{"type": "text", "text": '{"issues": []}'}]}
+        )
+
+    monkeypatch.setattr(ai_module, "_test_transport", httpx.MockTransport(handler))
+    client = TestClient(app)
+    # Rows non-empty but no mapped/TLE columns -> nothing to send: no LLM call.
+    response = client.post(
+        "/ai/preflight", json=ai_payload(mapped_columns=[], tle_columns={})
+    )
+    assert response.status_code == 200
+    assert all(i.get("source") != "ai" for i in response.json()["issues"])
+    # Empty rows -> nothing to sample: no LLM call either.
+    response = client.post("/ai/preflight", json=ai_payload(rows=[]))
+    assert response.status_code == 200
+    assert calls["count"] == 0
+
+
 def test_preflight_only_relevant_columns_sent_to_provider(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
     captured: dict = {}

@@ -79,6 +79,14 @@ BoundedName = Annotated[str, StringConstraints(max_length=200)]
 BoundedValue = Annotated[str, StringConstraints(max_length=500)]
 
 
+def _validate_row_width(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    # Per-row key count is otherwise unbounded; mirror the columns cap.
+    for row in rows:
+        if len(row) > 500:
+            raise ValueError("row has too many keys (max 500).")
+    return rows
+
+
 class AutomapRequest(BaseModel):
     provider: str
     model: str
@@ -90,14 +98,8 @@ class AutomapRequest(BaseModel):
 
     @field_validator("sample_rows")
     @classmethod
-    def _cap_row_width(
-        cls, rows: list[dict[str, str]]
-    ) -> list[dict[str, str]]:
-        # Per-row key count is otherwise unbounded; mirror the columns cap.
-        for row in rows:
-            if len(row) > 500:
-                raise ValueError("sample row has too many keys (max 500).")
-        return rows
+    def _cap_row_width(cls, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+        return _validate_row_width(rows)
 
 
 def build_automap_prompt(req: AutomapRequest) -> str:
@@ -169,14 +171,8 @@ class PreflightRequest(BaseModel):
 
     @field_validator("rows")
     @classmethod
-    def _cap_row_width(
-        cls, rows: list[dict[str, str]]
-    ) -> list[dict[str, str]]:
-        # Per-row key count is otherwise unbounded; mirror the columns cap.
-        for row in rows:
-            if len(row) > 500:
-                raise ValueError("row has too many keys (max 500).")
-        return rows
+    def _cap_row_width(cls, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+        return _validate_row_width(rows)
 
     @field_validator("tle_columns")
     @classmethod
@@ -203,33 +199,38 @@ async def preflight(request: Request, payload: PreflightRequest) -> dict[str, An
             {col: row.get(col, "") for col in relevant}
             for row in payload.rows[:PREFLIGHT_AI_SAMPLE]
         ]
-        result = await run_completion(
-            provider=payload.provider,
-            model=payload.model,
-            system=PREFLIGHT_SYSTEM,
-            messages=[{"role": "user", "content": json.dumps(sample)}],
-            json_mode=True,
-            transport=_test_transport,
-        )
-        if isinstance(result, dict):
-            max_row = len(payload.rows)
-            # Project AI issues onto a fixed contract: severity forced to
-            # "warning", rows outside 1..len(rows) dropped, no extra keys.
-            for issue in result.get("issues", []):
-                if (
-                    isinstance(issue, dict)
-                    and isinstance(issue.get("row"), int)
-                    and 1 <= issue["row"] <= max_row
-                ):
-                    issues.append(
-                        {
-                            "row": issue["row"],
-                            "field": str(issue.get("field", "")),
-                            "message": str(issue.get("message", "")),
-                            "severity": "warning",
-                            "source": "ai",
-                        }
-                    )
+        # Skip the paid LLM call when there is nothing to review (no relevant
+        # columns, or no rows).
+        if relevant and sample:
+            result = await run_completion(
+                provider=payload.provider,
+                model=payload.model,
+                system=PREFLIGHT_SYSTEM,
+                messages=[{"role": "user", "content": json.dumps(sample)}],
+                json_mode=True,
+                transport=_test_transport,
+            )
+            if isinstance(result, dict):
+                max_row = len(payload.rows)
+                # Project AI issues onto a fixed contract: severity forced to
+                # "warning", rows outside 1..len(rows) dropped (bools are int
+                # subclasses — reject those too), no extra keys.
+                for issue in result.get("issues", []):
+                    if (
+                        isinstance(issue, dict)
+                        and isinstance(issue.get("row"), int)
+                        and not isinstance(issue.get("row"), bool)
+                        and 1 <= issue["row"] <= max_row
+                    ):
+                        issues.append(
+                            {
+                                "row": issue["row"],
+                                "field": str(issue.get("field", "")),
+                                "message": str(issue.get("message", "")),
+                                "severity": "warning",
+                                "source": "ai",
+                            }
+                        )
     total = len(issues)
     truncated = total > MAX_RESPONSE_ISSUES
     return {
