@@ -1,9 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Upload, CheckCircle2, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
 
 export type PlaceholderMapping = Record<string, string>; // placeholder → column name (empty = unmapped)
+
+type AiSuggestion = {
+  placeholder: string;
+  column: string;
+  confidence: "high" | "low";
+};
 
 type DataPanelProps = {
   spreadsheetName: string | null;
@@ -17,6 +23,12 @@ type DataPanelProps = {
   mailingMap: Record<string, string>;
   onMailingMapChange: (map: Record<string, string>) => void;
   spreadsheetNotPersisted?: boolean;
+  // AI auto-map (all optional — omitted entirely when AI is disabled)
+  onAiAutomap?: () => void;
+  aiMapLoading?: boolean;
+  aiSuggestions?: AiSuggestion[];
+  onApplySuggestion?: (placeholder: string, column: string) => void;
+  onApplyAllAiSuggestions?: () => void;
 };
 
 const TLE_FIELDS: { key: string; label: string }[] = [
@@ -37,6 +49,11 @@ export function DataPanel({
   mailingMap,
   onMailingMapChange,
   spreadsheetNotPersisted,
+  onAiAutomap,
+  aiMapLoading,
+  aiSuggestions,
+  onApplySuggestion,
+  onApplyAllAiSuggestions,
 }: DataPanelProps) {
   const [activeSection, setActiveSection] = useState<"placeholders" | "tle" | "preview">(
     "placeholders"
@@ -46,6 +63,11 @@ export function DataPanel({
   const allMapped =
     placeholders.length > 0 && placeholders.every((p) => placeholderMap[p]);
   const mappedCount = placeholders.filter((p) => placeholderMap[p]).length;
+  const hasUnmapped = placeholders.length > mappedCount;
+  const pendingAiSuggestions = aiSuggestions ?? [];
+  const highConfidenceAiCount = pendingAiSuggestions.filter(
+    (s) => s.confidence === "high"
+  ).length;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,6 +155,56 @@ export function DataPanel({
                   </>
                 )}
               </div>
+              {onAiAutomap && hasUnmapped && (
+                <button
+                  type="button"
+                  className="ai-automap-btn"
+                  onClick={onAiAutomap}
+                  disabled={aiMapLoading}
+                >
+                  {aiMapLoading ? (
+                    <Loader2 size={13} className="ai-automap-spinner" />
+                  ) : (
+                    <Sparkles size={13} />
+                  )}
+                  {aiMapLoading ? "Mapping with AI…" : "Auto-map with AI"}
+                </button>
+              )}
+              {pendingAiSuggestions.length > 0 && (
+                <div className="ai-suggestions">
+                  <div className="ai-suggestions-header">
+                    <span className="ai-suggestions-title">
+                      <Sparkles size={11} /> AI suggestions
+                    </span>
+                    {onApplyAllAiSuggestions && highConfidenceAiCount > 1 && (
+                      <button
+                        type="button"
+                        className="ai-suggestion-apply"
+                        onClick={onApplyAllAiSuggestions}
+                      >
+                        Apply all ({highConfidenceAiCount})
+                      </button>
+                    )}
+                  </div>
+                  {pendingAiSuggestions.map((s) => (
+                    <div key={s.placeholder} className="ai-suggestion-row">
+                      <span className="mapping-placeholder">{s.placeholder}</span>
+                      <span className="ai-suggestion-arrow">→</span>
+                      <span className="ai-suggestion-column">{s.column}</span>
+                      {s.confidence === "low" && (
+                        <span className="ai-suggestion-badge">low confidence</span>
+                      )}
+                      <button
+                        type="button"
+                        className="ai-suggestion-apply"
+                        onClick={() => onApplySuggestion?.(s.placeholder, s.column)}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {placeholders.length === 0 ? (
                 <p className="lib-empty">No placeholders detected in the letter.</p>
               ) : (

@@ -4387,6 +4387,93 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
+.ai-automap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.ai-automap-btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.ai-automap-btn:disabled { opacity: 0.6; cursor: default; }
+
+.ai-automap-spinner { animation: spin 0.8s linear infinite; }
+
+.ai-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--ink-50);
+  border: 1px solid var(--ink-150);
+  border-radius: 6px;
+}
+
+.ai-suggestions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.ai-suggestions-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ai-suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ai-suggestion-arrow {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.ai-suggestion-column {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-700);
+}
+
+.ai-suggestion-badge {
+  font-size: 10px;
+  color: var(--warn);
+  border: 1px solid currentColor;
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
+.ai-suggestion-apply {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.ai-suggestion-apply:hover { background: var(--accent-soft); }
+
 .data-preview-section { gap: 6px !important; }
 
 .data-preview-row {

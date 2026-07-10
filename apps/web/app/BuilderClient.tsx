@@ -486,6 +486,10 @@ export default function BuilderClient() {
   const [showManageLibrary, setShowManageLibrary] = useState(false);
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [aiSettings, setAiSettings] = useState<AiSettings>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<
+    Array<{ placeholder: string; column: string; confidence: "high" | "low" }>
+  >([]);
+  const [aiMapLoading, setAiMapLoading] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showImportWordModal, setShowImportWordModal] = useState(false);
@@ -1748,6 +1752,146 @@ export default function BuilderClient() {
     });
   }, [spreadsheetContent]);
 
+  // AI suggestions still worth showing: skip placeholders that were mapped (via
+  // Apply or the dropdown) and drop anything stale after a new upload — mirrors
+  // how autoMatchSuggestions filters already-mapped placeholders in its useMemo.
+  const visibleAiSuggestions = useMemo(
+    () =>
+      aiSuggestions.filter(
+        (suggestion) =>
+          placeholders.includes(suggestion.placeholder) &&
+          !placeholderMap[suggestion.placeholder] &&
+          columns.includes(suggestion.column)
+      ),
+    [aiSuggestions, placeholders, placeholderMap, columns]
+  );
+
+  // Apply all high-confidence AI suggestions (mirrors applyAllAutoMatches)
+  const applyAllAiSuggestions = () => {
+    setPlaceholderMap((prev) => {
+      const next = { ...prev };
+      for (const suggestion of visibleAiSuggestions) {
+        if (suggestion.confidence === "high" && !next[suggestion.placeholder]) {
+          next[suggestion.placeholder] = suggestion.column;
+        }
+      }
+      return next;
+    });
+  };
+
+  // Ask the configured AI provider to map unmapped placeholders to columns.
+  const runAiAutomap = async () => {
+    if (!aiSettings || aiMapLoading) return;
+    const unmapped = placeholders.filter((p) => !placeholderMap[p]);
+    if (unmapped.length === 0 || columns.length === 0) return;
+    setAiMapLoading(true);
+    try {
+      // Respect API bounds: ≤200 placeholders, ≤500 columns, ≤5 sample rows,
+      // sample values ≤500 chars.
+      const boundedColumns = columns.slice(0, 500);
+      const sampleRows = spreadsheetRows.slice(0, 5).map((row) => {
+        const sample: Record<string, string> = {};
+        for (const col of boundedColumns) {
+          sample[col] = (row[col] ?? "").slice(0, 500);
+        }
+        return sample;
+      });
+      const response = await fetch(`${env.apiBaseUrl}/ai/automap`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: aiSettings.provider,
+          model: aiSettings.model,
+          placeholders: unmapped.slice(0, 200),
+          columns: boundedColumns,
+          sample_rows: sampleRows,
+        }),
+      });
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const body = await response.json();
+          if (typeof body?.detail === "string") detail = body.detail;
+        } catch {
+          // Non-JSON error body — fall through to the generic messages.
+        }
+        if (response.status === 429) {
+          setToast({
+            message: "AI rate limit reached — try again in a minute.",
+            variant: "error",
+          });
+        } else if (response.status === 503) {
+          setToast({
+            message: `${detail || "AI provider unavailable."} Check your AI settings.`,
+            variant: "error",
+          });
+        } else {
+          setToast({
+            message: detail || "AI auto-map failed — try again.",
+            variant: "error",
+          });
+        }
+        return;
+      }
+      const data = await response.json();
+      const mapping = (data?.mapping ?? {}) as Record<
+        string,
+        { column?: string; confidence?: string }
+      >;
+      const suggestions: Array<{
+        placeholder: string;
+        column: string;
+        confidence: "high" | "low";
+      }> = [];
+      for (const [placeholder, entry] of Object.entries(mapping)) {
+        if (typeof entry?.column !== "string") continue;
+        suggestions.push({
+          placeholder,
+          column: entry.column,
+          confidence: entry.confidence === "high" ? "high" : "low",
+        });
+      }
+      setAiSuggestions(suggestions);
+
+      // Merge TLE picks only into slots the user hasn't already set.
+      const tle = (data?.tle ?? {}) as Record<string, string>;
+      const tleUpdates: Record<string, string> = {};
+      for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
+        const col = tle[key];
+        const current = mailingMap[key] ?? "";
+        const unset = current === "" || current === "__select__";
+        if (typeof col === "string" && columns.includes(col) && unset) {
+          tleUpdates[key] = col;
+        }
+      }
+      if (Object.keys(tleUpdates).length > 0) {
+        setMailingMap((prev) => {
+          const next = { ...prev };
+          for (const [key, col] of Object.entries(tleUpdates)) {
+            if (!next[key] || next[key] === "__select__") next[key] = col;
+          }
+          return next;
+        });
+      }
+
+      if (suggestions.length > 0 || Object.keys(tleUpdates).length > 0) {
+        setToast({
+          message: "AI suggestions ready — review and apply.",
+          variant: "success",
+        });
+      } else {
+        setToast({ message: "No new suggestions found.", variant: "info" });
+      }
+    } catch {
+      setToast({
+        message: "AI auto-map failed — check your connection and try again.",
+        variant: "error",
+      });
+    } finally {
+      setAiMapLoading(false);
+    }
+  };
+
   // Extract unique values for dynamic asset columns
   const getUniqueValuesForColumn = (column: string) => {
     if (!column || !spreadsheetRows.length) return [];
@@ -2607,6 +2751,11 @@ export default function BuilderClient() {
                 mailingMap={mailingMap}
                 onMailingMapChange={setMailingMap}
                 spreadsheetNotPersisted={spreadsheetNotPersisted}
+                onAiAutomap={aiSettings ? runAiAutomap : undefined}
+                aiMapLoading={aiMapLoading}
+                aiSuggestions={aiSettings ? visibleAiSuggestions : undefined}
+                onApplySuggestion={applyAutoMatch}
+                onApplyAllAiSuggestions={applyAllAiSuggestions}
               />
             ) : (
               <BlockMenu
