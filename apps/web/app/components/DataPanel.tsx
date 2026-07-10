@@ -197,6 +197,7 @@ export function DataPanel({
                       <button
                         type="button"
                         className="ai-suggestion-apply"
+                        aria-label={`Apply ${s.placeholder} to ${s.column}`}
                         onClick={() => onApplySuggestion?.(s.placeholder, s.column)}
                       >
                         Apply

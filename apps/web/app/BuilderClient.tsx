@@ -1779,11 +1779,16 @@ export default function BuilderClient() {
     });
   };
 
+  // Latest columns — lets runAiAutomap detect a mid-flight spreadsheet swap.
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+
   // Ask the configured AI provider to map unmapped placeholders to columns.
   const runAiAutomap = async () => {
     if (!aiSettings || aiMapLoading) return;
     const unmapped = placeholders.filter((p) => !placeholderMap[p]);
     if (unmapped.length === 0 || columns.length === 0) return;
+    const columnsAtRequest = columns;
     setAiMapLoading(true);
     try {
       // Respect API bounds: ≤200 placeholders, ≤500 columns, ≤5 sample rows,
@@ -1807,11 +1812,20 @@ export default function BuilderClient() {
           sample_rows: sampleRows,
         }),
       });
+      // A different spreadsheet was uploaded while the request was in flight —
+      // every part of this response (suggestions, TLE, toasts) is stale.
+      if (columnsRef.current !== columnsAtRequest) {
+        setToast({
+          message: "Spreadsheet changed — AI suggestions discarded.",
+          variant: "info",
+        });
+        return;
+      }
       if (!response.ok) {
         let detail = "";
         try {
           const body = await response.json();
-          if (typeof body?.detail === "string") detail = body.detail;
+          if (typeof body?.detail === "string") detail = body.detail.slice(0, 160);
         } catch {
           // Non-JSON error body — fall through to the generic messages.
         }
@@ -1834,6 +1848,13 @@ export default function BuilderClient() {
         return;
       }
       const data = await response.json();
+      if (columnsRef.current !== columnsAtRequest) {
+        setToast({
+          message: "Spreadsheet changed — AI suggestions discarded.",
+          variant: "info",
+        });
+        return;
+      }
       const mapping = (data?.mapping ?? {}) as Record<
         string,
         { column?: string; confidence?: string }
@@ -1844,7 +1865,12 @@ export default function BuilderClient() {
         confidence: "high" | "low";
       }> = [];
       for (const [placeholder, entry] of Object.entries(mapping)) {
+        // Same predicate as visibleAiSuggestions — keep only suggestions the
+        // user will actually see, so the success toast can't be a false positive.
         if (typeof entry?.column !== "string") continue;
+        if (!placeholders.includes(placeholder)) continue;
+        if (placeholderMap[placeholder]) continue;
+        if (!columns.includes(entry.column)) continue;
         suggestions.push({
           placeholder,
           column: entry.column,
