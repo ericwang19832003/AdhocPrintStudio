@@ -19,6 +19,7 @@ from app.ai_providers import (
     complete,
     curated_models,
 )
+from app.preflight import run_checks
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +145,95 @@ async def automap(request: Request, payload: AutomapRequest) -> dict[str, Any]:
         if key in TLE_KEYS and col in columns
     }
     return {"mapping": mapping, "tle": tle}
+
+
+PREFLIGHT_SYSTEM = (
+    "You review mail-merge recipient data before a print run. "
+    "Flag ONLY genuine data problems: malformed or incomplete street addresses, "
+    "obviously fake/test records, swapped fields. Do not flag stylistic issues. "
+    'Respond with JSON only: {"issues": [{"row": <1-based int>, "field": "<col>", '
+    '"severity": "warning", "message": "<short user-facing sentence>"}]}. '
+    'Return {"issues": []} when the data looks fine.'
+)
+
+PREFLIGHT_AI_SAMPLE = 20
+MAX_RESPONSE_ISSUES = 500
+
+
+class PreflightRequest(BaseModel):
+    provider: str | None = None
+    model: str | None = None
+    rows: Annotated[list[dict[BoundedName, BoundedValue]], Field(max_length=5000)]
+    mapped_columns: Annotated[list[BoundedName], Field(max_length=500)] = []
+    tle_columns: dict[str, BoundedName | None] = {}
+
+    @field_validator("rows")
+    @classmethod
+    def _cap_row_width(
+        cls, rows: list[dict[str, str]]
+    ) -> list[dict[str, str]]:
+        # Per-row key count is otherwise unbounded; mirror the columns cap.
+        for row in rows:
+            if len(row) > 500:
+                raise ValueError("row has too many keys (max 500).")
+        return rows
+
+    @field_validator("tle_columns")
+    @classmethod
+    def _drop_unknown_tle_keys(
+        cls, tle_columns: dict[str, str | None]
+    ) -> dict[str, str | None]:
+        return {k: v for k, v in tle_columns.items() if k in TLE_KEYS}
+
+
+@router.post("/preflight")
+@limiter.limit("20/minute")
+async def preflight(request: Request, payload: PreflightRequest) -> dict[str, Any]:
+    tle_columns = {k: v for k, v in payload.tle_columns.items() if v}
+    issues = run_checks(
+        rows=payload.rows,
+        mapped_columns=payload.mapped_columns,
+        tle_columns=tle_columns,
+    )
+    if payload.provider and payload.model:
+        validate_selection(payload.provider, payload.model)
+        # Data minimization: only mapped/TLE columns leave the server.
+        relevant = sorted(set(payload.mapped_columns) | set(tle_columns.values()))
+        sample = [
+            {col: row.get(col, "") for col in relevant}
+            for row in payload.rows[:PREFLIGHT_AI_SAMPLE]
+        ]
+        result = await run_completion(
+            provider=payload.provider,
+            model=payload.model,
+            system=PREFLIGHT_SYSTEM,
+            messages=[{"role": "user", "content": json.dumps(sample)}],
+            json_mode=True,
+            transport=_test_transport,
+        )
+        if isinstance(result, dict):
+            max_row = len(payload.rows)
+            # Project AI issues onto a fixed contract: severity forced to
+            # "warning", rows outside 1..len(rows) dropped, no extra keys.
+            for issue in result.get("issues", []):
+                if (
+                    isinstance(issue, dict)
+                    and isinstance(issue.get("row"), int)
+                    and 1 <= issue["row"] <= max_row
+                ):
+                    issues.append(
+                        {
+                            "row": issue["row"],
+                            "field": str(issue.get("field", "")),
+                            "message": str(issue.get("message", "")),
+                            "severity": "warning",
+                            "source": "ai",
+                        }
+                    )
+    total = len(issues)
+    truncated = total > MAX_RESPONSE_ISSUES
+    return {
+        "issues": issues[:MAX_RESPONSE_ISSUES],
+        "truncated": truncated,
+        "total_issues": total,
+    }
