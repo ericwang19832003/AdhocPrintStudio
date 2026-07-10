@@ -97,6 +97,84 @@ async def test_complete_provider_error(monkeypatch):
         )
 
 
+async def test_complete_connect_error(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom")
+
+    with pytest.raises(AIProviderError):
+        await complete(
+            provider="anthropic",
+            model="claude-sonnet-5",
+            messages=[{"role": "user", "content": "hi"}],
+            transport=httpx.MockTransport(handler),
+        )
+
+
+async def test_complete_non_json_200_body(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>oops</html>")
+
+    with pytest.raises(AIProviderError):
+        await complete(
+            provider="anthropic",
+            model="claude-sonnet-5",
+            messages=[{"role": "user", "content": "hi"}],
+            transport=httpx.MockTransport(handler),
+        )
+
+
+async def test_complete_openai_choice_missing_message(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://fake")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{}]})
+
+    with pytest.raises(AIProviderError):
+        await complete(
+            provider="openai_compatible",
+            model="gpt-test",
+            messages=[{"role": "user", "content": "hi"}],
+            transport=httpx.MockTransport(handler),
+        )
+
+
+async def test_complete_missing_anthropic_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(AIProviderError):
+        await complete(
+            provider="anthropic",
+            model="claude-sonnet-5",
+            messages=[{"role": "user", "content": "hi"}],
+            transport=anthropic_transport("hello"),
+        )
+
+
+async def test_complete_unknown_provider():
+    with pytest.raises(AIProviderError):
+        await complete(
+            provider="nope",
+            model="whatever",
+            messages=[{"role": "user", "content": "hi"}],
+        )
+
+
+async def test_complete_json_mode_malformed_json(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    with pytest.raises(AIProviderError):
+        await complete(
+            provider="anthropic",
+            model="claude-sonnet-5",
+            messages=[{"role": "user", "content": "hi"}],
+            json_mode=True,
+            transport=anthropic_transport("not json at all {"),
+        )
+
+
 def test_available_providers(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

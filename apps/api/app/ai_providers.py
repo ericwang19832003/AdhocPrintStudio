@@ -72,18 +72,24 @@ async def _call_anthropic(
     async with httpx.AsyncClient(
         base_url=ANTHROPIC_BASE_URL, transport=transport, timeout=REQUEST_TIMEOUT
     ) as client:
-        response = await client.post(
-            "/v1/messages",
-            json=payload,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-            },
-        )
+        try:
+            response = await client.post(
+                "/v1/messages",
+                json=payload,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+            )
+        except httpx.HTTPError as exc:
+            raise AIProviderError("Could not reach the AI provider.") from exc
     if response.status_code != 200:
         raise AIProviderError(f"AI provider returned status {response.status_code}.")
-    blocks = response.json().get("content", [])
-    return "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    try:
+        blocks = response.json().get("content", [])
+        return "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+    except (ValueError, KeyError, AttributeError, TypeError) as exc:
+        raise AIProviderError("AI provider returned an unexpected response.") from exc
 
 
 async def _call_openai_compatible(
@@ -101,17 +107,26 @@ async def _call_openai_compatible(
     async with httpx.AsyncClient(
         base_url=base_url, transport=transport, timeout=REQUEST_TIMEOUT
     ) as client:
-        response = await client.post(
-            "/v1/chat/completions",
-            json={"model": model, "messages": full_messages},
-            headers=headers,
-        )
+        try:
+            response = await client.post(
+                "/v1/chat/completions",
+                json={"model": model, "messages": full_messages},
+                headers=headers,
+            )
+        except httpx.HTTPError as exc:
+            raise AIProviderError("Could not reach the AI provider.") from exc
     if response.status_code != 200:
         raise AIProviderError(f"AI provider returned status {response.status_code}.")
-    choices = response.json().get("choices", [])
+    try:
+        choices = response.json().get("choices", [])
+    except ValueError as exc:
+        raise AIProviderError("AI provider returned an unexpected response.") from exc
     if not choices:
         raise AIProviderError("AI provider returned no choices.")
-    return choices[0]["message"]["content"] or ""
+    try:
+        return choices[0]["message"]["content"] or ""
+    except (KeyError, TypeError, IndexError) as exc:
+        raise AIProviderError("AI provider returned an unexpected response.") from exc
 
 
 async def complete(
