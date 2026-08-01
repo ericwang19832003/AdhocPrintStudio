@@ -7,10 +7,30 @@ import { EditorToolbar } from "./EditorClient";
 import type { Editor } from "@tiptap/react";
 import * as XLSX from "xlsx";
 import DOMPurify from "isomorphic-dompurify";
+import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
+import { Topbar } from "./components/Topbar";
+import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
+import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
+import { EmptyState } from "./components/EmptyState";
+import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
+import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
+import { TaglineLibrary, type TaglineItem } from "./components/TaglineLibrary";
+import { TemplateLibrary, type TemplateItem } from "./components/TemplateLibrary";
+import { DataPanel, type PlaceholderMapping } from "./components/DataPanel";
+import { MergePreview, type MergeRow } from "./components/MergePreview";
+import { UploadLogoModal } from "./components/UploadLogoModal";
+import { ReturnAddressModal } from "./components/ReturnAddressModal";
+import { ImportWordModal } from "./components/ImportWordModal";
+import { ManageLibrary, type ManageSection } from "./components/ManageLibrary";
+import { Toast, type ToastMessage } from "./components/Toast";
+import { AiSettingsModal } from "./components/AiSettingsModal";
+import { PreflightModal, type PreflightIssue } from "./components/PreflightModal";
+import { loadAiSettings, type AiSettings } from "@/lib/aiSettings";
+import { postAi } from "@/lib/aiFetch";
 
-const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false });
+const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
 type LibraryItem = {
   id: string;
@@ -19,6 +39,8 @@ type LibraryItem = {
   content?: string;
   imageUrl?: string;
   isCustom?: boolean;
+  tags?: string[];
+  category?: string;
 };
 
 type PlacedBlock = {
@@ -75,6 +97,8 @@ const SidebarButton = ({
     onMouseLeave={onLeave}
     onClick={onClick}
     type="button"
+    title={label}
+    aria-label={label}
   >
     {icon ? <span className="tool-icon">{icon}</span> : null}
     <span className="tool-label">{label}</span>
@@ -193,82 +217,6 @@ const BlockMenu = ({ items, onInsert, onDragStart, query }: BlockMenuProps) => {
   );
 };
 
-type UploadLogoModalProps = {
-  isOpen: boolean;
-  previewUrl: string;
-  fileName: string;
-  errorMessage: string;
-  isUploading: boolean;
-  onCancel: () => void;
-  onFileSelect: (file: File) => void;
-  onUpload: () => void;
-};
-
-const UploadLogoModal = ({
-  isOpen,
-  previewUrl,
-  fileName,
-  errorMessage,
-  isUploading,
-  onCancel,
-  onFileSelect,
-  onUpload,
-}: UploadLogoModalProps) => {
-  if (!isOpen) return null;
-  return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal upload-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Upload logo</h3>
-          <button className="ghost" onClick={onCancel}>
-            Close
-          </button>
-        </div>
-        <div
-          className="upload-dropzone"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            const file = event.dataTransfer.files?.[0];
-            if (file) onFileSelect(file);
-          }}
-        >
-          {previewUrl ? (
-            <img src={previewUrl} alt="Logo preview" />
-          ) : (
-            <div className="upload-placeholder">
-              <strong>Drag and drop your logo here</strong>
-              <span>or</span>
-            </div>
-          )}
-          <label className="file-input">
-            Browse files
-            <input
-              type="file"
-              accept=".png,.jpg,.jpeg,.svg"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onFileSelect(file);
-              }}
-            />
-          </label>
-          <p className="hint">Supported formats: PNG, JPG, SVG</p>
-          {fileName && <p className="upload-filename">{fileName}</p>}
-          {errorMessage && <p className="upload-error">{errorMessage}</p>}
-        </div>
-        <div className="form-actions">
-          <button className="ghost" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="primary" onClick={onUpload} disabled={!previewUrl || isUploading}>
-            {isUploading ? "Uploading..." : "Upload"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const GRID_SIZE = 16;
 const SNAP_TOLERANCE = 6;
 const DEFAULT_BLOCK_HEIGHT = 80;
@@ -373,55 +321,55 @@ const returnAddressSeed: LibraryItem[] = [
 
 // 25 Verbiage blocks with varied lengths (1 sentence to 4 sentences)
 const verbiageSeed: LibraryItem[] = [
-  { id: "verb-1", label: "Privacy notice", type: "verbiage", content: "We value your privacy. Your information is used only for account servicing and will not be shared without consent." },
-  { id: "verb-2", label: "Late payment block", type: "verbiage", content: "Our records show an outstanding balance. Please remit payment within 10 days to avoid service interruption." },
-  { id: "verb-3", label: "Billing assistance", type: "verbiage", content: "Need help with your bill? Call 800-555-0199, Monday through Friday, 8am-6pm, and we will assist you." },
-  { id: "verb-4", label: "Opt-out instructions", type: "verbiage", content: "To opt out of paper delivery, visit your account settings or call customer care at 800-555-0177." },
-  { id: "verb-5", label: "Account update reminder", type: "verbiage", content: "Please review your contact details to ensure your statements are delivered to the correct address." },
+  { id: "verb-1", label: "Privacy notice", type: "verbiage", tags: ["Legal"], content: "We value your privacy. Your information is used only for account servicing and will not be shared without consent." },
+  { id: "verb-2", label: "Late payment block", type: "verbiage", tags: ["Billing"], content: "Our records show an outstanding balance. Please remit payment within 10 days to avoid service interruption." },
+  { id: "verb-3", label: "Billing assistance", type: "verbiage", tags: ["Billing", "Support"], content: "Need help with your bill? Call 800-555-0199, Monday through Friday, 8am-6pm, and we will assist you." },
+  { id: "verb-4", label: "Opt-out instructions", type: "verbiage", tags: ["Support"], content: "To opt out of paper delivery, visit your account settings or call customer care at 800-555-0177." },
+  { id: "verb-5", label: "Account update reminder", type: "verbiage", tags: ["Support"], content: "Please review your contact details to ensure your statements are delivered to the correct address." },
   { id: "verb-6", label: "Thank you (Short)", type: "verbiage", content: "Thank you for your business." },
-  { id: "verb-7", label: "Contact us", type: "verbiage", content: "Questions? Contact us at support@example.com or call 1-800-555-0123." },
-  { id: "verb-8", label: "Legal disclaimer (Long)", type: "verbiage", content: "This document contains confidential information intended only for the named recipient. If you have received this in error, please notify the sender immediately and delete all copies. Unauthorized use, disclosure, or distribution is prohibited and may be unlawful. The sender accepts no liability for any damages arising from the unauthorized use of this information." },
-  { id: "verb-9", label: "Payment due", type: "verbiage", content: "Payment is due within 30 days of the statement date." },
-  { id: "verb-10", label: "Autopay enrollment", type: "verbiage", content: "Enroll in AutoPay for worry-free payments. Your payment will be automatically deducted on the due date, ensuring you never miss a payment. Sign up online at myaccount.example.com or call our automated line at 800-555-0188." },
-  { id: "verb-11", label: "Rate change notice", type: "verbiage", content: "Please be advised that your interest rate may change based on market conditions. Review your account terms for details." },
-  { id: "verb-12", label: "Paperless invitation", type: "verbiage", content: "Go green with paperless statements! Switch to electronic delivery and receive your statements faster, reduce clutter, and help the environment." },
-  { id: "verb-13", label: "Fraud alert", type: "verbiage", content: "Protect yourself from fraud. Never share your account number, PIN, or password with anyone claiming to be from our company. We will never ask for this information via email or phone." },
-  { id: "verb-14", label: "Service hours", type: "verbiage", content: "Our customer service team is available Monday through Friday, 8:00 AM to 8:00 PM EST, and Saturday, 9:00 AM to 5:00 PM EST." },
-  { id: "verb-15", label: "Minimum payment", type: "verbiage", content: "Paying only the minimum amount due will result in higher interest charges and a longer time to pay off your balance." },
-  { id: "verb-16", label: "Credit score impact", type: "verbiage", content: "Late payments may be reported to credit bureaus and could negatively impact your credit score. Please ensure timely payment to maintain good standing." },
+  { id: "verb-7", label: "Contact us", type: "verbiage", tags: ["Support"], content: "Questions? Contact us at support@example.com or call 1-800-555-0123." },
+  { id: "verb-8", label: "Legal disclaimer (Long)", type: "verbiage", tags: ["Legal"], content: "This document contains confidential information intended only for the named recipient. If you have received this in error, please notify the sender immediately and delete all copies. Unauthorized use, disclosure, or distribution is prohibited and may be unlawful. The sender accepts no liability for any damages arising from the unauthorized use of this information." },
+  { id: "verb-9", label: "Payment due", type: "verbiage", tags: ["Billing"], content: "Payment is due within 30 days of the statement date." },
+  { id: "verb-10", label: "Autopay enrollment", type: "verbiage", tags: ["Billing"], content: "Enroll in AutoPay for worry-free payments. Your payment will be automatically deducted on the due date, ensuring you never miss a payment. Sign up online at myaccount.example.com or call our automated line at 800-555-0188." },
+  { id: "verb-11", label: "Rate change notice", type: "verbiage", tags: ["Legal", "Billing"], content: "Please be advised that your interest rate may change based on market conditions. Review your account terms for details." },
+  { id: "verb-12", label: "Paperless invitation", type: "verbiage", tags: ["Support"], content: "Go green with paperless statements! Switch to electronic delivery and receive your statements faster, reduce clutter, and help the environment." },
+  { id: "verb-13", label: "Fraud alert", type: "verbiage", tags: ["Security"], content: "Protect yourself from fraud. Never share your account number, PIN, or password with anyone claiming to be from our company. We will never ask for this information via email or phone." },
+  { id: "verb-14", label: "Service hours", type: "verbiage", tags: ["Support"], content: "Our customer service team is available Monday through Friday, 8:00 AM to 8:00 PM EST, and Saturday, 9:00 AM to 5:00 PM EST." },
+  { id: "verb-15", label: "Minimum payment", type: "verbiage", tags: ["Billing"], content: "Paying only the minimum amount due will result in higher interest charges and a longer time to pay off your balance." },
+  { id: "verb-16", label: "Credit score impact", type: "verbiage", tags: ["Billing", "Legal"], content: "Late payments may be reported to credit bureaus and could negatively impact your credit score. Please ensure timely payment to maintain good standing." },
   { id: "verb-17", label: "Rewards program", type: "verbiage", content: "Earn points on every purchase! Redeem for cash back, travel, merchandise, and more. Visit rewards.example.com to view your balance and redeem points." },
-  { id: "verb-18", label: "Address change", type: "verbiage", content: "Moving? Update your address online or call us to ensure uninterrupted service." },
-  { id: "verb-19", label: "Dispute instructions", type: "verbiage", content: "If you believe there is an error on your statement, write to us at the address shown within 60 days. Include your name, account number, the dollar amount of the suspected error, and a description of the problem." },
-  { id: "verb-20", label: "Security reminder", type: "verbiage", content: "For your security, always sign out of your online account when finished. Use strong, unique passwords and enable two-factor authentication when available." },
-  { id: "verb-21", label: "Grace period", type: "verbiage", content: "You have a 21-day grace period on new purchases when you pay your balance in full each month." },
-  { id: "verb-22", label: "Fee disclosure", type: "verbiage", content: "A late fee of up to $40 may be charged if your minimum payment is not received by the due date." },
-  { id: "verb-23", label: "Balance transfer offer", type: "verbiage", content: "Transfer your high-interest balances and enjoy 0% APR for 12 months. A 3% transfer fee applies. Offer expires December 31, 2026." },
-  { id: "verb-24", label: "Annual fee notice", type: "verbiage", content: "Your annual membership fee of $95 will appear on your next statement." },
-  { id: "verb-25", label: "HIPAA notice (Long)", type: "verbiage", content: "This notice describes how medical information about you may be used and disclosed and how you can get access to this information. Please review it carefully. We are required by law to maintain the privacy of your protected health information, provide you with notice of our legal duties and privacy practices, and notify you following a breach of unsecured protected health information." },
+  { id: "verb-18", label: "Address change", type: "verbiage", tags: ["Support"], content: "Moving? Update your address online or call us to ensure uninterrupted service." },
+  { id: "verb-19", label: "Dispute instructions", type: "verbiage", tags: ["Legal", "Billing"], content: "If you believe there is an error on your statement, write to us at the address shown within 60 days. Include your name, account number, the dollar amount of the suspected error, and a description of the problem." },
+  { id: "verb-20", label: "Security reminder", type: "verbiage", tags: ["Security"], content: "For your security, always sign out of your online account when finished. Use strong, unique passwords and enable two-factor authentication when available." },
+  { id: "verb-21", label: "Grace period", type: "verbiage", tags: ["Billing"], content: "You have a 21-day grace period on new purchases when you pay your balance in full each month." },
+  { id: "verb-22", label: "Fee disclosure", type: "verbiage", tags: ["Legal", "Billing"], content: "A late fee of up to $40 may be charged if your minimum payment is not received by the due date." },
+  { id: "verb-23", label: "Balance transfer offer", type: "verbiage", tags: ["Billing"], content: "Transfer your high-interest balances and enjoy 0% APR for 12 months. A 3% transfer fee applies. Offer expires December 31, 2026." },
+  { id: "verb-24", label: "Annual fee notice", type: "verbiage", tags: ["Billing"], content: "Your annual membership fee of $95 will appear on your next statement." },
+  { id: "verb-25", label: "HIPAA notice (Long)", type: "verbiage", tags: ["Legal", "Security"], content: "This notice describes how medical information about you may be used and disclosed and how you can get access to this information. Please review it carefully. We are required by law to maintain the privacy of your protected health information, provide you with notice of our legal duties and privacy practices, and notify you following a breach of unsecured protected health information." },
 ];
 
 // 20 Full Letters with varied lengths (2 paragraphs to 6 paragraphs)
 const fullLetterSeed: LibraryItem[] = [
-  { id: "full-1", label: "Dunning Letter A", type: "full-letter", content: "Hello [Customer Name],\n\nOur records indicate your account has an overdue balance. Please submit payment at your earliest convenience to avoid any disruption.\n\nIf you have already sent payment, please disregard this notice." },
-  { id: "full-2", label: "Welcome Letter", type: "full-letter", content: "Welcome to APS!\n\nWe are pleased to have you with us. This letter confirms your enrollment and provides information about how to manage your account online." },
-  { id: "full-3", label: "Policy Update Notice", type: "full-letter", content: "We are writing to inform you of updates to our service terms. These changes take effect on the first of next month. Please review the enclosed summary for details." },
-  { id: "full-4", label: "Service Confirmation", type: "full-letter", content: "This letter confirms your recent service request. Our team will process your request within 3 business days and notify you once complete." },
-  { id: "full-5", label: "Annual Statement Cover", type: "full-letter", content: "Enclosed is your annual statement. Please review it carefully and contact us if any information appears incorrect." },
-  { id: "full-6", label: "Account Closure Confirmation", type: "full-letter", content: "Dear Valued Customer,\n\nThis letter confirms that your account has been closed as requested. Any remaining balance has been refunded to your original payment method.\n\nWe appreciate the opportunity to serve you and hope you will consider us again in the future.\n\nThank you for your business." },
-  { id: "full-7", label: "Payment Plan Offer", type: "full-letter", content: "Dear [Customer Name],\n\nWe understand that financial circumstances can change. If you are having difficulty paying your balance, we want to help.\n\nWe are pleased to offer you a payment plan that allows you to pay your balance over time. Please call us at 800-555-0199 to discuss your options.\n\nOur goal is to work with you to find a solution that fits your budget." },
-  { id: "full-8", label: "Rate Increase Notice (Long)", type: "full-letter", content: "Important Notice Regarding Your Account\n\nDear [Customer Name],\n\nWe are writing to inform you of changes to your account terms. Effective [Date], your Annual Percentage Rate (APR) will increase from [Current Rate] to [New Rate].\n\nThis change is being made due to market conditions and applies to new purchases made after the effective date. Your current balance will continue to accrue interest at your existing rate.\n\nYou have the right to reject this change by notifying us in writing before [Opt-Out Date]. If you reject, you may use your account under the current terms until the end of your current membership year, but your account will be closed for future transactions.\n\nIf you have questions about this notice, please call us at 800-555-0199.\n\nThank you for being a valued customer." },
-  { id: "full-9", label: "Renewal Notice", type: "full-letter", content: "Dear Member,\n\nYour membership is up for renewal. To continue enjoying your benefits, please renew by [Date].\n\nYou can renew online at myaccount.example.com or by calling 800-555-0199." },
-  { id: "full-10", label: "Collections Final Notice", type: "full-letter", content: "FINAL NOTICE\n\nDear [Customer Name],\n\nDespite our previous attempts to contact you, your account remains seriously past due. The total amount owed is [Amount].\n\nUnless we receive payment in full or hear from you within 10 days of this letter, we will have no choice but to refer your account to a collection agency. This action may negatively impact your credit score.\n\nPlease contact us immediately at 800-555-0199 to discuss your options.\n\nWe hope to resolve this matter without further action." },
-  { id: "full-11", label: "Thank You Letter", type: "full-letter", content: "Dear [Customer Name],\n\nThank you for your recent purchase. We truly appreciate your business and hope you are satisfied with your order.\n\nIf you have any questions or concerns, please don't hesitate to reach out. We're here to help." },
-  { id: "full-12", label: "Insurance Claim Acknowledgment", type: "full-letter", content: "Re: Claim Number [Claim ID]\n\nDear [Policyholder Name],\n\nWe have received your claim dated [Date] and it is currently being reviewed. A claims adjuster will contact you within 5-7 business days.\n\nIn the meantime, please gather any additional documentation that may support your claim, including photos, receipts, and police reports if applicable.\n\nThank you for your patience during this process." },
-  { id: "full-13", label: "Benefits Enrollment Reminder", type: "full-letter", content: "Important: Open Enrollment Ends Soon\n\nDear Employee,\n\nThis is a reminder that open enrollment for employee benefits ends on [Date]. If you wish to make changes to your health insurance, dental, vision, or retirement plans, you must do so before the deadline.\n\nTo review your options and make elections, visit benefits.company.com or contact HR at ext. 4500.\n\nIf you do not make any changes, your current elections will continue for the next plan year.\n\nPlease take action before the deadline to ensure your coverage meets your needs." },
-  { id: "full-14", label: "Address Verification Request", type: "full-letter", content: "Dear [Customer Name],\n\nWe recently attempted to deliver important documents to your address on file, but they were returned as undeliverable.\n\nPlease verify and update your mailing address by calling 800-555-0199 or logging into your account online.\n\nUntil we receive your updated information, we may be unable to send you important account notices." },
-  { id: "full-15", label: "Loan Approval Letter", type: "full-letter", content: "Congratulations!\n\nDear [Applicant Name],\n\nWe are pleased to inform you that your loan application has been approved. The details of your loan are as follows:\n\nLoan Amount: [Amount]\nInterest Rate: [Rate]\nTerm: [Term]\nMonthly Payment: [Payment]\n\nPlease review the enclosed documents carefully and sign where indicated. Return the signed documents within 10 business days to finalize your loan.\n\nIf you have any questions, please contact your loan officer at [Phone].\n\nThank you for choosing us for your financial needs." },
-  { id: "full-16", label: "Service Interruption Notice", type: "full-letter", content: "Service Interruption Notice\n\nDear Customer,\n\nDue to scheduled maintenance, your service will be temporarily unavailable on [Date] from [Start Time] to [End Time].\n\nWe apologize for any inconvenience this may cause and appreciate your patience." },
-  { id: "full-17", label: "Referral Program Invitation", type: "full-letter", content: "Share the Savings!\n\nDear [Customer Name],\n\nWe hope you're enjoying your experience with us. Did you know you can earn rewards by referring friends and family?\n\nFor every new customer you refer, you'll receive a $50 credit on your account, and your friend will receive $25 off their first purchase.\n\nSimply share your unique referral code [CODE] or visit referrals.example.com to get started.\n\nThere's no limit to how much you can earn. Start referring today!" },
-  { id: "full-18", label: "Privacy Policy Update (Long)", type: "full-letter", content: "Notice of Privacy Policy Changes\n\nDear [Customer Name],\n\nWe are committed to protecting your personal information. This notice is to inform you of updates to our Privacy Policy, effective [Date].\n\nKey changes include:\n\n• How we collect and use your information\n• Your choices regarding data sharing\n• Enhanced security measures we have implemented\n• Your rights under applicable privacy laws\n\nThe updated policy is available at privacy.example.com or by calling 800-555-0199 to request a printed copy.\n\nThese changes reflect our ongoing commitment to transparency and your privacy rights. No action is required on your part, but we encourage you to review the updated policy.\n\nIf you have questions or concerns, please contact our Privacy Office at privacy@example.com.\n\nThank you for trusting us with your information." },
-  { id: "full-19", label: "Appointment Reminder", type: "full-letter", content: "Appointment Reminder\n\nDear [Patient Name],\n\nThis is a reminder of your upcoming appointment:\n\nDate: [Date]\nTime: [Time]\nLocation: [Address]\n\nPlease arrive 15 minutes early to complete any necessary paperwork. Remember to bring your insurance card and photo ID.\n\nIf you need to reschedule, please call us at least 24 hours in advance." },
-  { id: "full-20", label: "Warranty Expiration Notice", type: "full-letter", content: "Warranty Expiration Notice\n\nDear [Customer Name],\n\nThe warranty on your [Product Name] (Serial: [Serial Number]) will expire on [Date].\n\nTo continue protecting your investment, consider purchasing an extended warranty. Our extended coverage plans offer:\n\n• Full parts and labor coverage\n• No deductibles\n• 24/7 customer support\n• Transferable coverage if you sell the product\n\nVisit warranty.example.com or call 800-555-0199 before your warranty expires to take advantage of special pricing available only to existing customers.\n\nDon't wait until it's too late to protect your purchase." },
+  { id: "full-1", label: "Dunning Letter A", type: "full-letter", category: "Collections", content: "Hello [Customer Name],\n\nOur records indicate your account has an overdue balance. Please submit payment at your earliest convenience to avoid any disruption.\n\nIf you have already sent payment, please disregard this notice." },
+  { id: "full-2", label: "Welcome Letter", type: "full-letter", category: "Onboarding", content: "Welcome to APS!\n\nWe are pleased to have you with us. This letter confirms your enrollment and provides information about how to manage your account online." },
+  { id: "full-3", label: "Policy Update Notice", type: "full-letter", category: "Notifications", content: "We are writing to inform you of updates to our service terms. These changes take effect on the first of next month. Please review the enclosed summary for details." },
+  { id: "full-4", label: "Service Confirmation", type: "full-letter", category: "Confirmations", content: "This letter confirms your recent service request. Our team will process your request within 3 business days and notify you once complete." },
+  { id: "full-5", label: "Annual Statement Cover", type: "full-letter", category: "Confirmations", content: "Enclosed is your annual statement. Please review it carefully and contact us if any information appears incorrect." },
+  { id: "full-6", label: "Account Closure Confirmation", type: "full-letter", category: "Confirmations", content: "Dear Valued Customer,\n\nThis letter confirms that your account has been closed as requested. Any remaining balance has been refunded to your original payment method.\n\nWe appreciate the opportunity to serve you and hope you will consider us again in the future.\n\nThank you for your business." },
+  { id: "full-7", label: "Payment Plan Offer", type: "full-letter", category: "Offers", content: "Dear [Customer Name],\n\nWe understand that financial circumstances can change. If you are having difficulty paying your balance, we want to help.\n\nWe are pleased to offer you a payment plan that allows you to pay your balance over time. Please call us at 800-555-0199 to discuss your options.\n\nOur goal is to work with you to find a solution that fits your budget." },
+  { id: "full-8", label: "Rate Increase Notice (Long)", type: "full-letter", category: "Notifications", content: "Important Notice Regarding Your Account\n\nDear [Customer Name],\n\nWe are writing to inform you of changes to your account terms. Effective [Date], your Annual Percentage Rate (APR) will increase from [Current Rate] to [New Rate].\n\nThis change is being made due to market conditions and applies to new purchases made after the effective date. Your current balance will continue to accrue interest at your existing rate.\n\nYou have the right to reject this change by notifying us in writing before [Opt-Out Date]. If you reject, you may use your account under the current terms until the end of your current membership year, but your account will be closed for future transactions.\n\nIf you have questions about this notice, please call us at 800-555-0199.\n\nThank you for being a valued customer." },
+  { id: "full-9", label: "Renewal Notice", type: "full-letter", category: "Notifications", content: "Dear Member,\n\nYour membership is up for renewal. To continue enjoying your benefits, please renew by [Date].\n\nYou can renew online at myaccount.example.com or by calling 800-555-0199." },
+  { id: "full-10", label: "Collections Final Notice", type: "full-letter", category: "Collections", content: "FINAL NOTICE\n\nDear [Customer Name],\n\nDespite our previous attempts to contact you, your account remains seriously past due. The total amount owed is [Amount].\n\nUnless we receive payment in full or hear from you within 10 days of this letter, we will have no choice but to refer your account to a collection agency. This action may negatively impact your credit score.\n\nPlease contact us immediately at 800-555-0199 to discuss your options.\n\nWe hope to resolve this matter without further action." },
+  { id: "full-11", label: "Thank You Letter", type: "full-letter", category: "Engagement", content: "Dear [Customer Name],\n\nThank you for your recent purchase. We truly appreciate your business and hope you are satisfied with your order.\n\nIf you have any questions or concerns, please don't hesitate to reach out. We're here to help." },
+  { id: "full-12", label: "Insurance Claim Acknowledgment", type: "full-letter", category: "Confirmations", content: "Re: Claim Number [Claim ID]\n\nDear [Policyholder Name],\n\nWe have received your claim dated [Date] and it is currently being reviewed. A claims adjuster will contact you within 5-7 business days.\n\nIn the meantime, please gather any additional documentation that may support your claim, including photos, receipts, and police reports if applicable.\n\nThank you for your patience during this process." },
+  { id: "full-13", label: "Benefits Enrollment Reminder", type: "full-letter", category: "Onboarding", content: "Important: Open Enrollment Ends Soon\n\nDear Employee,\n\nThis is a reminder that open enrollment for employee benefits ends on [Date]. If you wish to make changes to your health insurance, dental, vision, or retirement plans, you must do so before the deadline.\n\nTo review your options and make elections, visit benefits.company.com or contact HR at ext. 4500.\n\nIf you do not make any changes, your current elections will continue for the next plan year.\n\nPlease take action before the deadline to ensure your coverage meets your needs." },
+  { id: "full-14", label: "Address Verification Request", type: "full-letter", category: "Notifications", content: "Dear [Customer Name],\n\nWe recently attempted to deliver important documents to your address on file, but they were returned as undeliverable.\n\nPlease verify and update your mailing address by calling 800-555-0199 or logging into your account online.\n\nUntil we receive your updated information, we may be unable to send you important account notices." },
+  { id: "full-15", label: "Loan Approval Letter", type: "full-letter", category: "Confirmations", content: "Congratulations!\n\nDear [Applicant Name],\n\nWe are pleased to inform you that your loan application has been approved. The details of your loan are as follows:\n\nLoan Amount: [Amount]\nInterest Rate: [Rate]\nTerm: [Term]\nMonthly Payment: [Payment]\n\nPlease review the enclosed documents carefully and sign where indicated. Return the signed documents within 10 business days to finalize your loan.\n\nIf you have any questions, please contact your loan officer at [Phone].\n\nThank you for choosing us for your financial needs." },
+  { id: "full-16", label: "Service Interruption Notice", type: "full-letter", category: "Notifications", content: "Service Interruption Notice\n\nDear Customer,\n\nDue to scheduled maintenance, your service will be temporarily unavailable on [Date] from [Start Time] to [End Time].\n\nWe apologize for any inconvenience this may cause and appreciate your patience." },
+  { id: "full-17", label: "Referral Program Invitation", type: "full-letter", category: "Offers", content: "Share the Savings!\n\nDear [Customer Name],\n\nWe hope you're enjoying your experience with us. Did you know you can earn rewards by referring friends and family?\n\nFor every new customer you refer, you'll receive a $50 credit on your account, and your friend will receive $25 off their first purchase.\n\nSimply share your unique referral code [CODE] or visit referrals.example.com to get started.\n\nThere's no limit to how much you can earn. Start referring today!" },
+  { id: "full-18", label: "Privacy Policy Update (Long)", type: "full-letter", category: "Notifications", content: "Notice of Privacy Policy Changes\n\nDear [Customer Name],\n\nWe are committed to protecting your personal information. This notice is to inform you of updates to our Privacy Policy, effective [Date].\n\nKey changes include:\n\n• How we collect and use your information\n• Your choices regarding data sharing\n• Enhanced security measures we have implemented\n• Your rights under applicable privacy laws\n\nThe updated policy is available at privacy.example.com or by calling 800-555-0199 to request a printed copy.\n\nThese changes reflect our ongoing commitment to transparency and your privacy rights. No action is required on your part, but we encourage you to review the updated policy.\n\nIf you have questions or concerns, please contact our Privacy Office at privacy@example.com.\n\nThank you for trusting us with your information." },
+  { id: "full-19", label: "Appointment Reminder", type: "full-letter", category: "Confirmations", content: "Appointment Reminder\n\nDear [Patient Name],\n\nThis is a reminder of your upcoming appointment:\n\nDate: [Date]\nTime: [Time]\nLocation: [Address]\n\nPlease arrive 15 minutes early to complete any necessary paperwork. Remember to bring your insurance card and photo ID.\n\nIf you need to reschedule, please call us at least 24 hours in advance." },
+  { id: "full-20", label: "Warranty Expiration Notice", type: "full-letter", category: "Notifications", content: "Warranty Expiration Notice\n\nDear [Customer Name],\n\nThe warranty on your [Product Name] (Serial: [Serial Number]) will expire on [Date].\n\nTo continue protecting your investment, consider purchasing an extended warranty. Our extended coverage plans offer:\n\n• Full parts and labor coverage\n• No deductibles\n• 24/7 customer support\n• Transferable coverage if you sell the product\n\nVisit warranty.example.com or call 800-555-0199 before your warranty expires to take advantage of special pricing available only to existing customers.\n\nDon't wait until it's too late to protect your purchase." },
 ];
 
 const librarySeed: Record<string, LibraryItem[]> = {
@@ -439,6 +387,7 @@ const libraryButtons = [
   { label: "Verbiage", tab: "Verbiage", icon: "💬" },
   { label: "Tagline", tab: "Taglines", icon: "✨" },
   { label: "Letter Template", tab: "Full Letters", icon: "📄" },
+  { label: "Upload Word", tab: "Upload", icon: "📂" },
 ] as const;
 
 function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | null {
@@ -455,6 +404,27 @@ function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | nul
     width: 320,
     align: "left",
   };
+}
+
+const DRAFT_KEY = "adhoc_letter_draft";
+
+interface LetterDraft {
+  title: string;
+  bodyContentByPage: Record<number, string>;
+  blocksByPage: Record<number, Array<{
+    id: string; label: string; type: string;
+    content?: string; x: number; y: number; width: number;
+    align: "left" | "center" | "right";
+  }>>;
+  pages: string[];
+  activePage: number;
+  spreadsheetName: string;
+  spreadsheetContent: string;
+  spreadsheetNotSaved?: boolean;
+  placeholderMap: Record<string, string>;
+  mailingMap: { mailing_name: string; mailing_addr1: string; mailing_addr2: string; mailing_addr3: string };
+  selectedLogoId?: string;
+  selectedReturnId?: string;
 }
 
 export default function BuilderClient() {
@@ -515,8 +485,16 @@ export default function BuilderClient() {
   const [favoriteTemplates, setFavoriteTemplates] = useState<string[]>([]);
   const [templateSortOrder, setTemplateSortOrder] = useState<"recent" | "a-z" | "favorites">("recent");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showManageLibrary, setShowManageLibrary] = useState(false);
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AiSettings>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<
+    Array<{ placeholder: string; column: string; confidence: "high" | "low" }>
+  >([]);
+  const [aiMapLoading, setAiMapLoading] = useState(false);
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [showImportWordModal, setShowImportWordModal] = useState(false);
   const [showTaglineModal, setShowTaglineModal] = useState(false);
   const [showVerbiageModal, setShowVerbiageModal] = useState(false);
   const [hoverPreviewId, setHoverPreviewId] = useState<string | null>(null);
@@ -534,10 +512,6 @@ export default function BuilderClient() {
   const [taglineText, setTaglineText] = useState("");
   const [verbiageTitle, setVerbiageTitle] = useState("");
   const [verbiageText, setVerbiageText] = useState("");
-  const [logoUploadPreview, setLogoUploadPreview] = useState("");
-  const [logoUploadName, setLogoUploadName] = useState("");
-  const [logoUploadError, setLogoUploadError] = useState("");
-  const [logoUploadLoading, setLogoUploadLoading] = useState(false);
   const [logoBox, setLogoBox] = useState({ width: 160, height: 70 });
   const [logoResizeState, setLogoResizeState] = useState<{
     corner: "tl" | "tr" | "bl" | "br";
@@ -562,6 +536,16 @@ export default function BuilderClient() {
   const [placeholderMap, setPlaceholderMap] = useState<Record<string, string>>({});
   const [spreadsheetContent, setSpreadsheetContent] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [preflightRunning, setPreflightRunning] = useState(false);
+  const [preflightReport, setPreflightReport] = useState<{
+    issues: PreflightIssue[];
+    truncated: boolean;
+    totalIssues: number;
+    rowCount: number;
+    checkedRowCount: number;
+    format: "afp" | "pdf";
+  } | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const [outputFormat, setOutputFormat] = useState<"afp" | "pdf">("afp");
   const [spreadsheetLoading, setSpreadsheetLoading] = useState(false);
   const [spreadsheetError, setSpreadsheetError] = useState<string | null>(null);
@@ -582,6 +566,11 @@ export default function BuilderClient() {
   });
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [showMergePreview, setShowMergePreview] = useState(false);
+  const [letterTitle, setLetterTitle] = useState("Untitled letter");
+  const [savedAgo, setSavedAgo] = useState<string | null>(null);
+  const savedAtRef = useRef<number | null>(null);
+  const [spreadsheetNotPersisted, setSpreadsheetNotPersisted] = useState(false);
 
   const bodyZoneRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<EditorClientHandle | null>(null);
@@ -589,9 +578,12 @@ export default function BuilderClient() {
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
   const inlineDraftsRef = useRef(new Map<string, string>());
   const flyoutSearchRef = useRef<HTMLInputElement | null>(null);
-  const taglineListRef = useRef<HTMLDivElement | null>(null);
   const logoAspectRef = useRef(160 / 70);
   const activePageRef = useRef(activePage);
+  const [docxError, setDocxError] = useState<string | null>(null);
+  const [docxWarning, setDocxWarning] = useState<string | null>(null);
+  const [docxLoading, setDocxLoading] = useState(false);
+  const docxInputRef = useRef<HTMLInputElement | null>(null);
   // Track pending blocks during rapid clicks to prevent overlap race condition
   const pendingBlocksRef = useRef<PlacedBlock[]>([]);
 
@@ -608,25 +600,20 @@ export default function BuilderClient() {
     activePageRef.current = activePage;
   }, [activePage]);
 
+  // Load persisted AI settings client-side only (localStorage is unavailable
+  // during prerender; loadAiSettings already try/catches).
+  useEffect(() => {
+    setAiSettings(loadAiSettings());
+  }, []);
+
   // Clear pending blocks ref after React commits blocksByPage state updates
   // This prevents stale pending blocks from causing false overlap detections
   useEffect(() => {
     pendingBlocksRef.current = [];
   }, [blocksByPage]);
 
-  // Track editor instance for toolbar
-  useEffect(() => {
-    const checkEditor = () => {
-      const editor = editorRef.current?.getEditor();
-      if (editor && editor !== editorInstance) {
-        setEditorInstance(editor);
-      }
-    };
-    // Check immediately and then poll until editor is available
-    checkEditor();
-    const interval = setInterval(checkEditor, 100);
-    return () => clearInterval(interval);
-  }, [editorInstance]);
+  // Editor instance is now set directly via onEditorReady callback
+  // (bypasses dynamic() ref-forwarding issues)
 
   // Load library preferences from localStorage
   useEffect(() => {
@@ -663,6 +650,47 @@ export default function BuilderClient() {
     } catch (e) {
       console.error("Failed to load library preferences:", e);
     }
+
+    // Restore letter draft
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft: LetterDraft = JSON.parse(raw);
+        if (draft.title) setLetterTitle(draft.title);
+        if (draft.bodyContentByPage && Object.keys(draft.bodyContentByPage).length) {
+          setBodyContentByPage(draft.bodyContentByPage);
+        }
+        if (draft.blocksByPage && Object.keys(draft.blocksByPage).length) {
+          setBlocksByPage(draft.blocksByPage as Record<number, PlacedBlock[]>);
+        }
+        if (draft.pages?.length) {
+          setPages(draft.pages);
+          setActivePage(Math.min(draft.activePage ?? 0, draft.pages.length - 1));
+        }
+        if (draft.spreadsheetName) setSpreadsheetName(draft.spreadsheetName);
+        if (!draft.spreadsheetNotSaved && draft.spreadsheetContent) {
+          setSpreadsheetContent(draft.spreadsheetContent);
+          // Re-derive columns from CSV header row
+          const [headerLine] = draft.spreadsheetContent.split(/\r?\n/);
+          const parsedColumns = headerLine
+            ? headerLine.split(",").map((v: string) => v.trim()).filter(Boolean)
+            : [];
+          if (parsedColumns.length > 0) setColumns(parsedColumns);
+        }
+        if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
+        if (draft.mailingMap) setMailingMap(draft.mailingMap);
+        if (draft.selectedLogoId) {
+          const logo = library.Logos?.find((l) => l.id === draft.selectedLogoId);
+          if (logo) setSelectedLogo(logo);
+        }
+        if (draft.selectedReturnId) {
+          const ret = library["Return Address"]?.find((r) => r.id === draft.selectedReturnId);
+          if (ret) setSelectedReturn(ret);
+        }
+      }
+    } catch {
+      // Corrupted draft — ignore and start fresh
+    }
   }, []);
 
   // Save recently used items to localStorage
@@ -688,6 +716,55 @@ export default function BuilderClient() {
   useEffect(() => { localStorage.setItem("favoriteTaglines", JSON.stringify(favoriteTaglines)); }, [favoriteTaglines]);
   useEffect(() => { localStorage.setItem("favoriteVerbiage", JSON.stringify(favoriteVerbiage)); }, [favoriteVerbiage]);
   useEffect(() => { localStorage.setItem("favoriteTemplates", JSON.stringify(favoriteTemplates)); }, [favoriteTemplates]);
+
+  // Autosave letter draft — debounced 500ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const draft: LetterDraft = {
+          title: letterTitle,
+          bodyContentByPage,
+          blocksByPage,
+          pages,
+          activePage,
+          spreadsheetName: spreadsheetName ?? "",
+          spreadsheetContent: spreadsheetContent ?? "",
+          placeholderMap,
+          mailingMap: mailingMap as LetterDraft["mailingMap"],
+          selectedLogoId: selectedLogo?.id,
+          selectedReturnId: selectedReturn?.id,
+        };
+        const serialized = JSON.stringify(draft);
+        if (serialized.length > 4 * 1024 * 1024) {
+          const slim = { ...draft, spreadsheetContent: "", spreadsheetNotSaved: true };
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(slim));
+          setSpreadsheetNotPersisted(true);
+        } else {
+          localStorage.setItem(DRAFT_KEY, serialized);
+          setSpreadsheetNotPersisted(false);
+        }
+        savedAtRef.current = Date.now();
+        setSavedAgo("just now");
+      } catch {
+        // localStorage quota exceeded — skip silently
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    letterTitle, bodyContentByPage, blocksByPage, pages, activePage,
+    spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
+    selectedLogo?.id, selectedReturn?.id,
+  ]);
+
+  // Age the "Saved · X ago" badge every 30s
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (savedAtRef.current === null) return;
+      const mins = Math.floor((Date.now() - savedAtRef.current) / 60000);
+      setSavedAgo(mins < 1 ? "just now" : `${mins} min ago`);
+    }, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   // Track usage for "Recently Used" sections
   const trackLogoUsage = (id: string) => {
@@ -1025,6 +1102,39 @@ export default function BuilderClient() {
     setSelectedBlockId(null);
   };
 
+  const deletePage = (index: number) => {
+    if (pages.length <= 1) return;
+    setPages((prev) => prev.filter((_, i) => i !== index));
+    setBodyContentByPage((prev) => {
+      const next: Record<number, string> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ki = parseInt(k);
+        if (ki < index) next[ki] = v;
+        else if (ki > index) next[ki - 1] = v;
+      });
+      return next;
+    });
+    setBlocksByPage((prev) => {
+      const next: Record<number, PlacedBlock[]> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ki = parseInt(k);
+        if (ki < index) next[ki] = v;
+        else if (ki > index) next[ki - 1] = v;
+      });
+      return next;
+    });
+    setSelectedTaglineByPage((prev) => {
+      const next: Record<number, LibraryItem | null> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const ki = parseInt(k);
+        if (ki < index) next[ki] = v;
+        else if (ki > index) next[ki - 1] = v;
+      });
+      return next;
+    });
+    setActivePage((prev) => Math.max(0, prev >= index ? prev - 1 : prev));
+  };
+
   const handleBabelPdfUpload = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       setBabelError("Please upload a PDF file");
@@ -1110,7 +1220,7 @@ export default function BuilderClient() {
   const handleSaveToLibrary = () => {
     const bodyContent = bodyContentByPage[activePage] ?? "";
     if (!bodyContent.trim()) {
-      alert("Cannot save empty letter. Please add some content first.");
+      setToast({ message: "Add some content to the letter first.", variant: "info" });
       return;
     }
 
@@ -1133,7 +1243,7 @@ export default function BuilderClient() {
       "full-letter": [...(prev["full-letter"] ?? []), newLetter],
     }));
 
-    alert("Letter saved to Full Letters library!");
+    setToast({ message: "Letter saved to the Full Letters library.", variant: "success" });
   };
 
   const handleRemoveBlock = (blockId: string) => {
@@ -1164,6 +1274,21 @@ export default function BuilderClient() {
     }
     if (item.type === "tagline") {
       setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: item }));
+      return;
+    }
+    // Insert verbiage/full-letter content into the TipTap editor
+    // so the toolbar (font, size, bold, etc.) works on it
+    if (item.type === "verbiage" || item.type === "full-letter") {
+      const editor = editorRef.current?.getEditor();
+      if (editor && item.content) {
+        const escape = (s: string) =>
+          s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const html = item.content
+          .split(/\n\n+/)
+          .map((para) => `<p>${para.split(/\n/).map(escape).join("<br>")}</p>`)
+          .join("");
+        editor.chain().focus().insertContent(html).run();
+      }
       return;
     }
     const size = getBodyZoneSize();
@@ -1380,29 +1505,66 @@ export default function BuilderClient() {
     }
   };
 
-  const handleTaglineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    // Always stop propagation to prevent parent scroll
-    event.stopPropagation();
+  const handleDocxUpload = async (file: File) => {
+    setDocxError(null);
+    setDocxWarning(null);
 
-    const list = taglineListRef.current;
-    if (!list) return;
+    if (!file.name.toLowerCase().endsWith(".docx")) {
+      setDocxError("Please upload a .docx file");
+      return;
+    }
 
-    const target = event.target as Node;
-    const isInsideList = list.contains(target);
+    setDocxLoading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer }, {
+        convertImage: mammoth.images.imgElement((image: any) =>
+          image.read("base64").then((imageBuffer: string) => ({
+            src: `data:${image.contentType};base64,${imageBuffer}`,
+          }))
+        ),
+      });
 
-    if (isInsideList) {
-      // Check if at scroll boundaries to prevent scroll chaining
-      const { scrollTop, scrollHeight, clientHeight } = list;
-      const atTop = scrollTop <= 0 && event.deltaY < 0;
-      const atBottom = scrollTop + clientHeight >= scrollHeight && event.deltaY > 0;
-
-      if (atTop || atBottom) {
-        event.preventDefault();
+      const html = result.value;
+      if (!html || !html.trim()) {
+        setDocxError("This document appears to be empty");
+        setDocxLoading(false);
+        return;
       }
-    } else {
-      // Scrolling outside list (e.g., preview panel) - scroll the list
-      event.preventDefault();
-      list.scrollTop += event.deltaY;
+
+      // Check for tables
+      const hasTableWarning = result.messages.some(
+        (msg: any) => msg.type === "warning" && msg.message.toLowerCase().includes("table")
+      );
+      const hasTableTags = /<table[\s>]/i.test(html);
+
+      if (hasTableWarning || hasTableTags) {
+        setDocxWarning(
+          "Tables detected. For best results, convert tables to images in Word first " +
+          "(select table \u2192 Copy \u2192 Paste as Picture), then re-upload."
+        );
+      }
+
+      // Sanitize and set content
+      const cleanHtml = DOMPurify.sanitize(html, {
+        ADD_TAGS: ["img"],
+        ADD_ATTR: ["src", "alt", "style"],
+      });
+
+      const editor = editorRef.current?.getEditor();
+      if (editor) {
+        editor.commands.setContent(cleanHtml);
+      }
+
+      // Reset blocks and page-level tagline on current page.
+      // Logo and return address are document-level, so keep them.
+      setBlocksByPage((prev: any) => ({ ...prev, [activePage]: [] }));
+      setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: null }));
+
+    } catch (err) {
+      setDocxError("Could not read this file. Please check it opens correctly in Word.");
+    } finally {
+      setDocxLoading(false);
     }
   };
 
@@ -1536,6 +1698,18 @@ export default function BuilderClient() {
     return htmlText.replace(/<[^>]*>/g, "").trim().length === 0;
   }, [activePage, bodyContentByPage]);
 
+  // Warn before leaving with unsaved work
+  useEffect(() => {
+    const hasContent = !bodyIsEmpty || spreadsheetName || Object.values(blocksByPage).some((b) => b.length > 0);
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasContent) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [bodyIsEmpty, spreadsheetName, blocksByPage]);
+
   const returnLines = useMemo(() => {
     const content = selectedReturn?.content ?? "";
     const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
@@ -1588,6 +1762,147 @@ export default function BuilderClient() {
       return rowMap;
     });
   }, [spreadsheetContent]);
+
+  // AI suggestions still worth showing: skip placeholders that were mapped (via
+  // Apply or the dropdown) and drop anything stale after a new upload — mirrors
+  // how autoMatchSuggestions filters already-mapped placeholders in its useMemo.
+  const visibleAiSuggestions = useMemo(
+    () =>
+      aiSuggestions.filter(
+        (suggestion) =>
+          placeholders.includes(suggestion.placeholder) &&
+          !placeholderMap[suggestion.placeholder] &&
+          columns.includes(suggestion.column)
+      ),
+    [aiSuggestions, placeholders, placeholderMap, columns]
+  );
+
+  // Apply all high-confidence AI suggestions (mirrors applyAllAutoMatches)
+  const applyAllAiSuggestions = () => {
+    setPlaceholderMap((prev) => {
+      const next = { ...prev };
+      for (const suggestion of visibleAiSuggestions) {
+        if (suggestion.confidence === "high" && !next[suggestion.placeholder]) {
+          next[suggestion.placeholder] = suggestion.column;
+        }
+      }
+      return next;
+    });
+  };
+
+  // Latest columns — lets runAiAutomap detect a mid-flight spreadsheet swap.
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+
+  // Ask the configured AI provider to map unmapped placeholders to columns.
+  const runAiAutomap = async () => {
+    if (!aiSettings || aiMapLoading) return;
+    const unmapped = placeholders.filter((p) => !placeholderMap[p]);
+    if (unmapped.length === 0 || columns.length === 0) return;
+    const columnsAtRequest = columns;
+    setAiMapLoading(true);
+    try {
+      // Respect API bounds: ≤200 placeholders, ≤500 columns, ≤5 sample rows,
+      // sample values ≤500 chars.
+      const boundedColumns = columns.slice(0, 500);
+      const sampleRows = spreadsheetRows.slice(0, 5).map((row) => {
+        const sample: Record<string, string> = {};
+        for (const col of boundedColumns) {
+          sample[col] = (row[col] ?? "").slice(0, 500);
+        }
+        return sample;
+      });
+      const result = await postAi(
+        "/ai/automap",
+        {
+          provider: aiSettings.provider,
+          model: aiSettings.model,
+          placeholders: unmapped.slice(0, 200),
+          columns: boundedColumns,
+          sample_rows: sampleRows,
+        },
+        {
+          generic: "AI auto-map failed — try again.",
+          network: "AI auto-map failed — check your connection and try again.",
+        }
+      );
+      // A different spreadsheet was uploaded while the request was in flight —
+      // every part of this response (suggestions, TLE, toasts) is stale.
+      // Staleness wins over errors: check it before any error toast.
+      if (columnsRef.current !== columnsAtRequest) {
+        setToast({
+          message: "Spreadsheet changed — AI suggestions discarded.",
+          variant: "info",
+        });
+        return;
+      }
+      if (!result.ok) {
+        setToast({ message: result.message, variant: "error" });
+        return;
+      }
+      const data = result.data as { mapping?: unknown; tle?: unknown } | null;
+      const mapping = (data?.mapping ?? {}) as Record<
+        string,
+        { column?: string; confidence?: string }
+      >;
+      const suggestions: Array<{
+        placeholder: string;
+        column: string;
+        confidence: "high" | "low";
+      }> = [];
+      for (const [placeholder, entry] of Object.entries(mapping)) {
+        // Same predicate as visibleAiSuggestions — keep only suggestions the
+        // user will actually see, so the success toast can't be a false positive.
+        if (typeof entry?.column !== "string") continue;
+        if (!placeholders.includes(placeholder)) continue;
+        if (placeholderMap[placeholder]) continue;
+        if (!columns.includes(entry.column)) continue;
+        suggestions.push({
+          placeholder,
+          column: entry.column,
+          confidence: entry.confidence === "high" ? "high" : "low",
+        });
+      }
+      setAiSuggestions(suggestions);
+
+      // Merge TLE picks only into slots the user hasn't already set.
+      const tle = (data?.tle ?? {}) as Record<string, string>;
+      const tleUpdates: Record<string, string> = {};
+      for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
+        const col = tle[key];
+        const current = mailingMap[key] ?? "";
+        const unset = current === "" || current === "__select__";
+        if (typeof col === "string" && columns.includes(col) && unset) {
+          tleUpdates[key] = col;
+        }
+      }
+      if (Object.keys(tleUpdates).length > 0) {
+        setMailingMap((prev) => {
+          const next = { ...prev };
+          for (const [key, col] of Object.entries(tleUpdates)) {
+            if (!next[key] || next[key] === "__select__") next[key] = col;
+          }
+          return next;
+        });
+      }
+
+      if (suggestions.length > 0 || Object.keys(tleUpdates).length > 0) {
+        setToast({
+          message: "AI suggestions ready — review and apply.",
+          variant: "success",
+        });
+      } else {
+        setToast({ message: "No new suggestions found.", variant: "info" });
+      }
+    } catch {
+      setToast({
+        message: "AI auto-map failed — check your connection and try again.",
+        variant: "error",
+      });
+    } finally {
+      setAiMapLoading(false);
+    }
+  };
 
   // Extract unique values for dynamic asset columns
   const getUniqueValuesForColumn = (column: string) => {
@@ -1747,7 +2062,7 @@ export default function BuilderClient() {
 
   const handleGenerate = async (format: "afp" | "pdf" = outputFormat) => {
     if (!spreadsheetContent) {
-      alert("Please upload a spreadsheet first.");
+      setToast({ message: "Upload a spreadsheet in the Data panel first.", variant: "info" });
       return;
     }
     setGenerating(true);
@@ -1792,7 +2107,10 @@ export default function BuilderClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          template_html: stripInlineControls(bodyContentByPage[0] ?? ""),
+          template_html: pages
+            .map((_, i) => stripInlineControls(bodyContentByPage[i] ?? ""))
+            .map((html, i) => i === 0 ? html : `<div style="page-break-before:always">${html}</div>`)
+            .join(""),
           block_texts: [],
           placeholder_map: placeholderMap,
           mailing_map: {
@@ -1833,34 +2151,152 @@ export default function BuilderClient() {
       const mimeType = format === "pdf" ? "application/pdf" : "application/octet-stream";
       const description = format === "pdf" ? "PDF Document" : "AFP Document";
 
-      if ("showSaveFilePicker" in window) {
-        const picker = await (window as Window & {
-          showSaveFilePicker: (options: {
-            suggestedName?: string;
-            types?: Array<{ description: string; accept: Record<string, string[]> }>;
-          }) => Promise<FileSystemFileHandle>;
-        }).showSaveFilePicker({
-          suggestedName: fileName,
-          types: [{ description, accept: { [mimeType]: [fileExt] } }],
-        });
-        const writable = await picker.createWritable();
-        await writable.write(blob);
-        await writable.close();
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
+      // Use <a> download — showSaveFilePicker fails after async fetch
+      // because the browser no longer considers it a user gesture
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      const rowCount = Math.max(0, (spreadsheetContent ?? "").split("\n").filter(Boolean).length - 1);
+      setToast({
+        message: `${format.toUpperCase()} downloaded — ${rowCount} letter${rowCount !== 1 ? "s" : ""} generated`,
+        variant: "success",
+      });
       setShowPreview(false);
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : `Failed to generate ${format.toUpperCase()}`;
-      alert(`Error: ${message}\n\nMake sure the API server is running.`);
+      const raw = error instanceof Error ? error.message : "";
+      let message: string;
+      if (raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
+        message = "Cannot reach the server. Make sure it is running and try again.";
+      } else if (raw.includes("500") || raw.includes("Internal Server")) {
+        message = "The server encountered an error while generating your file. Check the server logs for details.";
+      } else if (raw.includes("413") || raw.includes("too large")) {
+        message = "The data file is too large. Try reducing the number of records or image sizes.";
+      } else {
+        message = raw || `Failed to generate ${format.toUpperCase()}`;
+      }
+      setToast({ message: message.slice(0, 160), variant: "error" });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // Run the data preflight before generating. Hard rule: preflight
+  // infrastructure failures must never block generation — any error falls
+  // through to handleGenerate with a heads-up toast.
+  const runPreflightThenGenerate = async (format: "afp" | "pdf") => {
+    if (generating || preflightRunning) return;
+    if (spreadsheetRows.length === 0) {
+      // No data — keep the existing no-spreadsheet path (handleGenerate toasts).
+      void handleGenerate(format);
+      return;
+    }
+    const columnsAtRequest = columns;
+    setPreflightRunning(true);
+    try {
+      // Respect API bounds: ≤5000 rows, ≤500 columns, values ≤500 chars.
+      const boundedColumns = columns.slice(0, 500);
+      const rows = spreadsheetRows.slice(0, 5000).map((row) => {
+        const bounded: Record<string, string> = {};
+        for (const col of boundedColumns) {
+          bounded[col] = (row[col] ?? "").slice(0, 500);
+        }
+        return bounded;
+      });
+      // Skip columns mapped against a previous spreadsheet — they no longer
+      // exist and would only generate misleading "is empty" warnings.
+      const mappedColumns = Array.from(
+        new Set(
+          Object.values(placeholderMap).filter(
+            (col) => col !== "" && columns.includes(col)
+          )
+        )
+      ).slice(0, 500);
+      const tleColumns: Record<string, string> = {};
+      for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
+        const value = normalizeMailingValue(mailingMap[key] ?? "");
+        if (value && value !== "__select__") tleColumns[key] = value;
+      }
+      const basePayload = {
+        rows,
+        mapped_columns: mappedColumns,
+        tle_columns: tleColumns,
+      };
+      const messages = { generic: "Preflight failed.", network: "Preflight failed." };
+      // Deterministic-only preflight when AI is off — the endpoint runs its
+      // checks without provider/model.
+      let result = await postAi(
+        "/ai/preflight",
+        aiSettings
+          ? { provider: aiSettings.provider, model: aiSettings.model, ...basePayload }
+          : basePayload,
+        messages
+      );
+      // Spreadsheet swapped mid-flight — the report describes data that no
+      // longer exists. Discard it and let the user trigger Generate again.
+      if (columnsRef.current !== columnsAtRequest) {
+        setToast({
+          message: "Spreadsheet changed — preflight discarded. Click Generate again.",
+          variant: "info",
+        });
+        return;
+      }
+      if (!result.ok && aiSettings) {
+        // The AI-assisted call failed, but deterministic checks need no
+        // provider — degrade to deterministic-only before giving up.
+        console.warn("Preflight failed:", result.message);
+        result = await postAi("/ai/preflight", basePayload, messages);
+        if (columnsRef.current !== columnsAtRequest) {
+          setToast({
+            message: "Spreadsheet changed — preflight discarded. Click Generate again.",
+            variant: "info",
+          });
+          return;
+        }
+      }
+      if (!result.ok) {
+        console.warn("Preflight failed:", result.message);
+        setToast({
+          message: "Preflight unavailable — generating without checks.",
+          variant: "info",
+        });
+        void handleGenerate(format);
+        return;
+      }
+      const data = result.data as {
+        issues?: unknown;
+        truncated?: unknown;
+        total_issues?: unknown;
+      } | null;
+      const issues = (Array.isArray(data?.issues) ? data.issues : []) as PreflightIssue[];
+      if (issues.length === 0) {
+        setToast({ message: "Data checks passed.", variant: "success" });
+        void handleGenerate(format);
+        return;
+      }
+      setPreflightReport({
+        issues,
+        truncated: data?.truncated === true,
+        totalIssues:
+          typeof data?.total_issues === "number" ? data.total_issues : issues.length,
+        rowCount: spreadsheetRows.length,
+        checkedRowCount: rows.length,
+        format,
+      });
+    } catch (error) {
+      // Structural never-block guard: even an unexpected throw in the
+      // preflight path must not stop the user's print run.
+      console.warn("Preflight failed:", error);
+      setToast({
+        message: "Preflight unavailable — generating without checks.",
+        variant: "info",
+      });
+      void handleGenerate(format);
+    } finally {
+      setPreflightRunning(false);
     }
   };
 
@@ -1954,22 +2390,6 @@ export default function BuilderClient() {
     handleLogoFileUpload(file, (dataUrl) => setNewImagePreview(dataUrl));
   };
 
-  const handleLogoUploadFile = (file: File) => {
-    const validTypes = ["image/png", "image/jpeg", "image/svg+xml"];
-    const maxSize = 5 * 1024 * 1024;
-    if (!validTypes.includes(file.type)) {
-      setLogoUploadError("Invalid file type. Please upload PNG, JPG, or SVG.");
-      return;
-    }
-    if (file.size > maxSize) {
-      setLogoUploadError("File is too large. Max size is 5MB.");
-      return;
-    }
-    setLogoUploadError("");
-    setLogoUploadName(file.name.replace(/\.[^/.]+$/, ""));
-    handleLogoFileUpload(file, (dataUrl) => setLogoUploadPreview(dataUrl));
-  };
-
   const simulateLogoUpload = (name: string, url: string) =>
     new Promise<{ id: string; name: string; url: string; type: "custom" }>((resolve) => {
       setTimeout(() => {
@@ -1995,6 +2415,7 @@ export default function BuilderClient() {
   };
 
   const handleLibraryItemDelete = (tab: string, id: string) => {
+    if (!window.confirm("Delete this item? This cannot be undone.")) return;
     setLibrary((prev) => ({
       ...prev,
       [tab]: (prev[tab] ?? []).filter((item) => item.id !== id),
@@ -2108,43 +2529,97 @@ export default function BuilderClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [openMenuTab, flyoutQuery]);
 
+  const mappedValues = Object.values(placeholderMap ?? {});
+  const readiness: ReadinessItem[] = [
+    {
+      label: "Logo set",
+      status: selectedLogo ? "ok" : "warn",
+      detail: selectedLogo?.label,
+    },
+    {
+      label: "Return address",
+      status: selectedReturn ? "ok" : "warn",
+      detail: selectedReturn?.label,
+    },
+    {
+      label: "Data file",
+      status: columns.length > 0 ? "ok" : "warn",
+      detail: columns.length > 0 ? spreadsheetName ?? undefined : undefined,
+    },
+    {
+      label: "Placeholders mapped",
+      status: mappedValues.length > 0 && mappedValues.every(Boolean) ? "ok" : "warn",
+      detail: mappedValues.every(Boolean) ? "All mapped" : "Some unmapped",
+    },
+  ];
+
+  const selectedBlockData =
+    selectedBlockId
+      ? (blocksByPage[activePage] ?? []).find((b) => b.id === selectedBlockId) ?? null
+      : null;
+  const inspectorBlock = selectedBlockData
+    ? {
+        label: selectedBlockData.label,
+        type: selectedBlockData.type,
+        x: selectedBlockData.x,
+        y: selectedBlockData.y,
+        align: selectedBlockData.align as "left" | "center" | "right",
+        content: selectedBlockData.content,
+      }
+    : null;
+
   return (
     <div className="builder">
-      <header className="topbar">
-        <div className="brand">
-          <div>
-            <h1>Adhoc Print Studio <span className="brand-suffix">By PSD</span></h1>
-            <p>Compose letters from approved building blocks</p>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <button className="ghost" onClick={handleExportWord}>Export</button>
-          <button className="primary" onClick={handleSaveToLibrary}>Save</button>
-        </div>
-      </header>
+      <Topbar
+        letterTitle={letterTitle}
+        onTitleChange={setLetterTitle}
+        savedAgo={savedAgo}
+        onExport={handleExportWord}
+        onManageLibrary={() => setShowManageLibrary(true)}
+        onAiSettings={() => setShowAiSettings(true)}
+        onPreview={() => {
+          if (spreadsheetRows.length === 0) {
+            setOpenMenuTab("Data");
+          } else {
+            setShowMergePreview(true);
+          }
+        }}
+        onGenerate={() => runPreflightThenGenerate(outputFormat)}
+        generating={generating || preflightRunning}
+        generateDisabled={generating || preflightRunning || !columns.length}
+      />
 
       <div className="builder-body">
         <div className="sidebar-shell">
-          <aside className="library">
-            <div className="library-nav">
-              {libraryButtons.map((button) => (
-                <div key={button.tab} className="sidebar-button-wrap">
-                  <SidebarButton
-                    label={button.label}
-                    icon={button.icon}
-                    isActive={button.tab === activeTab}
-                    onClick={() => {
-                      setActiveTab(button.tab);
-                      setOpenMenuTab((current) => (current === button.tab ? null : button.tab));
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <button className="ghost admin" onClick={() => setShowAdmin(true)}>
-              ⚙️ Manage Library
-            </button>
-          </aside>
+          <SidebarNav
+            active={
+              openMenuTab === "Logos" ? "Logo"
+              : openMenuTab === "Return Address" ? "Return"
+              : openMenuTab === "Verbiage" ? "Verbiage"
+              : openMenuTab === "Taglines" ? "Tagline"
+              : openMenuTab === "Full Letters" ? "Templates"
+              : openMenuTab === "Data" ? "Data"
+              : null
+            }
+            onSelect={(tab: SidebarTab) => {
+              if (tab === "Import") {
+                setShowImportWordModal(true);
+                setOpenMenuTab(null);
+                return;
+              }
+              const legacyTab =
+                tab === "Logo" ? "Logos"
+                : tab === "Return" ? "Return Address"
+                : tab === "Verbiage" ? "Verbiage"
+                : tab === "Tagline" ? "Taglines"
+                : tab === "Templates" ? "Full Letters"
+                : tab === "Data" ? "Data"
+                : null;
+              if (!legacyTab) return;
+              setActiveTab(legacyTab);
+              setOpenMenuTab((current) => (current === legacyTab ? null : legacyTab));
+            }}
+          />
         </div>
 
         {openMenuTab && (
@@ -2201,110 +2676,23 @@ export default function BuilderClient() {
             }}
           >
             {openMenuTab === "Logos" ? (
-              <div className="logo-panel">
-                {/* Recently Used Section */}
-                {recentlyUsedLogos.length > 0 && !flyoutQuery && (
-                  <div className="logo-section">
-                    <div className="logo-section-header">
-                      <span className="logo-section-title">Recently Used</span>
-                    </div>
-                    <div className="logo-recent-row">
-                      {recentlyUsedLogos
-                        .map((id) => (library.Logos ?? []).find((l) => l.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="logo-card-mini"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.label}
-                          >
-                            <div className="logo-card-mini-thumb">
-                              {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* All Logos Section */}
-                <div className="logo-section">
-                  <div className="logo-section-header">
-                    <span className="logo-section-title">
-                      {flyoutQuery ? `Results for "${flyoutQuery}"` : "All Logos"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="logo-sort-select"
-                        value={logoSortOrder}
-                        onChange={(e) => setLogoSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="logo-grid">
-                    {(() => {
-                      let items = filterFlyoutItems(openMenuTab);
-                      // Apply sorting
-                      if (!flyoutQuery) {
-                        if (logoSortOrder === "a-z") {
-                          items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                        } else if (logoSortOrder === "favorites") {
-                          items = [...items].sort((a, b) => {
-                            const aFav = favoriteLogos.includes(a.id) ? 0 : 1;
-                            const bFav = favoriteLogos.includes(b.id) ? 0 : 1;
-                            return aFav - bFav || a.label.localeCompare(b.label);
-                          });
-                        } else if (logoSortOrder === "recent") {
-                          items = [...items].sort((a, b) => {
-                            const aRecent = recentlyUsedLogos.indexOf(a.id);
-                            const bRecent = recentlyUsedLogos.indexOf(b.id);
-                            const aScore = aRecent === -1 ? 999 : aRecent;
-                            const bScore = bRecent === -1 ? 999 : bRecent;
-                            return aScore - bScore || a.label.localeCompare(b.label);
-                          });
-                        }
-                      }
-                      return items.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`logo-card${favoriteLogos.includes(item.id) ? " favorited" : ""}`}
-                          draggable
-                          onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                          onClick={() => addLibraryItemToCanvas(item)}
-                          title={`${item.label} - Drag to canvas or click to insert`}
-                        >
-                          <div className="logo-card-drag-handle">
-                            <span className="drag-dots">⋮⋮</span>
-                          </div>
-                          <div className="logo-card-thumb">
-                            {item.imageUrl ? <img src={item.imageUrl} alt={item.label} /> : null}
-                          </div>
-                          <div className="logo-card-title">
-                            <span className="logo-card-label">{item.label}</span>
-                            <button
-                              className={`logo-favorite-btn${favoriteLogos.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleLogoFavorite(item.id, e)}
-                              title={favoriteLogos.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteLogos.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                          {item.isCustom && <span className="logo-badge">Custom</span>}
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </div>
-              </div>
+              <LogoLibrary
+                logos={(library.Logos ?? []).map((l) => ({
+                  id: l.id,
+                  label: l.label,
+                  url: l.imageUrl ?? "",
+                  custom: l.isCustom ?? false,
+                }))}
+                selectedId={selectedLogo?.id ?? null}
+                onSelect={(logo: LibraryLogo) => {
+                  const item = (library.Logos ?? []).find((l) => l.id === logo.id);
+                  if (item) {
+                    setSelectedLogo(item);
+                    addLibraryItemToCanvas(item);
+                  }
+                }}
+                onUpload={() => setShowLogoModal(true)}
+              />
             ) : openMenuTab === "Return Address" ? (
               <div className="library-panel-enhanced">
                 {/* Recently Used Section */}
@@ -2423,362 +2811,80 @@ export default function BuilderClient() {
                 </div>
               </div>
             ) : openMenuTab === "Taglines" ? (
-              <div className="library-panel-enhanced">
-                {/* Recently Used Section */}
-                {recentlyUsedTaglines.length > 0 && !flyoutQuery && (
-                  <div className="library-section">
-                    <div className="library-section-header">
-                      <span className="library-section-title">Recently Used</span>
-                    </div>
-                    <div className="library-recent-chips">
-                      {recentlyUsedTaglines
-                        .map((id) => (library.Taglines ?? []).find((t) => t.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="library-chip"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.content ?? item.label}
-                          >
-                            {item.label}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="library-section">
-                  <div className="library-section-header">
-                    <span className="library-section-title">
-                      {flyoutQuery ? `Results` : "All Taglines"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="library-sort-select"
-                        value={taglineSortOrder}
-                        onChange={(e) => setTaglineSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="tagline-two-column" onWheel={handleTaglineWheel}>
-                    <div className="tagline-list" ref={taglineListRef}>
-                      {(() => {
-                        let items = filterFlyoutItems(openMenuTab);
-                        if (!flyoutQuery) {
-                          if (taglineSortOrder === "a-z") {
-                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                          } else if (taglineSortOrder === "favorites") {
-                            items = [...items].sort((a, b) => {
-                              const aFav = favoriteTaglines.includes(a.id) ? 0 : 1;
-                              const bFav = favoriteTaglines.includes(b.id) ? 0 : 1;
-                              return aFav - bFav || a.label.localeCompare(b.label);
-                            });
-                          } else if (taglineSortOrder === "recent") {
-                            items = [...items].sort((a, b) => {
-                              const aRecent = recentlyUsedTaglines.indexOf(a.id);
-                              const bRecent = recentlyUsedTaglines.indexOf(b.id);
-                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
-                            });
-                          }
-                        }
-                        return items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`tagline-list-item${favoriteTaglines.includes(item.id) ? " favorited" : ""}`}
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            onMouseEnter={() => setHoverTaglineId(item.id)}
-                            onMouseLeave={() => setHoverTaglineId(null)}
-                            onFocus={() => setHoverTaglineId(item.id)}
-                            onBlur={() => setHoverTaglineId(null)}
-                            tabIndex={0}
-                          >
-                            <span className="drag-handle-icon">⋮⋮</span>
-                            <span className="library-item-label">{item.label}</span>
-                            <button
-                              className={`library-favorite-btn${favoriteTaglines.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleTaglineFavorite(item.id, e)}
-                              title={favoriteTaglines.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteTaglines.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="tagline-preview-panel">
-                      {(() => {
-                        if (!hoverTaglineId) {
-                          return <p className="hint">Hover a tagline to preview.</p>;
-                        }
-                        const activeItem = (library[openMenuTab] ?? []).find(
-                          (entry) => entry.id === hoverTaglineId
-                        );
-                        if (!activeItem) {
-                          return <p className="hint">Hover a tagline to preview.</p>;
-                        }
-                        return (
-                          <>
-                            <div className="tagline-preview-title">{activeItem.label}</div>
-                            <p>{activeItem.content ?? activeItem.label}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TaglineLibrary
+                items={(library.Taglines ?? []).map((t) => ({
+                  id: t.id,
+                  label: t.label,
+                  content: t.content ?? undefined,
+                }))}
+                query={flyoutQuery}
+                sortOrder={taglineSortOrder}
+                onSortChange={setTaglineSortOrder}
+                recentlyUsed={recentlyUsedTaglines}
+                favorites={favoriteTaglines}
+                hoverTaglineId={hoverTaglineId}
+                onHoverChange={setHoverTaglineId}
+                onToggleFavorite={toggleTaglineFavorite}
+                onSelect={(item: TaglineItem) => {
+                  const full = (library.Taglines ?? []).find((t) => t.id === item.id);
+                  if (full) addLibraryItemToCanvas(full);
+                }}
+                onDragStart={(event: React.DragEvent, item: TaglineItem) => {
+                  const full = (library.Taglines ?? []).find((t) => t.id === item.id);
+                  // TaglineItem uses generic DragEvent; handleDragStart expects the narrower HTMLDivElement variant — safe at runtime
+                  if (full) handleDragStart(event as React.DragEvent<HTMLDivElement>, full);
+                }}
+                onDragEnd={handleDragEnd}
+              />
             ) : openMenuTab === "Full Letters" ? (
-              <div className="library-panel-enhanced">
-                {/* Recently Used Section */}
-                {recentlyUsedTemplates.length > 0 && !flyoutQuery && (
-                  <div className="library-section">
-                    <div className="library-section-header">
-                      <span className="library-section-title">Recently Used</span>
-                    </div>
-                    <div className="library-recent-chips">
-                      {recentlyUsedTemplates
-                        .map((id) => (library["Full Letters"] ?? []).find((t) => t.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="library-chip"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.content ?? item.label}
-                          >
-                            {item.label}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="library-section">
-                  <div className="library-section-header">
-                    <span className="library-section-title">
-                      {flyoutQuery ? `Results` : "All Templates"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="library-sort-select"
-                        value={templateSortOrder}
-                        onChange={(e) => setTemplateSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="full-letter-two-column">
-                    <div className="full-letter-list">
-                      {(() => {
-                        let items = filterFlyoutItems(openMenuTab);
-                        if (!flyoutQuery) {
-                          if (templateSortOrder === "a-z") {
-                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                          } else if (templateSortOrder === "favorites") {
-                            items = [...items].sort((a, b) => {
-                              const aFav = favoriteTemplates.includes(a.id) ? 0 : 1;
-                              const bFav = favoriteTemplates.includes(b.id) ? 0 : 1;
-                              return aFav - bFav || a.label.localeCompare(b.label);
-                            });
-                          } else if (templateSortOrder === "recent") {
-                            items = [...items].sort((a, b) => {
-                              const aRecent = recentlyUsedTemplates.indexOf(a.id);
-                              const bRecent = recentlyUsedTemplates.indexOf(b.id);
-                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
-                            });
-                          }
-                        }
-                        return items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`full-letter-list-item${selectedFullLetterId === item.id ? " active" : ""}${favoriteTemplates.includes(item.id) ? " favorited" : ""}`}
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => {
-                              addLibraryItemToCanvas(item);
-                              setSelectedFullLetterId(item.id);
-                            }}
-                            onMouseEnter={() => setHoverFullLetterId(item.id)}
-                            onMouseLeave={() => setHoverFullLetterId(null)}
-                            onFocus={() => setHoverFullLetterId(item.id)}
-                            onBlur={() => setHoverFullLetterId(null)}
-                            tabIndex={0}
-                          >
-                            <span className="library-item-label">{item.label}</span>
-                            <button
-                              className={`library-favorite-btn${favoriteTemplates.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleTemplateFavorite(item.id, e)}
-                              title={favoriteTemplates.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteTemplates.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="full-letter-preview-panel">
-                      {(() => {
-                        const activeId = hoverFullLetterId ?? selectedFullLetterId;
-                        if (!activeId) {
-                          return <p className="hint">Hover a letter to preview.</p>;
-                        }
-                        const activeItem = (library[openMenuTab] ?? []).find(
-                          (entry) => entry.id === activeId
-                        );
-                        if (!activeItem) {
-                          return <p className="hint">Hover a letter to preview.</p>;
-                        }
-                        return (
-                          <>
-                            <div className="full-letter-preview-title">{activeItem.label}</div>
-                            <p>{activeItem.content ?? activeItem.label}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TemplateLibrary
+                items={(library["Full Letters"] ?? []).map((t) => ({
+                  id: t.id,
+                  label: t.label,
+                  content: t.content ?? "",
+                  category: t.category ?? undefined,
+                }))}
+                onApply={(item: TemplateItem) => {
+                  const sourceItem = (library["Full Letters"] ?? []).find((l) => l.id === item.id);
+                  if (!sourceItem) return;
+                  const html = sourceItem.content
+                    ? sourceItem.content.split("\n").map((p: string) => `<p>${p}</p>`).join("")
+                    : "";
+                  editorInstance?.commands.setContent(html, true);
+                  trackTemplateUsage(sourceItem.id);
+                }}
+              />
             ) : openMenuTab === "Verbiage" ? (
-              <div className="library-panel-enhanced">
-                {/* Recently Used Section */}
-                {recentlyUsedVerbiage.length > 0 && !flyoutQuery && (
-                  <div className="library-section">
-                    <div className="library-section-header">
-                      <span className="library-section-title">Recently Used</span>
-                    </div>
-                    <div className="library-recent-chips">
-                      {recentlyUsedVerbiage
-                        .map((id) => (library.Verbiage ?? []).find((v) => v.id === id))
-                        .filter(Boolean)
-                        .map((item) => item && (
-                          <div
-                            key={item.id}
-                            className="library-chip"
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => addLibraryItemToCanvas(item)}
-                            title={item.content ?? item.label}
-                          >
-                            {item.label}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Main Content */}
-                <div className="library-section">
-                  <div className="library-section-header">
-                    <span className="library-section-title">
-                      {flyoutQuery ? `Results` : "All Verbiage"}
-                    </span>
-                    {!flyoutQuery && (
-                      <select
-                        className="library-sort-select"
-                        value={verbiageSortOrder}
-                        onChange={(e) => setVerbiageSortOrder(e.target.value as "recent" | "a-z" | "favorites")}
-                      >
-                        <option value="recent">Recent</option>
-                        <option value="a-z">A-Z</option>
-                        <option value="favorites">Favorites</option>
-                      </select>
-                    )}
-                  </div>
-                  <div className="verbiage-two-column">
-                    <div className="verbiage-list">
-                      {(() => {
-                        let items = filterFlyoutItems(openMenuTab);
-                        if (!flyoutQuery) {
-                          if (verbiageSortOrder === "a-z") {
-                            items = [...items].sort((a, b) => a.label.localeCompare(b.label));
-                          } else if (verbiageSortOrder === "favorites") {
-                            items = [...items].sort((a, b) => {
-                              const aFav = favoriteVerbiage.includes(a.id) ? 0 : 1;
-                              const bFav = favoriteVerbiage.includes(b.id) ? 0 : 1;
-                              return aFav - bFav || a.label.localeCompare(b.label);
-                            });
-                          } else if (verbiageSortOrder === "recent") {
-                            items = [...items].sort((a, b) => {
-                              const aRecent = recentlyUsedVerbiage.indexOf(a.id);
-                              const bRecent = recentlyUsedVerbiage.indexOf(b.id);
-                              return (aRecent === -1 ? 999 : aRecent) - (bRecent === -1 ? 999 : bRecent) || a.label.localeCompare(b.label);
-                            });
-                          }
-                        }
-                        return items.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`verbiage-list-item${selectedVerbiageId === item.id ? " active" : ""}${favoriteVerbiage.includes(item.id) ? " favorited" : ""}`}
-                            draggable
-                            onDragStart={(event) => handleDragStart(event, item)}
-                            onDragEnd={handleDragEnd}
-                            onClick={() => {
-                              addLibraryItemToCanvas(item);
-                              setSelectedVerbiageId(item.id);
-                            }}
-                            onMouseEnter={() => setHoverPreviewId(item.id)}
-                            onMouseLeave={() => setHoverPreviewId(null)}
-                            onFocus={() => setHoverPreviewId(item.id)}
-                            onBlur={() => setHoverPreviewId(null)}
-                            tabIndex={0}
-                          >
-                            <span className="library-item-label">{item.label}</span>
-                            <button
-                              className={`library-favorite-btn${favoriteVerbiage.includes(item.id) ? " active" : ""}`}
-                              onClick={(e) => toggleVerbiageFavorite(item.id, e)}
-                              title={favoriteVerbiage.includes(item.id) ? "Remove from favorites" : "Add to favorites"}
-                            >
-                              {favoriteVerbiage.includes(item.id) ? "★" : "☆"}
-                            </button>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                    <div className="verbiage-preview-panel">
-                      {(() => {
-                        const activeId = hoverPreviewId ?? selectedVerbiageId;
-                        if (!activeId) {
-                          return <p className="hint">Hover a verbiage to preview.</p>;
-                        }
-                        const activeItem = (library[openMenuTab] ?? []).find(
-                          (entry) => entry.id === activeId
-                        );
-                        if (!activeItem) {
-                          return <p className="hint">Hover a verbiage to preview.</p>;
-                        }
-                        return (
-                          <>
-                            <div className="verbiage-preview-title">{activeItem.label}</div>
-                            <p>{activeItem.content ?? activeItem.label}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <VerbiageLibrary
+                items={(library.Verbiage ?? []).map((v) => ({
+                  id: v.id,
+                  label: v.label,
+                  content: v.content ?? "",
+                  tags: v.tags ?? [],
+                }))}
+                onInsert={(item: VerbiageItem) => {
+                  const sourceItem = (library.Verbiage ?? []).find((v) => v.id === item.id);
+                  if (sourceItem) addLibraryItemToCanvas(sourceItem);
+                }}
+              />
+            ) : openMenuTab === "Data" ? (
+              <DataPanel
+                spreadsheetName={spreadsheetName ?? null}
+                columns={columns}
+                rows={spreadsheetRows}
+                placeholders={placeholders}
+                placeholderMap={placeholderMap}
+                onPlaceholderMapChange={(map: PlaceholderMapping) => setPlaceholderMap(map)}
+                onUploadFile={(file) => handleSpreadsheetFile(file)}
+                mailingMap={mailingMap}
+                onMailingMapChange={setMailingMap}
+                spreadsheetNotPersisted={spreadsheetNotPersisted}
+                onAiAutomap={aiSettings ? runAiAutomap : undefined}
+                aiMapLoading={aiMapLoading}
+                aiSuggestions={aiSettings ? visibleAiSuggestions : undefined}
+                onApplySuggestion={applyAutoMatch}
+                onApplyAllAiSuggestions={applyAllAiSuggestions}
+              />
             ) : (
               <BlockMenu
                 items={(library[openMenuTab] ?? []).map((item) => ({
@@ -2809,6 +2915,33 @@ export default function BuilderClient() {
 
         <main className="canvas-panel">
           <div className="workspace">
+            {/* Page navigator strip */}
+            <div className="page-navigator">
+              {pages.map((label, i) => (
+                <div key={label} className={`page-tab${activePage === i ? " active" : ""}`}>
+                  <button
+                    type="button"
+                    className="page-tab-label"
+                    onClick={() => setActivePage(i)}
+                  >
+                    {label}
+                  </button>
+                  {pages.length > 1 && (
+                    <button
+                      type="button"
+                      className="page-tab-delete"
+                      aria-label={`Delete ${label}`}
+                      onClick={() => deletePage(i)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" className="page-add-btn" onClick={handleAddPage}>
+                + Add page
+              </button>
+            </div>
             <div className="canvas-area" onMouseDown={() => setOpenMenuTab(null)}>
           <section className="canvas">
             {/* Toolbar above the page */}
@@ -2920,14 +3053,20 @@ export default function BuilderClient() {
                   <EditorClient
                     ref={editorRef}
                     value={bodyContentByPage[activePage] ?? ""}
-                    onChange={(html) => updateBodyContent(activePageRef.current, html)}
+                    onChange={(html: string) => updateBodyContent(activePageRef.current, html)}
                     placeholder="Start typing your letter..."
                     columns={columns}
+                    onEditorReady={setEditorInstance}
                   />
                 {guideX !== null && <div className="guide-line guide-x" style={{ left: guideX }} />}
                 {guideY !== null && <div className="guide-line guide-y" style={{ top: guideY }} />}
                 {(blocksByPage[activePage] ?? []).length === 0 && bodyIsEmpty && (
-                  <div className="empty-state">Drop content here or start typing</div>
+                  <EmptyState
+                    onBlank={() => { editorInstance?.commands.focus(); }}
+                    onTemplate={() => setOpenMenuTab("Full Letters")}
+                    onImportWord={() => setShowImportWordModal(true)}
+                    templateCount={fullLetterSeed.length}
+                  />
                 )}
                 {(blocksByPage[activePage] ?? []).map((block) => (
                   <div
@@ -3023,552 +3162,35 @@ export default function BuilderClient() {
           </div>
         </main>
 
-        <aside className="properties">
-          <h3>Document</h3>
-          <div className="property-group">
-            <button className="ghost full-width" onClick={handleAddPage}>
-              + Add page
-            </button>
-          </div>
-
-          <h3>Babel Pages</h3>
-          <div className="property-group">
-            <p className="hint">Upload PDF pages to append after each letter</p>
-            <div
-              className={`drop-zone babel-drop${babelLoading ? " loading" : ""}`}
-              onDragEnter={(e) => e.preventDefault()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                const file = event.dataTransfer.files?.[0];
-                if (file) handleBabelPdfUpload(file);
-              }}
-            >
-              <p>{babelLoading ? "Processing PDF..." : "Drop PDF here"}</p>
-              <label className="file-input">
-                Upload PDF
-                <input
-                  type="file"
-                  accept=".pdf"
-                  disabled={babelLoading}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) handleBabelPdfUpload(file);
-                    event.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-            {babelError && <div className="alert warning">{babelError}</div>}
-            {babelPages.length > 0 && (
-              <div className="babel-pages-list">
-                {babelPages.map((page) => (
-                  <div key={page.id} className="babel-page-item">
-                    <img src={page.dataUrl} alt={page.name} className="babel-thumb" />
-                    <span className="babel-name" title={page.name}>
-                      {page.name.length > 20 ? page.name.slice(0, 20) + "..." : page.name}
-                    </span>
-                    <button
-                      className="babel-remove"
-                      onClick={() => removeBabelPage(page.id)}
-                      title="Remove"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <h3>Data</h3>
-          <div className="property-group">
-            <div
-              className={`drop-zone${isDragging ? " dragging" : ""}`}
-              onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setIsDragging(false);
-                const file = event.dataTransfer.files?.[0];
-                if (file) {
-                  handleSpreadsheetFile(file).catch((error) => {
-                    console.error(error);
-                  });
-                }
-              }}
-            >
-              <p>{spreadsheetName ? "Data file loaded" : "Drag data file here"}</p>
-              <span>{spreadsheetName ?? "Upload Excel file"}</span>
-              <label className="file-input">
-                Upload file
-                <input
-                  type="file"
-                  accept=".xlsx"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      handleSpreadsheetFile(file).catch((error) => {
-                        console.error(error);
-                      });
-                    }
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-          {spreadsheetLoading && (
-            <div className="property-group">
-              <p className="hint">Parsing spreadsheet...</p>
-            </div>
-          )}
-          {spreadsheetError && (
-            <div className="property-group">
-              <div className="alert warning">{spreadsheetError}</div>
-            </div>
-          )}
-          {columns.length > 0 && (
-            <div className="property-group">
-              <h4>Columns</h4>
-              <div className="pill-grid">
-                {columns.map((column) => (
-                  <span key={column} className="pill">
-                    {column}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {(previewRows.length > 0 || spreadsheetName) && (
-            <div className="property-group">
-              <h4>Spreadsheet preview</h4>
-              {previewRows.length > 0 ? (
-                <div className="data-preview">
-                  <table>
-                    <thead>
-                      <tr>
-                        {previewRows[0].map((cell, index) => (
-                          <th key={`head-${index}`}>{cell}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewRows.slice(1).map((row, rowIndex) => (
-                        <tr key={`row-${rowIndex}`}>
-                          {row.map((cell, cellIndex) => (
-                            <td key={`cell-${rowIndex}-${cellIndex}`}>{cell}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="hint">No preview available yet.</p>
-              )}
-            </div>
-          )}
-          {columns.length > 0 && (
-            <div className="property-group">
-              <h4>Variables mapping</h4>
-              {unmappedMailing.length > 0 && (
-                <div className="alert warning">
-                  Please map mailing address fields to address columns in the data sheet
-                </div>
-              )}
-              <div className="mapping-table">
-                {["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"].map((key) => (
-                  <div key={key} className="mapping-row">
-                    <span className="mapping-key">{key}</span>
-                    <select
-                      value={mailingMap[key] || "__select__"}
-                      onChange={(event) =>
-                        setMailingMap((prev) => ({
-                          ...prev,
-                          [key]: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="__select__" disabled>
-                        Select column
-                      </option>
-                      <option value="__empty__">(empty)</option>
-                      {columns.map((column) => (
-                        <option key={column} value={column}>
-                          {column}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-              {placeholders.length === 0 && (
-                <div className="hint-box">
-                  <p>No variables found in your letter.</p>
-                  <p>Type text in [brackets] to create variables that map to spreadsheet columns.</p>
-                  <p className="hint-example">Example: Dear [FirstName], ...</p>
-                </div>
-              )}
-              {placeholders.length > 0 && (
-                <>
-                  {unmappedPlaceholders.length > 0 && (
-                    <div className="alert warning">
-                      Unmapped placeholders: {unmappedPlaceholders.join(", ")}
-                    </div>
-                  )}
-                  {autoMatchSuggestions.length > 0 && (
-                    <div className="auto-match-banner">
-                      <div className="auto-match-header">
-                        <span className="auto-match-icon">✨</span>
-                        <span className="auto-match-title">
-                          {autoMatchSuggestions.length} auto-match{autoMatchSuggestions.length > 1 ? "es" : ""} found
-                        </span>
-                        <button
-                          className="auto-match-apply-all"
-                          onClick={applyAllAutoMatches}
-                        >
-                          Apply All
-                        </button>
-                      </div>
-                      <div className="auto-match-list">
-                        {autoMatchSuggestions.map((suggestion) => (
-                          <div key={suggestion.placeholder} className="auto-match-row">
-                            <span className="auto-match-placeholder">{suggestion.placeholder}</span>
-                            <span className="auto-match-arrow">→</span>
-                            <span className="auto-match-column">{suggestion.column}</span>
-                            <span className={`auto-match-confidence ${suggestion.confidence}`}>
-                              {suggestion.confidence === "high" ? "●●" : "●○"}
-                            </span>
-                            <button
-                              className="auto-match-apply"
-                              onClick={() => applyAutoMatch(suggestion.placeholder, suggestion.column)}
-                            >
-                              Apply
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="mapping-table">
-                    {placeholders.map((placeholder) => (
-                      <div key={placeholder} className="mapping-row">
-                        <span className="mapping-key">{placeholder}</span>
-                        <select
-                          value={placeholderMap[placeholder] ?? ""}
-                          onChange={(event) =>
-                            setPlaceholderMap((prev) => ({
-                              ...prev,
-                              [placeholder]: event.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">Select column</option>
-                          {columns.map((column) => (
-                            <option key={column} value={column}>
-                              {column}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Dynamic Asset Selection */}
-          {columns.length > 0 && (
-            <div className="property-group">
-              <h4>Dynamic Assets</h4>
-              <p className="hint">Use different logos, taglines, or return addresses based on data values.</p>
-
-              {/* Logo Selection */}
-              <div className="dynamic-asset-section">
-                <div className="dynamic-asset-header">
-                  <span className="dynamic-asset-label">Logo</span>
-                </div>
-                <div className="dynamic-asset-mode">
-                  <label className={`mode-option${logoMode === "static" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="logoMode"
-                      checked={logoMode === "static"}
-                      onChange={() => setLogoMode("static")}
-                    />
-                    Same for all
-                  </label>
-                  <label className={`mode-option${logoMode === "dynamic" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="logoMode"
-                      checked={logoMode === "dynamic"}
-                      onChange={() => setLogoMode("dynamic")}
-                    />
-                    Based on data
-                  </label>
-                </div>
-                {logoMode === "static" ? (
-                  <div className="static-asset-select">
-                    <select
-                      value={selectedLogo?.id ?? ""}
-                      onChange={(e) => {
-                        const logo = (library.Logos ?? []).find((l) => l.id === e.target.value);
-                        setSelectedLogo(logo ?? null);
-                      }}
-                    >
-                      <option value="">Select logo...</option>
-                      {(library.Logos ?? []).map((logo) => (
-                        <option key={logo.id} value={logo.id}>{logo.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dynamic-asset-config">
-                    <select
-                      value={logoColumn}
-                      onChange={(e) => setLogoColumn(e.target.value)}
-                      className="column-select"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
-                    </select>
-                    {logoColumn && uniqueLogoValues.length > 0 && (
-                      <>
-                        {uniqueLogoValues.length > 20 && (
-                          <div className="alert warning">
-                            {uniqueLogoValues.length} unique values found. Consider using a different column.
-                          </div>
-                        )}
-                        <div className="value-mapping-table">
-                          <div className="value-mapping-header">
-                            <span>Value</span>
-                            <span>Logo</span>
-                          </div>
-                          {uniqueLogoValues.slice(0, 50).map((value) => (
-                            <div key={value} className="value-mapping-row">
-                              <span className="value-cell">{value}</span>
-                              <select
-                                value={logoValueMap[value] ?? ""}
-                                onChange={(e) =>
-                                  setLogoValueMap((prev) => ({ ...prev, [value]: e.target.value }))
-                                }
-                                className={logoValueMap[value] ? "mapped" : "unmapped"}
-                              >
-                                <option value="">Select...</option>
-                                {(library.Logos ?? []).map((logo) => (
-                                  <option key={logo.id} value={logo.id}>{logo.label}</option>
-                                ))}
-                              </select>
-                              {logoValueMap[value] && <span className="match-indicator">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mapping-stats">
-                          {Object.keys(logoValueMap).filter((k) => uniqueLogoValues.includes(k) && logoValueMap[k]).length} of {uniqueLogoValues.length} mapped
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Tagline Selection */}
-              <div className="dynamic-asset-section">
-                <div className="dynamic-asset-header">
-                  <span className="dynamic-asset-label">Tagline</span>
-                </div>
-                <div className="dynamic-asset-mode">
-                  <label className={`mode-option${taglineMode === "static" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="taglineMode"
-                      checked={taglineMode === "static"}
-                      onChange={() => setTaglineMode("static")}
-                    />
-                    Same for all
-                  </label>
-                  <label className={`mode-option${taglineMode === "dynamic" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="taglineMode"
-                      checked={taglineMode === "dynamic"}
-                      onChange={() => setTaglineMode("dynamic")}
-                    />
-                    Based on data
-                  </label>
-                </div>
-                {taglineMode === "static" ? (
-                  <div className="static-asset-select">
-                    <select
-                      value={selectedTaglineByPage[activePage]?.id ?? ""}
-                      onChange={(e) => {
-                        const tagline = (library.Taglines ?? []).find((t) => t.id === e.target.value);
-                        setSelectedTaglineByPage((prev) => ({ ...prev, [activePage]: tagline ?? null }));
-                      }}
-                    >
-                      <option value="">Select tagline...</option>
-                      {(library.Taglines ?? []).map((tagline) => (
-                        <option key={tagline.id} value={tagline.id}>{tagline.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dynamic-asset-config">
-                    <select
-                      value={taglineColumn}
-                      onChange={(e) => setTaglineColumn(e.target.value)}
-                      className="column-select"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
-                    </select>
-                    {taglineColumn && uniqueTaglineValues.length > 0 && (
-                      <>
-                        {uniqueTaglineValues.length > 20 && (
-                          <div className="alert warning">
-                            {uniqueTaglineValues.length} unique values found. Consider using a different column.
-                          </div>
-                        )}
-                        <div className="value-mapping-table">
-                          <div className="value-mapping-header">
-                            <span>Value</span>
-                            <span>Tagline</span>
-                          </div>
-                          {uniqueTaglineValues.slice(0, 50).map((value) => (
-                            <div key={value} className="value-mapping-row">
-                              <span className="value-cell">{value}</span>
-                              <select
-                                value={taglineValueMap[value] ?? ""}
-                                onChange={(e) =>
-                                  setTaglineValueMap((prev) => ({ ...prev, [value]: e.target.value }))
-                                }
-                                className={taglineValueMap[value] ? "mapped" : "unmapped"}
-                              >
-                                <option value="">Select...</option>
-                                {(library.Taglines ?? []).map((tagline) => (
-                                  <option key={tagline.id} value={tagline.id}>{tagline.label}</option>
-                                ))}
-                              </select>
-                              {taglineValueMap[value] && <span className="match-indicator">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mapping-stats">
-                          {Object.keys(taglineValueMap).filter((k) => uniqueTaglineValues.includes(k) && taglineValueMap[k]).length} of {uniqueTaglineValues.length} mapped
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Return Address Selection */}
-              <div className="dynamic-asset-section">
-                <div className="dynamic-asset-header">
-                  <span className="dynamic-asset-label">Return Address</span>
-                </div>
-                <div className="dynamic-asset-mode">
-                  <label className={`mode-option${returnMode === "static" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="returnMode"
-                      checked={returnMode === "static"}
-                      onChange={() => setReturnMode("static")}
-                    />
-                    Same for all
-                  </label>
-                  <label className={`mode-option${returnMode === "dynamic" ? " active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="returnMode"
-                      checked={returnMode === "dynamic"}
-                      onChange={() => setReturnMode("dynamic")}
-                    />
-                    Based on data
-                  </label>
-                </div>
-                {returnMode === "static" ? (
-                  <div className="static-asset-select">
-                    <select
-                      value={selectedReturn?.id ?? ""}
-                      onChange={(e) => {
-                        const ret = (library["Return Address"] ?? []).find((r) => r.id === e.target.value);
-                        setSelectedReturn(ret ?? null);
-                      }}
-                    >
-                      <option value="">Select return address...</option>
-                      {(library["Return Address"] ?? []).map((ret) => (
-                        <option key={ret.id} value={ret.id}>{ret.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="dynamic-asset-config">
-                    <select
-                      value={returnColumn}
-                      onChange={(e) => setReturnColumn(e.target.value)}
-                      className="column-select"
-                    >
-                      <option value="">Select column...</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>{col}</option>
-                      ))}
-                    </select>
-                    {returnColumn && uniqueReturnValues.length > 0 && (
-                      <>
-                        {uniqueReturnValues.length > 20 && (
-                          <div className="alert warning">
-                            {uniqueReturnValues.length} unique values found. Consider using a different column.
-                          </div>
-                        )}
-                        <div className="value-mapping-table">
-                          <div className="value-mapping-header">
-                            <span>Value</span>
-                            <span>Return Address</span>
-                          </div>
-                          {uniqueReturnValues.slice(0, 50).map((value) => (
-                            <div key={value} className="value-mapping-row">
-                              <span className="value-cell">{value}</span>
-                              <select
-                                value={returnValueMap[value] ?? ""}
-                                onChange={(e) =>
-                                  setReturnValueMap((prev) => ({ ...prev, [value]: e.target.value }))
-                                }
-                                className={returnValueMap[value] ? "mapped" : "unmapped"}
-                              >
-                                <option value="">Select...</option>
-                                {(library["Return Address"] ?? []).map((ret) => (
-                                  <option key={ret.id} value={ret.id}>{ret.label}</option>
-                                ))}
-                              </select>
-                              {returnValueMap[value] && <span className="match-indicator">✓</span>}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mapping-stats">
-                          {Object.keys(returnValueMap).filter((k) => uniqueReturnValues.includes(k) && returnValueMap[k]).length} of {uniqueReturnValues.length} mapped
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="property-group">
-            <button className="primary" onClick={handleMergePreview} disabled={!spreadsheetContent}>
-              Merge/Preview/Print
-            </button>
-          </div>
-        </aside>
+        <InspectorPanel
+          selectedBlock={inspectorBlock}
+          onAlignChange={(align) => {
+            setBlocksByPage((prev) => ({
+              ...prev,
+              [activePage]: (prev[activePage] ?? []).map((b) =>
+                b.id === selectedBlockId ? { ...b, align } : b
+              ),
+            }));
+          }}
+          onXChange={(x) => {
+            setBlocksByPage((prev) => ({
+              ...prev,
+              [activePage]: (prev[activePage] ?? []).map((b) =>
+                b.id === selectedBlockId ? { ...b, x } : b
+              ),
+            }));
+          }}
+          onYChange={(y) => {
+            setBlocksByPage((prev) => ({
+              ...prev,
+              [activePage]: (prev[activePage] ?? []).map((b) =>
+                b.id === selectedBlockId ? { ...b, y } : b
+              ),
+            }));
+          }}
+          readiness={readiness}
+          onOpenMerge={() => { setOpenMenuTab("Data"); setShowMergePreview(true); }}
+        />
       </div>
 
       {showAdmin && (
@@ -3763,58 +3385,49 @@ export default function BuilderClient() {
         </div>
       )}
       {showAddressModal && (
-        <div className="modal-backdrop" onClick={() => setShowAddressModal(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create return address</h3>
-              <button className="ghost" onClick={() => setShowAddressModal(false)}>
-                Close
-              </button>
-            </div>
-            <div className="form-grid">
-              <input
-                value={addressName}
-                onChange={(event) => setAddressName(event.target.value)}
-                placeholder="Address label"
-              />
-              <textarea
-                value={addressContent}
-                onChange={(event) => setAddressContent(event.target.value)}
-                placeholder="Return address (one line per row)"
-                rows={4}
-              />
-            </div>
-            <div className="form-actions">
-              <button
-                className="ghost"
-                onClick={() => {
-                  setShowAddressModal(false);
-                  setAddressName("");
-                  setAddressContent("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  if (!addressName.trim()) return;
-                  const createdItem = addLibraryItemForTab(
-                    "Return Address",
-                    addressName.trim(),
-                    addressContent.trim()
-                  );
-                  if (createdItem) setSelectedReturn(createdItem);
-                  setAddressName("");
-                  setAddressContent("");
-                  setShowAddressModal(false);
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReturnAddressModal
+          onSave={(label, address) => {
+            const createdItem = addLibraryItemForTab(
+              "Return Address",
+              label,
+              address
+            );
+            if (createdItem) setSelectedReturn(createdItem);
+          }}
+          onClose={() => {
+            setShowAddressModal(false);
+            setAddressName("");
+            setAddressContent("");
+          }}
+        />
+      )}
+      {showAiSettings && (
+        <AiSettingsModal
+          onSaved={(settings) => {
+            setAiSettings(settings);
+            setToast(
+              settings
+                ? { message: "AI model updated", variant: "success" }
+                : { message: "AI disabled", variant: "info" }
+            );
+          }}
+          onClose={() => setShowAiSettings(false)}
+        />
+      )}
+      {preflightReport && (
+        <PreflightModal
+          issues={preflightReport.issues}
+          truncated={preflightReport.truncated}
+          totalIssues={preflightReport.totalIssues}
+          rowCount={preflightReport.rowCount}
+          checkedRowCount={preflightReport.checkedRowCount}
+          onCancel={() => setPreflightReport(null)}
+          onConfirm={() => {
+            const { format } = preflightReport;
+            setPreflightReport(null);
+            void handleGenerate(format);
+          }}
+        />
       )}
       {showTaglineModal && (
         <div className="modal-backdrop" onClick={() => setShowTaglineModal(false)}>
@@ -3914,27 +3527,10 @@ export default function BuilderClient() {
           </div>
         </div>
       )}
-      <UploadLogoModal
-        isOpen={showLogoModal}
-        previewUrl={logoUploadPreview}
-        fileName={logoUploadName}
-        errorMessage={logoUploadError}
-        isUploading={logoUploadLoading}
-        onCancel={() => {
-          setShowLogoModal(false);
-          setLogoUploadPreview("");
-          setLogoUploadName("");
-          setLogoUploadError("");
-        }}
-        onFileSelect={handleLogoUploadFile}
-        onUpload={async () => {
-          if (!logoUploadPreview) return;
-          try {
-            setLogoUploadLoading(true);
-            const response = await simulateLogoUpload(
-              logoUploadName || "Uploaded logo",
-              logoUploadPreview
-            );
+      {showLogoModal && (
+        <UploadLogoModal
+          onUpload={async (name, dataUrl) => {
+            const response = await simulateLogoUpload(name, dataUrl);
             const createdItem = addLibraryItemForTab(
               "Logos",
               response.name,
@@ -3944,14 +3540,63 @@ export default function BuilderClient() {
             );
             if (createdItem) setSelectedLogo(createdItem);
             setShowLogoModal(false);
-            setLogoUploadPreview("");
-            setLogoUploadName("");
-            setLogoUploadError("");
-          } finally {
-            setLogoUploadLoading(false);
-          }
-        }}
-      />
+          }}
+          onClose={() => setShowLogoModal(false)}
+        />
+      )}
+      {showImportWordModal && (
+        <ImportWordModal
+          onImport={(file) => handleDocxUpload(file)}
+          onClose={() => setShowImportWordModal(false)}
+        />
+      )}
+      {showManageLibrary && (
+        <ManageLibrary
+          logos={(library.Logos ?? []).map((l) => ({
+            id: l.id,
+            label: l.label,
+            isCustom: l.isCustom ?? false,
+            preview: l.imageUrl,
+          }))}
+          verbiage={(library.Verbiage ?? []).map((v) => ({
+            id: v.id,
+            label: v.label,
+            isCustom: v.isCustom ?? false,
+            preview: v.content?.slice(0, 40),
+          }))}
+          returns={(library["Return Address"] ?? []).map((r) => ({
+            id: r.id,
+            label: r.label,
+            isCustom: r.isCustom ?? false,
+          }))}
+          onDelete={(section: ManageSection, id: string) => {
+            const sectionMap: Record<ManageSection, string> = {
+              logos: "Logos",
+              verbiage: "Verbiage",
+              returns: "Return Address",
+            };
+            const tab = sectionMap[section];
+            if (!window.confirm("Delete this item? This cannot be undone.")) return;
+            setLibrary((prev) => ({
+              ...prev,
+              [tab]: (prev[tab] ?? []).filter((item) => item.id !== id),
+            }));
+          }}
+          onClose={() => setShowManageLibrary(false)}
+        />
+      )}
+      {showMergePreview && (
+        <MergePreview
+          rows={spreadsheetRows as MergeRow[]}
+          columns={columns}
+          placeholderMap={placeholderMap}
+          letterHtml={bodyContentByPage[activePage] ?? ""}
+          outputFormat={outputFormat}
+          onFormatChange={(fmt) => setOutputFormat(fmt as "afp" | "pdf")}
+          onGenerate={() => { handleGenerate(outputFormat); setShowMergePreview(false); }}
+          onClose={() => setShowMergePreview(false)}
+        />
+      )}
       {showPreview && (
         <div className="modal-backdrop" onClick={() => setShowPreview(false)}>
           <div className="modal preview-modal" onClick={(event) => event.stopPropagation()}>
@@ -4077,7 +3722,14 @@ export default function BuilderClient() {
                     Cancel
                   </button>
                   <button className="primary" onClick={() => handleGenerate(outputFormat)} disabled={generating}>
-                    {generating ? "Generating..." : `Download ${outputFormat.toUpperCase()}`}
+                    {generating ? (
+                      <>
+                        <span className="spinner" aria-hidden="true" />
+                        Generating...
+                      </>
+                    ) : (
+                      `Download ${outputFormat.toUpperCase()}`
+                    )}
                   </button>
                 </div>
               </div>
@@ -4103,6 +3755,7 @@ export default function BuilderClient() {
           </button>
         </div>
       )}
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/print-output", tags=["print-output"])
 
-DPI = 240
-PAGE_WIDTH = int(8.5 * DPI)
-PAGE_HEIGHT = int(11 * DPI)
+DPI = 300
+PAGE_WIDTH = int(8.5 * DPI)   # 2550
+PAGE_HEIGHT = int(11 * DPI)   # 3300
 
 
 @dataclass
@@ -669,6 +669,15 @@ def generate_afp(payload: dict[str, Any]) -> Response:
             page_width=PAGE_WIDTH,
             page_height=PAGE_HEIGHT
         )
+
+        # Validate AFP structure before returning
+        from app.afp_validator import validate_afp_bytes
+        valid, errors, warnings = validate_afp_bytes(afp_document)
+        if warnings:
+            for w in warnings:
+                logger.warning("AFP validation warning: %s", w)
+        if not valid:
+            logger.error("AFP validation failed: %s", errors)
 
         return Response(
             content=afp_document,

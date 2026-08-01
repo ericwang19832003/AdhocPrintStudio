@@ -10,16 +10,19 @@ Generates complete IBM AFP documents with:
 Compatible with mainframe processing, reblocking, and AFP viewers.
 """
 
+import io
 import struct
 from datetime import datetime
 from typing import List, Dict, Optional
+
+from PIL import Image
 
 # Carriage control (Machine Carriage Control for AFP)
 CC = 0x5A
 
 # Structured Field Identifiers (per AFP Architecture Reference)
-SF_BDT = bytes([0xD3, 0xA8, 0xC6])  # Begin Document (D3 A8 C6)
-SF_EDT = bytes([0xD3, 0xA9, 0xC6])  # End Document (D3 A9 C6)
+SF_BDT = bytes([0xD3, 0xA8, 0xA8])  # Begin Document (D3 A8 A8)
+SF_EDT = bytes([0xD3, 0xA9, 0xA8])  # End Document (D3 A9 A8)
 SF_BPG = bytes([0xD3, 0xA8, 0xAF])  # Begin Page (D3 A8 AF)
 SF_EPG = bytes([0xD3, 0xA9, 0xAF])  # End Page (D3 A9 AF)
 SF_PGD = bytes([0xD3, 0xA6, 0xC4])  # Page Descriptor
@@ -55,6 +58,10 @@ SF_EMM = bytes([0xD3, 0xA9, 0xCC])  # End Medium Map (D3 A9 CC)
 # Resource structured fields (for Exstream-compatible output)
 SF_BRS = bytes([0xD3, 0xA8, 0xCE])  # Begin Resource
 SF_ERS = bytes([0xD3, 0xA9, 0xCE])  # End Resource
+
+# Resource Group (Exstream uses BRG/ERG as document boundary, not BNG/ENG)
+SF_BRG = bytes([0xD3, 0xA8, 0xC6])  # Begin Resource Group
+SF_ERG = bytes([0xD3, 0xA9, 0xC6])  # End Resource Group
 
 # Named Page Group (for document grouping/indexing)
 # Per AFP Architecture Reference, BNG/ENG use D3 A8/A9 DF
@@ -142,11 +149,11 @@ def _build_epg(page_name: str = "PAGE0001") -> bytes:
     return _sf(SF_EPG, data)
 
 
-def _build_pgd(width: int = 2040, height: int = 2640, resolution: int = 240) -> bytes:
+def _build_pgd(width: int = 2550, height: int = 3300, resolution: int = 300) -> bytes:
     """
     Build Page Descriptor (PGD) structured field.
 
-    Default is 8.5" x 11" at 240 DPI.
+    Default is 8.5" x 11" at 300 DPI.
 
     Format:
     - 3 flag bytes
@@ -160,10 +167,13 @@ def _build_pgd(width: int = 2040, height: int = 2640, resolution: int = 240) -> 
     # Flag bytes
     data.extend([0x00, 0x00, 0x00])
 
-    # XpgBase and YpgBase - L-units per unit base (240 per inch * 10 = 2400)
-    # Using 2400 L-units per 10 inches
-    data.extend([0x00, 0x09, 0x60])  # 2400 in 3 bytes
-    data.extend([0x00, 0x09, 0x60])  # 2400 in 3 bytes
+    # XpgBase and YpgBase - L-units per unit base (resolution * 10)
+    # Must match the resolution used for page width/height values
+    base = resolution * 10
+    data.extend([0x00])
+    data.extend(struct.pack('>H', base))
+    data.extend([0x00])
+    data.extend(struct.pack('>H', base))
 
     # XpgSize - page width in L-units (8.5 * 240 = 2040)
     data.extend([0x00])
@@ -283,6 +293,19 @@ def _build_eng(group_name: str) -> bytes:
     return _sf(SF_ENG, data)
 
 
+def _build_brg(group_name: str) -> bytes:
+    """Build Begin Resource Group (BRG) structured field.
+    Exstream uses BRG/ERG (not BNG/ENG) as document boundaries."""
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(group_name, 8)
+    return _sf(SF_BRG, data)
+
+
+def _build_erg(group_name: str) -> bytes:
+    """Build End Resource Group (ERG) structured field."""
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(group_name, 8)
+    return _sf(SF_ERG, data)
+
+
 def _build_mcf(font_mappings: list = None) -> bytes:
     """
     Build Map Coded Font (MCF) structured field.
@@ -376,7 +399,7 @@ def _build_eog() -> bytes:
     return _sf(SF_EOG, bytes([0x00, 0x00, 0x00]))
 
 
-def _build_obd(width: int, height: int, resolution: int = 240) -> bytes:
+def _build_obd(width: int, height: int, resolution: int = 300) -> bytes:
     """Object Area Descriptor (OBD) - Elixir compatible."""
     data = bytearray()
     data.extend([0x00, 0x00, 0x00])
@@ -399,7 +422,7 @@ def _build_obp() -> bytes:
     return _sf(SF_OBP, bytes(data))
 
 
-def _build_idd(width: int, height: int, resolution: int = 240) -> bytes:
+def _build_idd(width: int, height: int, resolution: int = 300) -> bytes:
     """Image Data Descriptor (IDD) - IOCA format."""
     data = bytearray()
     data.extend([0x00, 0x00, 0x00, 0x00])
@@ -425,7 +448,7 @@ def _build_iid() -> bytes:
     return _sf(SF_IID, bytes(data))
 
 
-def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: int = 240) -> bytes:
+def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: int = 300) -> bytes:
     """Build Image Picture Data (IPD) records with IOCA self-defining fields."""
     result = bytearray()
 
@@ -442,7 +465,7 @@ def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: i
     first_ipd.extend(struct.pack('>H', width))
     first_ipd.extend(struct.pack('>H', height))
 
-    first_ipd.extend([0x95, 0x02, 0x03, 0x01])
+    first_ipd.extend([0x95, 0x02, 0x03, 0x03])
     first_ipd.extend([0x96, 0x01, 0x01])
     first_ipd.extend([0x97, 0x01, 0x00])
     first_ipd.extend([0xFE, 0x92])
@@ -503,11 +526,82 @@ def _to_bilevel(gray: bytes, w: int, h: int) -> bytes:
     return bytes(out)
 
 
+def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
+    """Extract and concatenate all compressed strip data from a TIFF file.
+
+    Large images may produce multiple strips. All strips must be concatenated
+    to avoid truncating the G4 compressed image data.
+    """
+    if tiff_bytes[:2] == b'II':
+        endian = '<'
+    else:
+        endian = '>'
+
+    ifd_offset = struct.unpack(endian + 'I', tiff_bytes[4:8])[0]
+    num_entries = struct.unpack(endian + 'H', tiff_bytes[ifd_offset:ifd_offset+2])[0]
+
+    strip_offsets: list[int] = []
+    strip_lengths: list[int] = []
+
+    for i in range(num_entries):
+        entry_off = ifd_offset + 2 + i * 12
+        tag = struct.unpack(endian + 'H', tiff_bytes[entry_off:entry_off+2])[0]
+        typ = struct.unpack(endian + 'H', tiff_bytes[entry_off+2:entry_off+4])[0]
+        count = struct.unpack(endian + 'I', tiff_bytes[entry_off+4:entry_off+8])[0]
+
+        if tag not in (273, 279):
+            continue
+
+        # Single value: stored inline in the 4-byte value field
+        if count == 1:
+            if typ == 3:  # SHORT
+                val = struct.unpack(endian + 'H', tiff_bytes[entry_off+8:entry_off+10])[0]
+            else:  # LONG
+                val = struct.unpack(endian + 'I', tiff_bytes[entry_off+8:entry_off+12])[0]
+            if tag == 273:
+                strip_offsets = [val]
+            else:
+                strip_lengths = [val]
+        else:
+            # Multiple values: value field is a pointer to the array
+            arr_offset = struct.unpack(endian + 'I', tiff_bytes[entry_off+8:entry_off+12])[0]
+            fmt = endian + ('H' if typ == 3 else 'I')
+            sz = 2 if typ == 3 else 4
+            vals = [struct.unpack(fmt, tiff_bytes[arr_offset + j * sz:arr_offset + j * sz + sz])[0]
+                    for j in range(count)]
+            if tag == 273:
+                strip_offsets = vals
+            else:
+                strip_lengths = vals
+
+    if not strip_offsets or not strip_lengths:
+        return b''
+
+    # Concatenate all strips
+    result = bytearray()
+    for off, length in zip(strip_offsets, strip_lengths):
+        result.extend(tiff_bytes[off:off + length])
+    return bytes(result)
+
+
+def _compress_g4(bilevel_data: bytes, width: int, height: int) -> bytes:
+    """Compress 1-bit bilevel data using CCITT Group 4 via Pillow TIFF."""
+    img = Image.frombytes('1', (width, height), bilevel_data)
+
+    # Save as TIFF with G4 compression
+    buf = io.BytesIO()
+    img.save(buf, format='TIFF', compression='group4')
+    tiff_bytes = buf.getvalue()
+
+    # Extract raw G4 data from TIFF container
+    return _extract_tiff_strip(tiff_bytes)
+
+
 def generate_inline_image(
     image_data: bytes,
     width: int,
     height: int,
-    resolution: int = 240
+    resolution: int = 300
 ) -> bytes:
     """
     Generate an inline image object (without page segment wrapper).
@@ -527,6 +621,7 @@ def generate_inline_image(
         width = padded_width
 
     bilevel_data = _to_bilevel(image_data, width, height)
+    compressed_data = _compress_g4(bilevel_data, width, height)
 
     result = bytearray()
     # Image object without page segment wrapper
@@ -538,7 +633,7 @@ def generate_inline_image(
     result.extend(_build_iid())
     result.extend(_build_idd(width, height, resolution))
     result.extend(_build_eog())
-    result.extend(_build_ipd_records(bilevel_data, width, height, resolution))
+    result.extend(_build_ipd_records(compressed_data, width, height, resolution))
     result.extend(_build_eio())
 
     return bytes(result)
@@ -549,7 +644,7 @@ def generate_inline_page_segment(
     width: int,
     height: int,
     segment_name: str,
-    resolution: int = 240
+    resolution: int = 300
 ) -> bytes:
     """
     Generate an inline page segment with IOCA image data.
@@ -571,6 +666,7 @@ def generate_inline_page_segment(
         width = padded_width
 
     bilevel_data = _to_bilevel(image_data, width, height)
+    compressed_data = _compress_g4(bilevel_data, width, height)
 
     result = bytearray()
     result.extend(_build_bps(segment_name))
@@ -581,7 +677,7 @@ def generate_inline_page_segment(
     result.extend(_build_iid())  # Image Input Descriptor (required by some viewers)
     result.extend(_build_idd(width, height, resolution))
     result.extend(_build_eog())
-    result.extend(_build_ipd_records(bilevel_data, width, height, resolution))
+    result.extend(_build_ipd_records(compressed_data, width, height, resolution))
     result.extend(_build_eio())
     result.extend(_build_eps(segment_name))
 
@@ -591,16 +687,17 @@ def generate_inline_page_segment(
 def generate_afp_document(
     pages: List[Dict],
     document_name: str = "PRINTDOC",
-    resolution: int = 240,
-    page_width: int = 2040,
-    page_height: int = 2640
+    resolution: int = 300,
+    page_width: int = 2550,
+    page_height: int = 3300
 ) -> bytes:
     """
     Generate a complete AFP document with TLE index data.
 
-    Each page is wrapped in its own BDT/EDT (Begin/End Document) structure
-    so that mainframe tools like Enrichment One can detect document boundaries
-    based on TLE records.
+    Uses the correct BlueCrest-compatible structure:
+    - Single BDT/EDT wrapping the entire file
+    - Each letter wrapped in BNG/ENG (Named Page Group)
+    - TLE records placed between BNG and BPG for indexing
 
     Args:
         pages: List of page dictionaries, each containing:
@@ -616,37 +713,27 @@ def generate_afp_document(
                 - return_addr2
                 - return_addr3
         document_name: str - 8-character document name
-        resolution: int - DPI (default 240)
-        page_width: int - page width in L-units (default 8.5" at 240 DPI)
-        page_height: int - page height in L-units (default 11" at 240 DPI)
+        resolution: int - DPI (default 300)
+        page_width: int - page width in L-units (default 8.5" at 300 DPI)
+        page_height: int - page height in L-units (default 11" at 300 DPI)
 
     Returns:
         bytes - Complete AFP document
     """
     result = bytearray()
 
-    # Generate each page as a separate document (BDT/EDT wrapper)
-    # This allows Enrichment One to detect document boundaries via TLE records
+    # Single BDT for the entire file
+    result.extend(_build_bdt(document_name))
+
     for page_num, page in enumerate(pages, start=1):
-        doc_name = f"DOC{page_num:05d}"
+        group_name = f"G{page_num:07d}"
         page_name = f"P{page_num:07d}"
 
-        # Begin Document - each letter is its own document
-        result.extend(_build_bdt(doc_name))
+        # Begin Named Page Group (letter boundary for BlueCrest)
+        result.extend(_build_bng(group_name))
 
-        # Begin Page
-        result.extend(_build_bpg(page_name))
-
-        # Begin Active Environment Group
-        result.extend(_build_bag())
-
-        # End Active Environment Group
-        result.extend(_build_eag())
-
-        # TLE records for this page (critical for document detection)
-        # Enrichment One uses these to identify document boundaries
+        # TLE records between BNG and BPG (critical for indexing)
         tle_data = page.get('tle_data', {})
-
         tle_fields = [
             ('mailing_name', tle_data.get('mailing_name', '')),
             ('mailing_addr1', tle_data.get('mailing_addr1', '')),
@@ -656,13 +743,18 @@ def generate_afp_document(
             ('return_addr2', tle_data.get('return_addr2', '')),
             ('return_addr3', tle_data.get('return_addr3', '')),
         ]
-
         for field_name, field_value in tle_fields:
-            # Always write TLE records, even when value is empty
             result.extend(_build_tle(field_name, field_value))
 
+        # Begin Page
+        result.extend(_build_bpg(page_name))
+
+        # Active Environment Group with Page Descriptor
+        result.extend(_build_bag())
+        result.extend(_build_pgd(page_width, page_height, resolution))
+        result.extend(_build_eag())
+
         # Embed letter image if provided
-        # Uses IM Image format (BIO/EIO) compatible with Bluecrest
         image_data = page.get('image_data')
         if image_data:
             img_width = page.get('width', page_width)
@@ -674,8 +766,11 @@ def generate_afp_document(
         # End Page
         result.extend(_build_epg(page_name))
 
-        # End Document - closes this letter's document boundary
-        result.extend(_build_edt(doc_name))
+        # End Named Page Group
+        result.extend(_build_eng(group_name))
+
+    # Single EDT for the entire file
+    result.extend(_build_edt(document_name))
 
     return bytes(result)
 
@@ -718,97 +813,45 @@ def create_afp_with_tle(
 def generate_afp_with_resources(
     pages: List[Dict],
     document_name: str = "PRINTDOC",
-    resolution: int = 240,
-    page_width: int = 2040,
-    page_height: int = 2640
+    resolution: int = 300,
+    page_width: int = 2550,
+    page_height: int = 3300
 ) -> bytes:
     """
-    Generate AFP document with Exstream-compatible resource structure.
+    Generate AFP document matching Exstream output structure for BlueCrest compatibility.
 
-    This format includes:
-    - Resource section with page segments for images
-    - Named Page Groups for document boundaries
-    - Map Coded Font in Active Environment Groups
-    - Include Page Segment references instead of inline images
+    Structure per page (matches working Exstream AFP):
+        BRG (DOCnnnnnnn)
+          BPG (Pnnnnnnn)
+            BAG / EAG  (empty — no PGD, no MCF)
+            TLE × 7    (inside BPG, after AEG)
+            BPS (Snnnnnnn)  — inline page segment definition
+              BIO / BOG / OBD / OBP / IID / IDD / EOG / IPD... / EIO
+            EPS (Snnnnnnn)
+            IPS (Snnnnnnn)  — reference to the inline segment
+          EPG
+        ERG
 
-    This structure is more compatible with production print systems like Bluecrest.
-
-    Args:
-        pages: List of page dictionaries (same format as generate_afp_document)
-        document_name: str - 8-character document name
-        resolution: int - DPI (default 240)
-        page_width: int - page width in L-units
-        page_height: int - page height in L-units
-
-    Returns:
-        bytes - Complete AFP document with resource structure
+    No BDT/EDT wrapper. No PGD. No MCF. No NOP comments.
     """
     result = bytearray()
 
-    # Add document header comments (like Exstream does)
-    result.extend(_build_nop_comment(f"Generated by AdhocPrintStudio"))
-    result.extend(_build_nop_comment(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
-
-    # Begin main document
-    result.extend(_build_bdt(document_name))
-
-    # ============== RESOURCE SECTION ==============
-    # Create page segment resources for all images first
-    page_segments = []  # Track segment names for later reference
-
     for page_num, page in enumerate(pages, start=1):
-        image_data = page.get('image_data')
-        if not image_data:
-            continue
-
-        segment_name = f"S{page_num:07d}"
-        page_segments.append((page_num, segment_name))
-
-        img_width = page.get('width', page_width)
-        img_height = page.get('height', page_height)
-
-        # Begin Resource (Page Segment type = 0x03)
-        result.extend(_build_brs(segment_name, resource_type=0x03))
-
-        # Begin Page Segment
-        result.extend(_build_bps(segment_name))
-
-        # Image Object within Page Segment
-        image_obj_name = f"I{page_num:07d}"
-        result.extend(_build_bio(image_obj_name))
-
-        # Object Environment Group
-        result.extend(_build_bog())
-        result.extend(_build_obd(img_width, img_height, resolution))
-        result.extend(_build_obp())
-        result.extend(_build_iid())
-        result.extend(_build_eog())
-
-        # Image Data
-        result.extend(_build_idd(img_width, img_height, resolution))
-        result.extend(_build_ipd_records(image_data, img_width, img_height, resolution))
-
-        # End Image Object
-        result.extend(_build_eio())
-
-        # End Page Segment
-        result.extend(_build_eps(segment_name))
-
-        # End Resource
-        result.extend(_build_ers(segment_name))
-
-    # ============== PAGE SECTION ==============
-    # Now output pages that reference the page segment resources
-
-    segment_index = 0
-    for page_num, page in enumerate(pages, start=1):
-        group_name = f"G{page_num:07d}"
+        group_name = f"DOC{page_num:05d}"
         page_name = f"P{page_num:07d}"
+        segment_name = f"S{page_num:07d}"
 
-        # Begin Named Page Group (for document boundary detection)
-        result.extend(_build_bng(group_name))
+        # Begin Resource Group (Exstream uses BRG, not BNG)
+        result.extend(_build_brg(group_name))
 
-        # TLE records for this page/group (critical for indexing)
+        # Begin Page
+        result.extend(_build_bpg(page_name))
+
+        # Empty Active Environment Group (Exstream style — no PGD, no MCF)
+        result.extend(_build_bag())
+        result.extend(_build_eag())
+
+        # TLE records inside BPG (after AEG, before image)
         tle_data = page.get('tle_data', {})
         tle_fields = [
             ('mailing_name', tle_data.get('mailing_name', '')),
@@ -823,28 +866,21 @@ def generate_afp_with_resources(
         for field_name, field_value in tle_fields:
             result.extend(_build_tle(field_name, field_value))
 
-        # Begin Page
-        result.extend(_build_bpg(page_name))
-
-        # Active Environment Group with font mapping
-        result.extend(_build_bag())
-        # Include Map Coded Font for text rendering support
-        result.extend(_build_mcf())
-        result.extend(_build_eag())
-
-        # Include Page Segment reference (instead of inline image)
-        if page.get('image_data') and segment_index < len(page_segments):
-            _, segment_name = page_segments[segment_index]
+        # Inline page segment + IPS reference (Exstream pattern)
+        image_data = page.get('image_data')
+        if image_data:
+            img_width = page.get('width', page_width)
+            img_height = page.get('height', page_height)
+            result.extend(generate_inline_page_segment(
+                image_data, img_width, img_height, segment_name, resolution
+            ))
+            # IPS references the inline segment (required by BlueCrest)
             result.extend(_build_ips(segment_name))
-            segment_index += 1
 
         # End Page
         result.extend(_build_epg(page_name))
 
-        # End Named Page Group
-        result.extend(_build_eng(group_name))
-
-    # End Document
-    result.extend(_build_edt(document_name))
+        # End Resource Group
+        result.extend(_build_erg(group_name))
 
     return bytes(result)

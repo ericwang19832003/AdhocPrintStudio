@@ -51,6 +51,7 @@ type EditorClientProps = {
   placeholder?: string;
   onDropItem?: (item: DroppedItem, coords: { x: number; y: number }) => void;
   columns?: string[];
+  onEditorReady?: (editor: Editor | null) => void;
 };
 
 const FontSize = Extension.create({
@@ -113,7 +114,6 @@ const VerbiageBlock = TiptapNode.create({
   name: "verbiageBlock",
   group: "block",
   content: "block+",
-  isolating: true,
   addAttributes() {
     return {
       verbiageId: { default: null },
@@ -140,7 +140,7 @@ const VerbiageBlock = TiptapNode.create({
 });
 
 const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
-  ({ value, onChange, placeholder, onDropItem, columns = [] }, ref) => {
+  ({ value, onChange, placeholder, onDropItem, columns = [], onEditorReady }, ref) => {
   // Placeholder picker state
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
@@ -206,6 +206,12 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       },
     },
   });
+
+  // Report live editor instance to parent (bypasses dynamic() ref issues)
+  useEffect(() => {
+    onEditorReady?.(editor);
+    return () => onEditorReady?.(null);
+  }, [editor, onEditorReady]);
 
   useEffect(() => {
     if (!editor) return;
@@ -549,6 +555,8 @@ EditorClient.displayName = "EditorClient";
 export function EditorToolbar({ editor }: { editor: Editor | null }) {
   const [showTextColorPicker, setShowTextColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showFontMenu, setShowFontMenu] = useState(false);
+  const [showSizeMenu, setShowSizeMenu] = useState(false);
 
   const textColors = [
     { name: "Black", value: "#000000" },
@@ -622,7 +630,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
   }
 
   return (
-    <div className="editor-toolbar-bar" onMouseDown={(e) => e.preventDefault()}>
+    <div className="editor-toolbar-bar" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}>
       {/* Undo/Redo */}
       <div className="toolbar-group">
         <button
@@ -643,50 +651,71 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
         </button>
       </div>
 
-      {/* Font & Size */}
+      {/* Font & Size — custom dropdowns (native <select> steals focus from TipTap) */}
       <div className="toolbar-group">
-        <select
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (value) {
-              editor.chain().focus().setFontFamily(value).run();
-              event.target.value = "";
-            }
-          }}
-          title="Font Family"
-        >
-          <option value="">Font</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Garamond">Garamond</option>
-          <option value="Arial">Arial</option>
-          <option value="Helvetica">Helvetica</option>
-          <option value="Verdana">Verdana</option>
-          <option value="Courier New">Courier New</option>
-        </select>
-        <select
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (value) {
-              editor.chain().focus().setFontSize(value).run();
-              event.target.value = "";
-            }
-          }}
-          title="Font Size"
-        >
-          <option value="">Size</option>
-          <option value="9pt">9</option>
-          <option value="10pt">10</option>
-          <option value="11pt">11</option>
-          <option value="12pt">12</option>
-          <option value="14pt">14</option>
-          <option value="16pt">16</option>
-          <option value="18pt">18</option>
-          <option value="24pt">24</option>
-          <option value="36pt">36</option>
-        </select>
+        <div className="toolbar-dropdown">
+          <button
+            type="button"
+            className="toolbar-dropdown-trigger"
+            onMouseDown={(e) => { e.preventDefault(); setShowFontMenu(!showFontMenu); setShowSizeMenu(false); }}
+            title="Font Family"
+          >
+            {editor.getAttributes("textStyle").fontFamily || "Font"}
+            <span className="toolbar-dropdown-arrow">▾</span>
+          </button>
+          {showFontMenu && (
+            <div className="toolbar-dropdown-menu">
+              {[
+                "Times New Roman", "Georgia", "Garamond", "Palatino",
+                "Book Antiqua", "Cambria",
+                "Arial", "Helvetica", "Verdana", "Tahoma", "Trebuchet MS",
+                "Calibri", "Segoe UI", "Century Gothic",
+                "Courier New", "Lucida Console",
+              ].map((font) => (
+                <div
+                  key={font}
+                  className="toolbar-dropdown-item"
+                  style={{ fontFamily: font }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor.chain().focus().setFontFamily(font).run();
+                    setShowFontMenu(false);
+                  }}
+                >
+                  {font}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="toolbar-dropdown">
+          <button
+            type="button"
+            className="toolbar-dropdown-trigger"
+            onMouseDown={(e) => { e.preventDefault(); setShowSizeMenu(!showSizeMenu); setShowFontMenu(false); }}
+            title="Font Size"
+          >
+            {editor.getAttributes("textStyle").fontSize?.replace("pt", "") || "Size"}
+            <span className="toolbar-dropdown-arrow">▾</span>
+          </button>
+          {showSizeMenu && (
+            <div className="toolbar-dropdown-menu">
+              {["9", "10", "11", "12", "14", "16", "18", "24", "36"].map((size) => (
+                <div
+                  key={size}
+                  className="toolbar-dropdown-item"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor.chain().focus().setFontSize(`${size}pt`).run();
+                    setShowSizeMenu(false);
+                  }}
+                >
+                  {size}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Text Formatting */}

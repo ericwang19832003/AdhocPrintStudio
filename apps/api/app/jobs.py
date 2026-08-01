@@ -57,7 +57,7 @@ class UpdateReturnAddressRequest(BaseModel):
 @router.post("/template-profiles")
 def create_template_profile(payload: CreateTemplateProfileRequest) -> dict[str, Any]:
     try:
-        asset_id = uuid.UUID(payload.template_asset_id)
+        asset_id = str(uuid.UUID(payload.template_asset_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid template_asset_id") from exc
 
@@ -90,7 +90,7 @@ def create_template_profile(payload: CreateTemplateProfileRequest) -> dict[str, 
 @router.get("/template-profiles/{template_profile_id}")
 def get_template_profile(template_profile_id: str) -> dict[str, Any]:
     try:
-        profile_id = uuid.UUID(template_profile_id)
+        profile_id = str(uuid.UUID(template_profile_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid template_profile_id") from exc
 
@@ -112,7 +112,7 @@ def get_template_profile(template_profile_id: str) -> dict[str, Any]:
 @router.post("/jobs")
 def create_job(payload: CreateJobRequest) -> dict[str, Any]:
     try:
-        template_profile_id = uuid.UUID(payload.template_profile_id)
+        template_profile_id = str(uuid.UUID(payload.template_profile_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid template_profile_id") from exc
 
@@ -131,7 +131,7 @@ def create_job(payload: CreateJobRequest) -> dict[str, Any]:
 @router.put("/jobs/{job_id}/mappings")
 def update_job_mappings(job_id: str, payload: UpdateMappingsRequest) -> dict[str, str]:
     try:
-        job_uuid = uuid.UUID(job_id)
+        job_uuid = str(uuid.UUID(job_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid job_id") from exc
 
@@ -156,7 +156,7 @@ def update_job_mappings(job_id: str, payload: UpdateMappingsRequest) -> dict[str
 @router.put("/jobs/{job_id}/tle")
 def update_job_tle(job_id: str, payload: UpdateTleRequest) -> dict[str, str]:
     try:
-        job_uuid = uuid.UUID(job_id)
+        job_uuid = str(uuid.UUID(job_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid job_id") from exc
 
@@ -183,7 +183,7 @@ def update_job_tle(job_id: str, payload: UpdateTleRequest) -> dict[str, str]:
 @router.get("/jobs/{job_id}/tle")
 def get_job_tle(job_id: str) -> dict[str, Any]:
     try:
-        job_uuid = uuid.UUID(job_id)
+        job_uuid = str(uuid.UUID(job_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid job_id") from exc
 
@@ -206,7 +206,7 @@ def get_job_tle(job_id: str) -> dict[str, Any]:
 @router.put("/jobs/{job_id}/return-address")
 def upsert_return_address(job_id: str, payload: UpdateReturnAddressRequest) -> dict[str, str]:
     try:
-        job_uuid = uuid.UUID(job_id)
+        job_uuid = str(uuid.UUID(job_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid job_id") from exc
 
@@ -229,7 +229,7 @@ def upsert_return_address(job_id: str, payload: UpdateReturnAddressRequest) -> d
 @router.get("/jobs/{job_id}/return-address")
 def get_return_address(job_id: str) -> dict[str, Any]:
     try:
-        job_uuid = uuid.UUID(job_id)
+        job_uuid = str(uuid.UUID(job_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid job_id") from exc
 
@@ -249,7 +249,7 @@ def get_return_address(job_id: str) -> dict[str, Any]:
 @router.post("/jobs/{job_id}/validate")
 def validate_job(job_id: str) -> dict[str, Any]:
     try:
-        job_uuid = uuid.UUID(job_id)
+        job_uuid = str(uuid.UUID(job_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid job_id") from exc
 
