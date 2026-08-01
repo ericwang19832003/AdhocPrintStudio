@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 export interface TaglineItem {
   id: string;
@@ -40,35 +40,41 @@ export function TaglineLibrary({
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const term = query.trim().toLowerCase();
-  let filtered = term
-    ? items.filter(
+
+  const filtered = useMemo(() => {
+    if (term) {
+      return items.filter(
         (item) =>
           item.label.toLowerCase().includes(term) ||
           (item.content ?? "").toLowerCase().includes(term)
-      )
-    : [...items];
-
-  if (!term) {
+      );
+    }
+    const sorted = [...items];
     if (sortOrder === "a-z") {
-      filtered.sort((a, b) => a.label.localeCompare(b.label));
+      sorted.sort((a, b) => a.label.localeCompare(b.label));
     } else if (sortOrder === "favorites") {
-      filtered.sort((a, b) => {
+      sorted.sort((a, b) => {
         const aFav = favorites.includes(a.id) ? 0 : 1;
         const bFav = favorites.includes(b.id) ? 0 : 1;
         return aFav - bFav || a.label.localeCompare(b.label);
       });
     } else {
-      filtered.sort((a, b) => {
+      sorted.sort((a, b) => {
         const ai = recentlyUsed.indexOf(a.id);
         const bi = recentlyUsed.indexOf(b.id);
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi) || a.label.localeCompare(b.label);
       });
     }
-  }
+    return sorted;
+  }, [items, term, sortOrder, favorites, recentlyUsed]);
 
-  const recentItems = recentlyUsed
-    .map((id) => items.find((t) => t.id === id))
-    .filter(Boolean) as TaglineItem[];
+  const recentItems = useMemo(
+    () =>
+      recentlyUsed
+        .map((id) => items.find((t) => t.id === id))
+        .filter(Boolean) as TaglineItem[],
+    [recentlyUsed, items]
+  );
 
   const activePreview = hoverTaglineId
     ? items.find((t) => t.id === hoverTaglineId)
