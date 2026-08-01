@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from PIL import Image, ImageDraw, ImageFont
 
-from app.afp_document_generator import generate_afp_document, generate_afp_with_resources
+from app.afp_document_generator import generate_afp_document, generate_afp_exstream
 from app.afp_cleaner import clean_afp
 from app.security import validate_file_size, validate_file_content, MAX_UPLOAD_SIZE
 from app.xml_streaming_parser import (
@@ -659,10 +659,11 @@ def generate_afp(payload: dict[str, Any]) -> Response:
             for babel_page in babel_page_info:
                 pages.append(babel_page.copy())
 
-        # Generate AFP document with Exstream-compatible resource structure
-        # Uses BRS/ERS for page segment resources, BNG/ENG for named page groups,
-        # and MCF for font mappings - better compatibility with Bluecrest
-        afp_document = generate_afp_with_resources(
+        # Generate AFP document in OpenText Exstream 22.3 output format:
+        # BDT/EDT document wrapper, BNG/ENG named page groups with group-level
+        # TLE index tags, BAG{PGD}EAG per page, inline IOCA image objects —
+        # all with spec-correct MO:DCA structured field ids.
+        afp_document = generate_afp_exstream(
             pages=pages,
             document_name="MAILOUT",
             resolution=DPI,

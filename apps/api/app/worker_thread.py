@@ -98,8 +98,8 @@ def _process_run(run_id: str, job_id: str) -> None:
         "Return_Addr3": return_addr3,
     }
 
-    # 6. Generate AFP output with TLE data
-    from app.afp_document_generator import generate_afp_with_resources
+    # 6. Generate AFP output with TLE data (Exstream 22.3 output format)
+    from app.afp_document_generator import generate_afp_exstream
     pages = [{
         'tle_data': {
             'mailing_name': name or '',
@@ -111,7 +111,7 @@ def _process_run(run_id: str, job_id: str) -> None:
             'return_addr3': return_addr3 or '',
         }
     }]
-    afp_bytes = generate_afp_with_resources(pages, document_name="MAILOUT")
+    afp_bytes = generate_afp_exstream(pages, document_name="MAILOUT")
     tle_bytes = json.dumps(tle_manifest).encode("utf-8")
 
     output_key = f"outputs/{run_id}.afp"

@@ -71,6 +71,19 @@ SF_ENG = bytes([0xD3, 0xA9, 0xDF])  # End Named Page Group
 # Map Coded Font (font mapping in AEG)
 SF_MCF = bytes([0xD3, 0xAB, 0x8A])  # Map Coded Font
 
+# ---------------------------------------------------------------------------
+# Standard MO:DCA structured field IDs (per MO:DCA Reference / AFP Consortium).
+# NOTE: several constants above (SF_BNG/SF_ENG/SF_BAG/SF_EAG/SF_PGD/SF_IID)
+# carry NONSTANDARD ids that were reverse-engineered for the legacy BlueCrest
+# format and are kept for byte-compatibility of the legacy generators.
+# The Exstream 22.3 generator below uses these spec-correct ids instead.
+# ---------------------------------------------------------------------------
+SF_BNG_STD = bytes([0xD3, 0xA8, 0xAD])  # Begin Named Page Group (X'D3A8AD')
+SF_ENG_STD = bytes([0xD3, 0xA9, 0xAD])  # End Named Page Group (X'D3A9AD')
+SF_BAG_STD = bytes([0xD3, 0xA8, 0xC9])  # Begin Active Environment Group (X'D3A8C9')
+SF_EAG_STD = bytes([0xD3, 0xA9, 0xC9])  # End Active Environment Group (X'D3A9C9')
+SF_PGD_STD = bytes([0xD3, 0xA6, 0xAF])  # Page Descriptor (X'D3A6AF')
+
 
 def _sf(sf_id: bytes, data: bytes = b'') -> bytes:
     """Build structured field with carriage control (MCC format).
@@ -601,7 +614,8 @@ def generate_inline_image(
     image_data: bytes,
     width: int,
     height: int,
-    resolution: int = 300
+    resolution: int = 300,
+    include_iid: bool = True
 ) -> bytes:
     """
     Generate an inline image object (without page segment wrapper).
@@ -630,7 +644,10 @@ def generate_inline_image(
     result.extend(_build_bog())
     result.extend(_build_obd(width, height, resolution))
     result.extend(_build_obp())
-    result.extend(_build_iid())
+    if include_iid:
+        # Nonstandard id retained for the legacy BlueCrest format; IOCA
+        # objects only require IDD, so the Exstream path omits this.
+        result.extend(_build_iid())
     result.extend(_build_idd(width, height, resolution))
     result.extend(_build_eog())
     result.extend(_build_ipd_records(compressed_data, width, height, resolution))
@@ -883,4 +900,113 @@ def generate_afp_with_resources(
         # End Resource Group
         result.extend(_build_erg(group_name))
 
+    return bytes(result)
+
+
+# ============== Exstream 22.3 Compatible Output ==============
+
+EXSTREAM_BANNER = "CREATED IN OPENTEXT EXSTREAM 22.3 OUTPUT FORMAT (MO:DCA)"
+
+
+def _build_pgd_std(width: int, height: int, resolution: int) -> bytes:
+    """
+    Build a spec-correct Page Descriptor (PGD, X'D3A6AF') per MO:DCA Reference.
+
+    Data layout (after the 3 introducer flag/reserved bytes):
+      XpgBase(1)  YpgBase(1)   - X'00' = units of 10 inches
+      XpgUnits(2) YpgUnits(2)  - L-units per unit base (resolution * 10)
+      XpgSize(3)  YpgSize(3)   - page extent in L-units
+      Reserved(2)
+    """
+    units = resolution * 10
+    data = bytearray()
+    data.extend([0x00, 0x00, 0x00])          # introducer flag + reserved
+    data.extend([0x00, 0x00])                # XpgBase, YpgBase (10 inches)
+    data.extend(struct.pack('>H', units))    # XpgUnits
+    data.extend(struct.pack('>H', units))    # YpgUnits
+    data.extend(b'\x00' + struct.pack('>H', width))   # XpgSize (3 bytes)
+    data.extend(b'\x00' + struct.pack('>H', height))  # YpgSize (3 bytes)
+    data.extend([0x00, 0x00])                # Reserved
+    return _sf(SF_PGD_STD, bytes(data))
+
+
+def _build_named(sf_id: bytes, name: str) -> bytes:
+    """Build a begin/end structured field carrying an 8-char EBCDIC name."""
+    data = bytes([0x00, 0x00, 0x00]) + _to_ebcdic(name, 8)
+    return _sf(sf_id, data)
+
+
+def generate_afp_exstream(
+    pages: List[Dict],
+    document_name: str = "MAILOUT",
+    resolution: int = 300,
+    page_width: int = 2550,
+    page_height: int = 3300,
+    include_banner: bool = True,
+) -> bytes:
+    """
+    Generate an AFP document matching the native output structure of
+    OpenText Exstream 22.3 (Generic AFP output engine), using spec-correct
+    MO:DCA structured field ids throughout:
+
+        BDT  (document)
+        NOP  (identification banner, EBCDIC)
+        per letter:
+          BNG Gnnnnnnn        (X'D3A8AD' - named page group per document)
+            TLE x n           (group-level index tags, after BNG before BPG)
+            BPG Pnnnnnnn
+              BAG             (X'D3A8C9')
+                PGD           (X'D3A6AF' - page size/resolution)
+              EAG             (X'D3A9C9')
+              BIO...EIO       (inline IOCA FS10 image object)
+            EPG
+          ENG Gnnnnnnn        (X'D3A9AD')
+        EDT
+
+    Image-only pages carry no PTX text, so no MCF/PTD is emitted —
+    matching Exstream output for full-page raster content.
+    """
+    result = bytearray()
+
+    result.extend(_build_bdt(document_name))
+    if include_banner:
+        result.extend(_build_nop_comment(EXSTREAM_BANNER))
+
+    for page_num, page in enumerate(pages, start=1):
+        group_name = f"G{page_num:07d}"
+        page_name = f"P{page_num:07d}"
+
+        # Named page group per letter (document boundary for indexing)
+        result.extend(_build_named(SF_BNG_STD, group_name))
+
+        # Group-level TLE index tags: after BNG, before the first BPG
+        tle_data = page.get('tle_data', {})
+        for field_name in (
+            'mailing_name', 'mailing_addr1', 'mailing_addr2', 'mailing_addr3',
+            'return_addr1', 'return_addr2', 'return_addr3',
+        ):
+            result.extend(_build_tle(field_name, tle_data.get(field_name, '')))
+
+        result.extend(_build_bpg(page_name))
+
+        # Active Environment Group with page descriptor
+        result.extend(_sf(SF_BAG_STD, bytes([0x00, 0x00, 0x00])))
+        result.extend(_build_pgd_std(page_width, page_height, resolution))
+        result.extend(_sf(SF_EAG_STD, bytes([0x00, 0x00, 0x00])))
+
+        # Inline IOCA image object (Exstream embeds raster content as BIO..EIO)
+        image_data = page.get('image_data')
+        if image_data:
+            result.extend(generate_inline_image(
+                image_data,
+                page.get('width', page_width),
+                page.get('height', page_height),
+                resolution,
+                include_iid=False,
+            ))
+
+        result.extend(_build_epg(page_name))
+        result.extend(_build_named(SF_ENG_STD, group_name))
+
+    result.extend(_build_edt(document_name))
     return bytes(result)
