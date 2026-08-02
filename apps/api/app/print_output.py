@@ -99,7 +99,12 @@ def _render_letter(
     block_texts: list[str],
     mailing_lines: list[str],
     return_lines: list[str],
-) -> bytes:
+) -> Image.Image:
+    """Render a letter page; returns the PIL image directly (grayscale).
+
+    Callers needing encoded bytes should encode at the boundary — the
+    previous PNG encode/decode round trip cost ~0.2-0.4s per letter.
+    """
     image = Image.new("L", (PAGE_WIDTH, PAGE_HEIGHT), color=255)
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default()
@@ -142,9 +147,7 @@ def _render_letter(
         draw.text((cfg.margin_left, by), line, fill=0, font=font)
         by += cfg.line_height
 
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG", dpi=(DPI, DPI))
-    return buffer.getvalue()
+    return image
 
 
 def _csv_from_rows(rows: list[list[Any]]) -> str:
@@ -625,15 +628,12 @@ def generate_afp(payload: dict[str, Any]) -> Response:
             # Get return lines for this row (static or dynamic)
             row_return_lines = get_return_lines_for_row(row)
 
-            image_bytes = _render_letter(
+            image = _render_letter(
                 merged_body,
                 merged_blocks,
                 mailing_lines,
                 row_return_lines,
             )
-
-            # Convert PNG to grayscale image data
-            image = Image.open(io.BytesIO(image_bytes))
             if image.mode != "L":
                 image = image.convert("L")
             image_data = image.tobytes()
@@ -768,15 +768,12 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
             # Get return lines for this row (static or dynamic)
             row_return_lines = get_return_lines_for_row(row)
 
-            image_bytes = _render_letter(
+            image = _render_letter(
                 merged_body,
                 merged_blocks,
                 mailing_lines,
                 row_return_lines,
             )
-
-            # Open rendered image and convert to RGB for PDF
-            image = Image.open(io.BytesIO(image_bytes))
             if image.mode != "RGB":
                 image = image.convert("RGB")
             images.append(image)

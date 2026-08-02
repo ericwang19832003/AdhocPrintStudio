@@ -525,18 +525,18 @@ def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: i
 
 
 def _to_bilevel(gray: bytes, w: int, h: int) -> bytes:
-    """Convert grayscale to 1-bit bilevel (WhiteIsZero)."""
-    bpr = (w + 7) // 8
-    out = bytearray(bpr * h)
+    """Convert grayscale to 1-bit bilevel (WhiteIsZero): bit set = dark pixel.
 
-    for y in range(h):
-        for x in range(w):
-            idx = y * w + x
-            if idx < len(gray):
-                if gray[idx] < 128:
-                    out[y * bpr + x // 8] |= (0x80 >> (x % 8))
-
-    return bytes(out)
+    PIL-native: '1'-mode tobytes() packs 8 pixels/byte MSB-first with bit=1
+    for value 255, and pads each row to a byte boundary with 0 bits — the
+    same layout the previous per-pixel Python loop produced, ~100x faster.
+    """
+    if len(gray) < w * h:  # tolerate short buffers like the old loop (missing = white)
+        gray = bytes(gray) + b'\xff' * (w * h - len(gray))
+    img = Image.frombytes('L', (w, h), bytes(gray[:w * h]))
+    return img.point(lambda p: 255 if p < 128 else 0).convert(
+        '1', dither=Image.Dither.NONE
+    ).tobytes()
 
 
 def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
@@ -623,17 +623,15 @@ def generate_inline_image(
     This embeds the image directly in the page using BIO...EIO structure,
     avoiding BPS/EPS/IPS which Bluecrest interprets as page segment references.
     """
-    # Ensure width is byte-aligned
+    # Ensure width is byte-aligned; pad with white (0xFF) — black padding
+    # renders as a visible stripe down the right edge of every page.
     padded_width = ((width + 7) // 8) * 8
     if padded_width != width:
-        # Pad with white (0xFF), not black — 0x00 grayscale renders as a
-        # visible black stripe down the right edge of every page.
-        padded_data = bytearray([0xFF]) * (padded_width * height)
-        for y in range(height):
-            for x in range(width):
-                if y * width + x < len(image_data):
-                    padded_data[y * padded_width + x] = image_data[y * width + x]
-        image_data = bytes(padded_data)
+        if len(image_data) < width * height:
+            image_data = bytes(image_data) + b'\xff' * (width * height - len(image_data))
+        padded_img = Image.new('L', (padded_width, height), 255)
+        padded_img.paste(Image.frombytes('L', (width, height), bytes(image_data[:width * height])), (0, 0))
+        image_data = padded_img.tobytes()
         width = padded_width
 
     bilevel_data = _to_bilevel(image_data, width, height)
@@ -673,17 +671,15 @@ def generate_inline_page_segment(
     """
     segment_name = segment_name.upper()[:8]
 
-    # Ensure width is byte-aligned
+    # Ensure width is byte-aligned; pad with white (0xFF) — black padding
+    # renders as a visible stripe down the right edge of every page.
     padded_width = ((width + 7) // 8) * 8
     if padded_width != width:
-        # Pad with white (0xFF), not black — 0x00 grayscale renders as a
-        # visible black stripe down the right edge of every page.
-        padded_data = bytearray([0xFF]) * (padded_width * height)
-        for y in range(height):
-            for x in range(width):
-                if y * width + x < len(image_data):
-                    padded_data[y * padded_width + x] = image_data[y * width + x]
-        image_data = bytes(padded_data)
+        if len(image_data) < width * height:
+            image_data = bytes(image_data) + b'\xff' * (width * height - len(image_data))
+        padded_img = Image.new('L', (padded_width, height), 255)
+        padded_img.paste(Image.frombytes('L', (width, height), bytes(image_data[:width * height])), (0, 0))
+        image_data = padded_img.tobytes()
         width = padded_width
 
     bilevel_data = _to_bilevel(image_data, width, height)

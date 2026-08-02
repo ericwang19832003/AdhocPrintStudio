@@ -178,3 +178,24 @@ class TestValidatorLegacyDisambiguation:
         assert validator.parse()
         codes = [f["code"] for f in validator.fields]
         assert codes.count("BNG") == 1 and codes.count("BAG") == 1
+
+
+class TestBilevelPerfRewrite:
+    def test_pil_bilevel_bit_exact_with_reference_loop(self):
+        import random
+        from app.afp_document_generator import _to_bilevel
+
+        def reference(gray: bytes, w: int, h: int) -> bytes:
+            bpr = (w + 7) // 8
+            out = bytearray(bpr * h)
+            for y in range(h):
+                for x in range(w):
+                    idx = y * w + x
+                    if idx < len(gray) and gray[idx] < 128:
+                        out[y * bpr + x // 8] |= 0x80 >> (x % 8)
+            return bytes(out)
+
+        rng = random.Random(42)
+        for w, h in [(64, 16), (61, 9), (2552, 4), (8, 1)]:
+            gray = bytes(rng.randrange(256) for _ in range(w * h))
+            assert _to_bilevel(gray, w, h) == reference(gray, w, h), f"mismatch at {w}x{h}"
