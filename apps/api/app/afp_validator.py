@@ -113,7 +113,29 @@ class AFPValidator:
 
             offset += 1 + length
 
+        self._disambiguate_legacy_aeg()
         return len(self.errors) == 0
+
+    def _disambiguate_legacy_aeg(self) -> None:
+        """Relabel X'D3A8AD'/X'D3A9AD' found INSIDE a page as legacy BAG/EAG.
+
+        The spec assigns those ids to BNG/ENG, but the legacy generators used
+        them for BAG/EAG. A real BNG/ENG never appears inside a page while an
+        active environment group only appears inside one, so page context
+        disambiguates the two formats safely.
+        """
+        page_depth = 0
+        for field in self.fields:
+            if field['code'] == 'BPG':
+                page_depth += 1
+            elif field['code'] == 'EPG':
+                page_depth = max(0, page_depth - 1)
+            elif page_depth > 0 and field['sf_id'] == (0xD3, 0xA8, 0xAD):
+                field['code'] = 'BAG'
+                field['name'] = 'Begin Active Environment Group (legacy nonstandard id)'
+            elif page_depth > 0 and field['sf_id'] == (0xD3, 0xA9, 0xAD):
+                field['code'] = 'EAG'
+                field['name'] = 'End Active Environment Group (legacy nonstandard id)'
 
     def validate_structure(self) -> bool:
         """Validate document structure."""

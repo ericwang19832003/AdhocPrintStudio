@@ -157,3 +157,24 @@ class TestExstreamStructure:
                       bytes([0xD3, 0xA6, 0xC4]), bytes([0xD3, 0xAB, 0xFB])}
         leaked = seen_ids & legacy_ids
         assert not leaked, f"legacy nonstandard ids leaked into output: {[i.hex() for i in leaked]}"
+
+
+class TestValidatorLegacyDisambiguation:
+    def test_legacy_aeg_ids_inside_pages_report_as_bag_eag(self):
+        from app.afp_document_generator import generate_afp_with_resources
+        from app.afp_validator import AFPValidator
+
+        afp = generate_afp_with_resources(make_pages(1, with_image=True))
+        validator = AFPValidator(afp)
+        assert validator.parse()
+        codes = [f["code"] for f in validator.fields]
+        assert "BAG" in codes and "EAG" in codes, "legacy AEG inside page must keep BAG/EAG labels"
+        assert "BNG" not in codes, "legacy format has no real named page groups"
+
+    def test_exstream_bng_outside_pages_still_reports_as_bng(self):
+        from app.afp_validator import AFPValidator
+
+        validator = AFPValidator(generate_afp_exstream(make_pages(1, with_image=True)))
+        assert validator.parse()
+        codes = [f["code"] for f in validator.fields]
+        assert codes.count("BNG") == 1 and codes.count("BAG") == 1
