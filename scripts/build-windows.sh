@@ -68,6 +68,8 @@ python-multipart==0.0.9
 defusedxml==0.7.1
 PyMuPDF==1.24.5
 filetype==1.2.0
+httpx==0.27.2
+slowapi==0.1.9
 EOF
 
 echo "[5/11] Downloading Windows wheels and pre-installing into embedded Python..."
@@ -76,12 +78,16 @@ SITE_PACKAGES="$BUILD_DIR/python/Lib/site-packages"
 mkdir -p "$SITE_PACKAGES"
 
 # Use pip from the API venv (or system pip) to download wheels
-PIP_CMD="${ROOT_DIR}/apps/api/.venv/bin/pip"
-if [ ! -f "$PIP_CMD" ]; then
-    PIP_CMD="pip3"
+# uv-managed venvs ship no pip; fall back to any python with a working pip module
+if [ -f "${ROOT_DIR}/apps/api/.venv/bin/pip" ]; then
+    PIP=("${ROOT_DIR}/apps/api/.venv/bin/pip")
+elif command -v python3.12 >/dev/null 2>&1 && python3.12 -m pip --version >/dev/null 2>&1; then
+    PIP=(python3.12 -m pip)
+else
+    PIP=(pip3)
 fi
 
-"$PIP_CMD" download \
+"${PIP[@]}" download \
     --dest "$BUILD_DIR/wheels" \
     --platform win_amd64 \
     --python-version 3.11 \
