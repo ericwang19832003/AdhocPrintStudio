@@ -11,13 +11,15 @@ export type VerbiageItem = {
 };
 
 type VerbiageLibraryProps = {
+  onDragStart?: (event: React.DragEvent, item: VerbiageItem) => void;
+  onDragEnd?: () => void;
   items: VerbiageItem[];
   onInsert: (item: VerbiageItem) => void;
 };
 
 const ALL_TAG = "All";
 
-export function VerbiageLibrary({ items, onInsert }: VerbiageLibraryProps) {
+export function VerbiageLibrary({ items, onInsert, onDragStart, onDragEnd }: VerbiageLibraryProps) {
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string>(ALL_TAG);
 
@@ -84,8 +86,11 @@ export function VerbiageLibrary({ items, onInsert }: VerbiageLibraryProps) {
               key={item.id}
               type="button"
               className="verbiage-row"
+              draggable
+              onDragStart={(e) => onDragStart?.(e, item)}
+              onDragEnd={() => onDragEnd?.()}
               onClick={() => onInsert(item)}
-              title="Click to insert"
+              title="Click to insert, or drag onto the letter"
             >
               <div className="verbiage-row-header">
                 <span className="verbiage-row-label">{item.label}</span>

@@ -2887,6 +2887,12 @@ export default function BuilderClient() {
                   const sourceItem = (library.Verbiage ?? []).find((v) => v.id === item.id);
                   if (sourceItem) addLibraryItemToCanvas(sourceItem);
                 }}
+                onDragStart={(event: React.DragEvent, item: VerbiageItem) => {
+                  const sourceItem = (library.Verbiage ?? []).find((v) => v.id === item.id);
+                  // Generic DragEvent narrows safely to the div variant at runtime
+                  if (sourceItem) handleDragStart(event as React.DragEvent<HTMLDivElement>, sourceItem);
+                }}
+                onDragEnd={handleDragEnd}
               />
             ) : openMenuTab === "Data" ? (
               <DataPanel
@@ -3072,7 +3078,7 @@ export default function BuilderClient() {
                 {/* Letter body content */}
                 <div className="page-body">
                   <EditorClient
-                    ref={editorRef}
+                    innerRef={editorRef}
                     value={bodyContentByPage[activePage] ?? ""}
                     onChange={(html: string) => updateBodyContent(activePageRef.current, html)}
                     placeholder="Start typing your letter..."

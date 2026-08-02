@@ -52,6 +52,8 @@ type EditorClientProps = {
   onDropItem?: (item: DroppedItem, coords: { x: number; y: number }) => void;
   columns?: string[];
   onEditorReady?: (editor: Editor | null) => void;
+  /** Ref target for the imperative handle — needed because next/dynamic strips `ref`. */
+  innerRef?: React.Ref<EditorClientHandle>;
 };
 
 const FontSize = Extension.create({
@@ -140,7 +142,7 @@ const VerbiageBlock = TiptapNode.create({
 });
 
 const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
-  ({ value, onChange, placeholder, onDropItem, columns = [], onEditorReady }, ref) => {
+  ({ value, onChange, placeholder, onDropItem, columns = [], onEditorReady, innerRef }, ref) => {
   // Placeholder picker state
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
@@ -371,7 +373,10 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
   );
 
   useImperativeHandle(
-    ref,
+    // next/dynamic does not forward refs, so BuilderClient passes the handle
+    // target through the innerRef prop instead; plain ref still works for
+    // direct (non-dynamic) usage.
+    innerRef ?? ref,
     () => ({
       insertText: (text: string) => {
         if (!editor) return;
