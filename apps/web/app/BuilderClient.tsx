@@ -382,6 +382,7 @@ const librarySeed: Record<string, LibraryItem[]> = {
 };
 
 const tabs = Object.keys(librarySeed);
+const seedItemIds = new Set(Object.values(librarySeed).flat().map((item) => item.id));
 const libraryButtons = [
   { label: "Logo", tab: "Logos", icon: "🏷️" },
   { label: "Return Address", tab: "Return Address", icon: "📍" },
@@ -426,6 +427,8 @@ interface LetterDraft {
   mailingMap: { mailing_name: string; mailing_addr1: string; mailing_addr2: string; mailing_addr3: string };
   selectedLogoId?: string;
   selectedReturnId?: string;
+  /** Items the user created (uploads, custom text) — lost on refresh before this existed. */
+  customLibraryItems?: Record<string, LibraryItem[]>;
 }
 
 export default function BuilderClient() {
@@ -677,12 +680,20 @@ export default function BuilderClient() {
         }
         if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
         if (draft.mailingMap) setMailingMap(draft.mailingMap);
+        // Restore user-created library items first so selections can resolve to them
+        const mergedLibrary: Record<string, LibraryItem[]> = { ...librarySeed };
+        if (draft.customLibraryItems) {
+          Object.entries(draft.customLibraryItems).forEach(([tab, items]) => {
+            mergedLibrary[tab] = [...items, ...(mergedLibrary[tab] ?? [])];
+          });
+          setLibrary(mergedLibrary);
+        }
         if (draft.selectedLogoId) {
-          const logo = library.Logos?.find((l) => l.id === draft.selectedLogoId);
+          const logo = mergedLibrary.Logos?.find((l) => l.id === draft.selectedLogoId);
           if (logo) setSelectedLogo(logo);
         }
         if (draft.selectedReturnId) {
-          const ret = library["Return Address"]?.find((r) => r.id === draft.selectedReturnId);
+          const ret = mergedLibrary["Return Address"]?.find((r) => r.id === draft.selectedReturnId);
           if (ret) setSelectedReturn(ret);
         }
       }
@@ -731,6 +742,11 @@ export default function BuilderClient() {
           mailingMap: mailingMap as LetterDraft["mailingMap"],
           selectedLogoId: selectedLogo?.id,
           selectedReturnId: selectedReturn?.id,
+          customLibraryItems: Object.fromEntries(
+            Object.entries(library)
+              .map(([tab, items]) => [tab, items.filter((item) => !seedItemIds.has(item.id))])
+              .filter(([, items]) => (items as LibraryItem[]).length > 0)
+          ),
         };
         const serialized = JSON.stringify(draft);
         if (serialized.length > 4 * 1024 * 1024) {
@@ -751,7 +767,7 @@ export default function BuilderClient() {
   }, [
     letterTitle, bodyContentByPage, blocksByPage, pages, activePage,
     spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
-    selectedLogo?.id, selectedReturn?.id,
+    selectedLogo?.id, selectedReturn?.id, library,
   ]);
 
   // Age the "Saved · X ago" badge every 30s
@@ -1102,6 +1118,7 @@ export default function BuilderClient() {
 
   const deletePage = (index: number) => {
     if (pages.length <= 1) return;
+    if (!window.confirm(`Delete page ${index + 1}? Its content cannot be recovered.`)) return;
     setPages((prev) => prev.filter((_, i) => i !== index));
     setBodyContentByPage((prev) => {
       const next: Record<number, string> = {};
