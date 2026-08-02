@@ -626,7 +626,9 @@ def generate_inline_image(
     # Ensure width is byte-aligned
     padded_width = ((width + 7) // 8) * 8
     if padded_width != width:
-        padded_data = bytearray(padded_width * height)
+        # Pad with white (0xFF), not black — 0x00 grayscale renders as a
+        # visible black stripe down the right edge of every page.
+        padded_data = bytearray([0xFF]) * (padded_width * height)
         for y in range(height):
             for x in range(width):
                 if y * width + x < len(image_data):
@@ -674,7 +676,9 @@ def generate_inline_page_segment(
     # Ensure width is byte-aligned
     padded_width = ((width + 7) // 8) * 8
     if padded_width != width:
-        padded_data = bytearray(padded_width * height)
+        # Pad with white (0xFF), not black — 0x00 grayscale renders as a
+        # visible black stripe down the right edge of every page.
+        padded_data = bytearray([0xFF]) * (padded_width * height)
         for y in range(height):
             for x in range(width):
                 if y * width + x < len(image_data):
