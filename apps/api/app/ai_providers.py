@@ -156,7 +156,7 @@ async def complete(
 
 async def test_credentials(
     provider: str,
-    api_key: str,
+    api_key: str | None,
     base_url: str | None = None,
     transport: httpx.BaseTransport | None = None,
 ) -> None:
@@ -164,15 +164,20 @@ async def test_credentials(
 
     Raises AIProviderError with a user-facing message when the key is
     rejected or the endpoint is unreachable; returns None on success.
+    api_key may be None for keyless OpenAI-compatible local endpoints —
+    no Authorization header is sent then (some local servers reject one).
     """
     if provider == "anthropic":
+        if not api_key:
+            raise AIProviderError("An API key is required for Anthropic.")
         url, headers = (
             f"{ANTHROPIC_BASE_URL}/v1/models",
             {"x-api-key": api_key, "anthropic-version": "2023-06-01"},
         )
     elif provider == "openai_compatible":
         root = (base_url or "https://api.openai.com").rstrip("/")
-        url, headers = (f"{root}/v1/models", {"Authorization": f"Bearer {api_key}"})
+        url = f"{root}/v1/models"
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     else:
         raise AIProviderError(f"Unknown provider '{provider}'.")
 

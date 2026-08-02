@@ -95,3 +95,29 @@ def test_openai_compatible_stores_base_url(keys_file, monkeypatch):
     )
     assert response.status_code == 200
     assert ai_keys.resolve("OPENAI_BASE_URL") == "https://api.deepseek.com"
+
+
+def test_keyless_openai_compatible_endpoint(keys_file, monkeypatch):
+    """Local endpoints (Ollama/vLLM) work with a base URL and no key."""
+    monkeypatch.setattr(
+        ai_module, "_test_transport",
+        httpx.MockTransport(lambda request: httpx.Response(200, json={"data": []})),
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/ai/keys",
+        json={"provider": "openai_compatible", "base_url": "http://localhost:11434"},
+    )
+    assert response.status_code == 200
+    status = next(
+        p for p in response.json()["providers"] if p["provider"] == "openai_compatible"
+    )
+    assert status["configured"] is True
+    assert status["keyHint"] is None
+    assert ai_keys.resolve("OPENAI_BASE_URL") == "http://localhost:11434"
+
+
+def test_anthropic_requires_key(keys_file):
+    client = TestClient(app)
+    response = client.post("/ai/keys", json={"provider": "anthropic"})
+    assert response.status_code == 400

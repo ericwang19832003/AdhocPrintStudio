@@ -251,14 +251,21 @@ from app.ai_providers import test_credentials  # noqa: E402
 def _keys_status() -> dict[str, Any]:
     providers = []
     for provider, env_name in _ai_keys.PROVIDER_ENV_KEYS.items():
+        configured = _ai_keys.resolve(env_name) is not None
+        source = _ai_keys.source_of(env_name)
         entry: dict[str, Any] = {
             "provider": provider,
-            "configured": _ai_keys.resolve(env_name) is not None,
-            "source": _ai_keys.source_of(env_name),
+            "configured": configured,
+            "source": source,
             "keyHint": _ai_keys.key_hint(env_name),
         }
         if provider == "openai_compatible":
-            entry["baseUrl"] = _ai_keys.resolve(_ai_keys.PROVIDER_BASE_URL_KEY) or ""
+            base_url = _ai_keys.resolve(_ai_keys.PROVIDER_BASE_URL_KEY)
+            entry["baseUrl"] = base_url or ""
+            # Local endpoints (Ollama/vLLM/LM Studio) are valid with no key
+            if base_url and not configured:
+                entry["configured"] = True
+                entry["source"] = _ai_keys.source_of(_ai_keys.PROVIDER_BASE_URL_KEY)
         providers.append(entry)
     return {"providers": providers}
 
@@ -271,14 +278,22 @@ def get_keys_status() -> dict[str, Any]:
 
 class AiKeyRequest(BaseModel):
     provider: Annotated[str, StringConstraints(pattern="^(anthropic|openai_compatible)$")]
-    api_key: Annotated[str, StringConstraints(min_length=8, max_length=300)]
+    # Optional for OpenAI-compatible: local endpoints (Ollama, vLLM, LM Studio)
+    # are commonly keyless.
+    api_key: Annotated[str, StringConstraints(min_length=8, max_length=300)] | None = None
     base_url: Annotated[str, StringConstraints(max_length=300)] | None = None
 
 
 @router.post("/keys")
 @limiter.limit("10/minute")
 async def save_key(request: Request, payload: AiKeyRequest) -> dict[str, Any]:
-    """Validate a pasted API key against the provider, then persist it."""
+    """Validate pasted credentials against the provider, then persist them."""
+    if payload.provider == "anthropic" and not payload.api_key:
+        raise HTTPException(status_code=400, detail="An API key is required for Anthropic.")
+    if payload.provider == "openai_compatible" and not payload.api_key and not payload.base_url:
+        raise HTTPException(
+            status_code=400, detail="Enter an API key, an endpoint URL, or both."
+        )
     try:
         await test_credentials(
             payload.provider, payload.api_key, payload.base_url, transport=_test_transport
@@ -286,7 +301,9 @@ async def save_key(request: Request, payload: AiKeyRequest) -> dict[str, Any]:
     except AIProviderError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    values = {_ai_keys.PROVIDER_ENV_KEYS[payload.provider]: payload.api_key}
+    values: dict[str, str] = {}
+    if payload.api_key:
+        values[_ai_keys.PROVIDER_ENV_KEYS[payload.provider]] = payload.api_key
     if payload.provider == "openai_compatible" and payload.base_url:
         values[_ai_keys.PROVIDER_BASE_URL_KEY] = payload.base_url.rstrip("/")
     _ai_keys.store(values)

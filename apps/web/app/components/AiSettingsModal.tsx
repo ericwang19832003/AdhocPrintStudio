@@ -56,7 +56,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
   const [keyError, setKeyError] = useState<string | null>(null);
   const [keySavedFlash, setKeySavedFlash] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (preserveProvider?: string) => {
     setStatus("loading");
     try {
       const [modelsRes, keysRes] = await Promise.all([
@@ -75,7 +75,10 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
       const saved = loadAiSettings();
       const savedProviderValid =
         saved !== null && list.some((p) => p.provider === saved.provider);
-      if (savedProviderValid && saved) {
+      if (preserveProvider) {
+        // Keep the provider the user just configured selected.
+        setProvider(preserveProvider);
+      } else if (savedProviderValid && saved) {
         setProvider(saved.provider);
         const models = list.find((p) => p.provider === saved.provider)?.models ?? [];
         const modelValid = models.length === 0 || models.some((m) => m.id === saved.model);
@@ -90,7 +93,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(undefined);
   }, [refresh]);
 
   const keyStatus = keyStatuses.find((k) => k.provider === provider);
@@ -101,8 +104,12 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
   const canSave = status === "ready" && providerReady && model.trim() !== "";
   const help = PROVIDER_KEY_HELP[provider];
 
+  const canVerify =
+    keyInput.trim() !== "" ||
+    (provider === "openai_compatible" && baseUrlInput.trim() !== "");
+
   const verifyAndSaveKey = async () => {
-    if (!keyInput.trim() || verifying) return;
+    if (!canVerify || verifying) return;
     setVerifying(true);
     setKeyError(null);
     try {
@@ -111,7 +118,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider,
-          api_key: keyInput.trim(),
+          api_key: keyInput.trim() || undefined,
           base_url:
             provider === "openai_compatible" && baseUrlInput.trim()
               ? baseUrlInput.trim()
@@ -126,7 +133,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
       setKeyInput("");
       setKeySavedFlash(true);
       setTimeout(() => setKeySavedFlash(false), 3000);
-      await refresh();
+      await refresh(provider);
     } catch {
       setKeyError("Could not reach the server.");
     } finally {
@@ -136,7 +143,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
 
   const removeKey = async () => {
     await fetch(`${env.apiBaseUrl}/ai/keys/${provider}`, { method: "DELETE" });
-    await refresh();
+    await refresh(provider);
   };
 
   return (
@@ -174,7 +181,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
                 again.
               </p>
               <div>
-                <button type="button" className="btn-outline-sm" onClick={refresh}>
+                <button type="button" className="btn-outline-sm" onClick={() => refresh()}>
                   Retry
                 </button>
               </div>
@@ -214,10 +221,12 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
                       size={13}
                       style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }}
                     />
-                    Connected{keyStatus?.keyHint ? ` (${keyStatus.keyHint})` : ""}
-                    {keyStatus?.source === "env"
-                      ? " — using the server's environment key"
-                      : " — key saved on this computer"}
+                    Connected{keyStatus?.keyHint ? ` (${keyStatus.keyHint})` : " — local endpoint, no key"}
+                    {keyStatus?.keyHint
+                      ? keyStatus?.source === "env"
+                        ? " — using the server's environment key"
+                        : " — key saved on this computer"
+                      : ""}
                     {keyStatus?.baseUrl ? ` · ${keyStatus.baseUrl}` : ""}
                   </p>
                   {keyStatus?.source === "app" && (
@@ -248,6 +257,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
                   <div className="modal-field">
                     <label className="modal-field-label" htmlFor="ai-key">
                       API key
+                      {provider === "openai_compatible" ? " (optional for local endpoints)" : ""}
                     </label>
                     <div style={{ display: "flex", gap: 6 }}>
                       <input
@@ -299,7 +309,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
                       <button
                         type="button"
                         className="btn-accent"
-                        disabled={!keyInput.trim() || verifying}
+                        disabled={!canVerify || verifying}
                         onClick={verifyAndSaveKey}
                       >
                         {verifying ? "Verifying…" : "Verify & save key"}
