@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import os
+
+from app import ai_keys
 import re
 from typing import Any
 
@@ -39,9 +41,9 @@ CURATED_MODELS: dict[str, list[dict[str, str]]] = {
 
 def available_providers() -> list[str]:
     providers: list[str] = []
-    if os.getenv("ANTHROPIC_API_KEY"):
+    if ai_keys.resolve("ANTHROPIC_API_KEY"):
         providers.append("anthropic")
-    if os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_KEY"):
+    if ai_keys.resolve("OPENAI_BASE_URL") or ai_keys.resolve("OPENAI_API_KEY"):
         providers.append("openai_compatible")
     return providers
 
@@ -59,7 +61,7 @@ async def _call_anthropic(
     model: str, messages: list[dict[str, str]], system: str | None,
     transport: httpx.BaseTransport | None,
 ) -> str:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = ai_keys.resolve("ANTHROPIC_API_KEY")
     if not api_key:
         raise AIProviderError("Anthropic API key is not configured.")
     payload: dict[str, Any] = {
@@ -96,9 +98,9 @@ async def _call_openai_compatible(
     model: str, messages: list[dict[str, str]], system: str | None,
     transport: httpx.BaseTransport | None,
 ) -> str:
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com")
+    base_url = ai_keys.resolve("OPENAI_BASE_URL") or "https://api.openai.com"
     headers = {}
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = ai_keys.resolve("OPENAI_API_KEY")
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     full_messages = messages
@@ -150,3 +152,38 @@ async def complete(
         return json.loads(_strip_code_fences(text))
     except json.JSONDecodeError as exc:
         raise AIProviderError("AI returned malformed JSON.") from exc
+
+
+async def test_credentials(
+    provider: str,
+    api_key: str,
+    base_url: str | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> None:
+    """Verify credentials against the provider's model-list endpoint.
+
+    Raises AIProviderError with a user-facing message when the key is
+    rejected or the endpoint is unreachable; returns None on success.
+    """
+    if provider == "anthropic":
+        url, headers = (
+            f"{ANTHROPIC_BASE_URL}/v1/models",
+            {"x-api-key": api_key, "anthropic-version": "2023-06-01"},
+        )
+    elif provider == "openai_compatible":
+        root = (base_url or "https://api.openai.com").rstrip("/")
+        url, headers = (f"{root}/v1/models", {"Authorization": f"Bearer {api_key}"})
+    else:
+        raise AIProviderError(f"Unknown provider '{provider}'.")
+
+    async with httpx.AsyncClient(transport=transport, timeout=REQUEST_TIMEOUT) as client:
+        try:
+            response = await client.get(url, headers=headers)
+        except httpx.HTTPError as exc:
+            raise AIProviderError(
+                "Could not reach the provider — check the URL and your network."
+            ) from exc
+    if response.status_code in (401, 403):
+        raise AIProviderError("The provider rejected this API key.")
+    if response.status_code != 200:
+        raise AIProviderError(f"Provider returned status {response.status_code}.")

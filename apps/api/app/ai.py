@@ -238,3 +238,69 @@ async def preflight(request: Request, payload: PreflightRequest) -> dict[str, An
         "truncated": truncated,
         "total_issues": total,
     }
+
+
+# ---------------- API key management (settings UI) ----------------
+# Keys entered in the UI are validated live against the provider, then stored
+# in the app key store (data/ai_keys.json). Env vars always take precedence.
+
+from app import ai_keys as _ai_keys  # noqa: E402
+from app.ai_providers import test_credentials  # noqa: E402
+
+
+def _keys_status() -> dict[str, Any]:
+    providers = []
+    for provider, env_name in _ai_keys.PROVIDER_ENV_KEYS.items():
+        entry: dict[str, Any] = {
+            "provider": provider,
+            "configured": _ai_keys.resolve(env_name) is not None,
+            "source": _ai_keys.source_of(env_name),
+            "keyHint": _ai_keys.key_hint(env_name),
+        }
+        if provider == "openai_compatible":
+            entry["baseUrl"] = _ai_keys.resolve(_ai_keys.PROVIDER_BASE_URL_KEY) or ""
+        providers.append(entry)
+    return {"providers": providers}
+
+
+@router.get("/keys")
+def get_keys_status() -> dict[str, Any]:
+    """Configured-provider status for the settings UI. Never returns full keys."""
+    return _keys_status()
+
+
+class AiKeyRequest(BaseModel):
+    provider: Annotated[str, StringConstraints(pattern="^(anthropic|openai_compatible)$")]
+    api_key: Annotated[str, StringConstraints(min_length=8, max_length=300)]
+    base_url: Annotated[str, StringConstraints(max_length=300)] | None = None
+
+
+@router.post("/keys")
+@limiter.limit("10/minute")
+async def save_key(request: Request, payload: AiKeyRequest) -> dict[str, Any]:
+    """Validate a pasted API key against the provider, then persist it."""
+    try:
+        await test_credentials(
+            payload.provider, payload.api_key, payload.base_url, transport=_test_transport
+        )
+    except AIProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    values = {_ai_keys.PROVIDER_ENV_KEYS[payload.provider]: payload.api_key}
+    if payload.provider == "openai_compatible" and payload.base_url:
+        values[_ai_keys.PROVIDER_BASE_URL_KEY] = payload.base_url.rstrip("/")
+    _ai_keys.store(values)
+    return _keys_status()
+
+
+@router.delete("/keys/{provider}")
+def delete_key(provider: str) -> dict[str, Any]:
+    """Remove an app-stored key (environment-provided keys cannot be removed here)."""
+    env_name = _ai_keys.PROVIDER_ENV_KEYS.get(provider)
+    if env_name is None:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+    names = [env_name]
+    if provider == "openai_compatible":
+        names.append(_ai_keys.PROVIDER_BASE_URL_KEY)
+    _ai_keys.remove(names)
+    return _keys_status()
