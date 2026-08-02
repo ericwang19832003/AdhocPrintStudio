@@ -751,7 +751,21 @@ export default function BuilderClient() {
         const serialized = JSON.stringify(draft);
         if (serialized.length > 4 * 1024 * 1024) {
           const slim = { ...draft, spreadsheetContent: "", spreadsheetNotSaved: true };
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(slim));
+          let slimSerialized = JSON.stringify(slim);
+          if (slimSerialized.length > 4 * 1024 * 1024) {
+            // Still too big — shed large embedded images from custom library
+            // items (keep small/text items) so the rest of the draft persists.
+            slim.customLibraryItems = Object.fromEntries(
+              Object.entries(slim.customLibraryItems ?? {})
+                .map(([tab, items]) => [
+                  tab,
+                  items.filter((item) => !item.imageUrl || item.imageUrl.length < 500_000),
+                ])
+                .filter(([, items]) => (items as LibraryItem[]).length > 0)
+            );
+            slimSerialized = JSON.stringify(slim);
+          }
+          localStorage.setItem(DRAFT_KEY, slimSerialized);
           setSpreadsheetNotPersisted(true);
         } else {
           localStorage.setItem(DRAFT_KEY, serialized);
