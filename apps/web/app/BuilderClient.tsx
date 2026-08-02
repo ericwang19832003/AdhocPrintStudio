@@ -1380,7 +1380,7 @@ export default function BuilderClient() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/print-output/columns", {
+        const response = await fetch(`${env.apiBaseUrl}/print-output/columns`, {
           method: "POST",
           body: formData,
         });

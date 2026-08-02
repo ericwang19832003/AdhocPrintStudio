@@ -679,6 +679,11 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 logger.warning("AFP validation warning: %s", w)
         if not valid:
             logger.error("AFP validation failed: %s", errors)
+            # Never ship a structurally invalid AFP to the print vendor.
+            raise HTTPException(
+                status_code=500,
+                detail=f"Generated AFP failed structural validation: {'; '.join(errors[:5])}",
+            )
 
         return Response(
             content=afp_document,
