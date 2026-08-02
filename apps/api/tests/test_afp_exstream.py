@@ -199,3 +199,14 @@ class TestBilevelPerfRewrite:
         for w, h in [(64, 16), (61, 9), (2552, 4), (8, 1)]:
             gray = bytes(rng.randrange(256) for _ in range(w * h))
             assert _to_bilevel(gray, w, h) == reference(gray, w, h), f"mismatch at {w}x{h}"
+
+
+class TestIocaEncodingHeader:
+    def test_ipd_header_declares_g4_mmr_top_to_bottom(self):
+        """Viewers reject COMPRID/RECID 03/03 (Papyrus AFPR0150E/AFPR0172E)."""
+        from app.afp_document_generator import generate_inline_image
+
+        data = generate_inline_image(bytes([255]) * (64 * 64), 64, 64)
+        assert bytes([0x95, 0x02, 0x82, 0x01]) in data, "Image Encoding must be G4 MMR + RIDIC"
+        assert bytes([0x95, 0x02, 0x03, 0x03]) not in data
+        assert bytes([0x97, 0x01, 0x00]) not in data, "X'97' is not a valid IOCA field"

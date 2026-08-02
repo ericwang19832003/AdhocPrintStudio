@@ -478,9 +478,15 @@ def _build_ipd_records(image_data: bytes, width: int, height: int, resolution: i
     first_ipd.extend(struct.pack('>H', width))
     first_ipd.extend(struct.pack('>H', height))
 
-    first_ipd.extend([0x95, 0x02, 0x03, 0x03])
+    # Image Encoding Parameter: COMPRID X'82' = G4 MMR (ITU-T T.6), which is
+    # what _compress_g4 produces; RECID X'01' = RIDIC (top-to-bottom).
+    # The previous 03/03 bytes made viewers report "unsupported bottom-to-top
+    # scanning" (Papyrus AFPR0150E) and decode with the wrong algorithm.
+    first_ipd.extend([0x95, 0x02, 0x82, 0x01])
+    # IDE Size Parameter: 1 bit per element (bilevel)
     first_ipd.extend([0x96, 0x01, 0x01])
-    first_ipd.extend([0x97, 0x01, 0x00])
+    # (X'97' is not a valid IOCA self-defining field — emitting it triggered
+    # "IOCA: Triplet error" (Papyrus AFPR0172E); removed.)
     first_ipd.extend([0xFE, 0x92])
     first_ipd.extend(struct.pack('>H', min(len(image_data), 0x1FF4)))
 

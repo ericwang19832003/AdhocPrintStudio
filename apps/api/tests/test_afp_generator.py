@@ -237,9 +237,11 @@ def test_ipd_header_declares_g4():
             idx = bytes(data).find(b'\x95\x02')
             if idx >= 0:
                 encoding = data[idx+2:idx+4]
-                # 0x03 0x03 = CCITT G4 (MMR)
-                assert encoding == bytes([0x03, 0x03]), (
-                    f"IOCA encoding should be 03 03 (G4/MMR), got {bytes(encoding).hex()}"
+                # 0x82 = G4 MMR (ITU-T T.6), 0x01 = RIDIC top-to-bottom.
+                # (The earlier 03/03 bytes were invalid — viewers reported
+                # "unsupported bottom-to-top scanning" / "triplet error".)
+                assert encoding == bytes([0x82, 0x01]), (
+                    f"IOCA encoding should be 82 01 (G4 MMR + RIDIC), got {bytes(encoding).hex()}"
                 )
                 found_encoding = True
                 break
