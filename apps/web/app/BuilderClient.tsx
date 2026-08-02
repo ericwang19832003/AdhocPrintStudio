@@ -10,6 +10,7 @@ import DOMPurify from "isomorphic-dompurify";
 import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
+import { parseCsv, parseCsvHeader } from "@/lib/csv";
 import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
@@ -671,10 +672,7 @@ export default function BuilderClient() {
         if (!draft.spreadsheetNotSaved && draft.spreadsheetContent) {
           setSpreadsheetContent(draft.spreadsheetContent);
           // Re-derive columns from CSV header row
-          const [headerLine] = draft.spreadsheetContent.split(/\r?\n/);
-          const parsedColumns = headerLine
-            ? headerLine.split(",").map((v: string) => v.trim()).filter(Boolean)
-            : [];
+          const parsedColumns = parseCsvHeader(draft.spreadsheetContent);
           if (parsedColumns.length > 0) setColumns(parsedColumns);
         }
         if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
@@ -1362,11 +1360,8 @@ export default function BuilderClient() {
         // Convert to CSV
         const csvContent = XLSX.utils.sheet_to_csv(worksheet);
 
-        // Extract columns from first row
-        const [headerLine] = csvContent.split(/\r?\n/);
-        const parsedColumns = headerLine
-          ? headerLine.split(",").map((value) => value.trim()).filter(Boolean)
-          : [];
+        // Extract columns from first row (quote-aware)
+        const parsedColumns = parseCsvHeader(csvContent);
 
         setSpreadsheetContent(csvContent);
         setSpreadsheetName(file.name);
@@ -1481,10 +1476,7 @@ export default function BuilderClient() {
       const reader = new FileReader();
       reader.onload = () => {
         const text = typeof reader.result === "string" ? reader.result : "";
-        const [headerLine] = text.split(/\r?\n/);
-        const parsedColumns = headerLine
-          ? headerLine.split(",").map((value) => value.trim()).filter(Boolean)
-          : [];
+        const parsedColumns = parseCsvHeader(text);
         setSpreadsheetContent(text);
         setSpreadsheetName(file.name);
         setColumns(parsedColumns.length > 0 ? parsedColumns : []);
@@ -1610,8 +1602,7 @@ export default function BuilderClient() {
 
   const previewRows = useMemo(() => {
     if (!spreadsheetContent) return [];
-    const lines = spreadsheetContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    return lines.slice(0, 6).map((line) => line.split(","));
+    return parseCsv(spreadsheetContent, 6).filter((row) => row.some((v) => v.trim().length > 0));
   }, [spreadsheetContent]);
 
   const extractPlaceholders = (text: string) => {
@@ -1749,12 +1740,11 @@ export default function BuilderClient() {
   // Parse all spreadsheet rows for preview
   const spreadsheetRows = useMemo(() => {
     if (!spreadsheetContent) return [];
-    const lines = spreadsheetContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    if (lines.length < 2) return [];
-    const [headerLine, ...dataLines] = lines;
-    const headers = headerLine.split(",").map((h) => h.trim());
-    return dataLines.map((line) => {
-      const values = line.split(",");
+    const rows = parseCsv(spreadsheetContent).filter((row) => row.some((v) => v.trim().length > 0));
+    if (rows.length < 2) return [];
+    const [headerRow, ...dataRows] = rows;
+    const headers = headerRow.map((h) => h.trim());
+    return dataRows.map((values) => {
       const rowMap: Record<string, string> = {};
       headers.forEach((header, index) => {
         rowMap[header] = values[index]?.trim() ?? "";

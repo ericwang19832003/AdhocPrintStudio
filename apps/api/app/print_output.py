@@ -491,9 +491,16 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
 
     # Parse based on file type
     if expected_type == "csv":
-        text = data.decode("utf-8", errors="ignore")
-        header = text.splitlines()[0] if text.splitlines() else ""
-        columns = [value.strip() for value in header.split(",") if value.strip()]
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            # Latin-1 never fails and preserves bytes; errors="ignore" silently
+            # corrupted names/addresses in non-UTF-8 exports.
+            text = data.decode("latin-1")
+        first_line = text.splitlines()[0] if text.splitlines() else ""
+        # Real CSV parse — naive split(",") broke quoted headers like "Last, First"
+        header_row = next(csv.reader(io.StringIO(first_line)), [])
+        columns = [value.strip() for value in header_row if value.strip()]
         return {"columns": columns, "csv": text}
 
     if expected_type == "xlsx":
@@ -504,7 +511,13 @@ async def parse_columns(file: UploadFile = File(...)) -> dict[str, Any]:
             rows.append(list(row))
         if not rows:
             raise HTTPException(status_code=400, detail="Spreadsheet has no rows")
-        columns = [str(value).strip() for value in rows[0] if value is not None]
+        # Keep positional alignment: dropping empty header cells shifted every
+        # column to the right of them against the data rows.
+        columns = [
+            str(value).strip() if value is not None and str(value).strip() else f"Column_{i + 1}"
+            for i, value in enumerate(rows[0])
+        ]
+        rows[0] = columns
         return {"columns": columns, "csv": _csv_from_rows(rows)}
 
     if expected_type == "xml":
