@@ -17,7 +17,7 @@ import base64
 import fitz  # PyMuPDF
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from app.afp_document_generator import generate_afp_document, generate_afp_exstream
 from app.afp_cleaner import clean_afp
@@ -90,15 +90,51 @@ def _map_font_families(html: str) -> str:
     return re.sub(r"font-family:\s*([^;}\"]+|\"[^\"]*\"[^;}]*)", repl, html)
 
 
+_DEFAULT_HIGHLIGHT = "#fff59d"
+
+
+def _prepare_highlights(html: str) -> tuple[str, dict[str, str]]:
+    """Tag each <mark> with an id and collect its highlight color.
+
+    The layout engine ignores inline background-color, so highlights are
+    painted separately using the engine's reported element rectangles.
+    """
+    import re
+
+    colors: dict[str, str] = {}
+
+    def repl(match: "re.Match[str]") -> str:
+        attrs = match.group(1)
+        hid = f"hl{len(colors)}"
+        color_match = (re.search(r'data-color="([^"]+)"', attrs)
+                       or re.search(r"background-color:\s*([^;\"']+)", attrs))
+        colors[hid] = color_match.group(1).strip() if color_match else _DEFAULT_HIGHLIGHT
+        return f'<mark id="{hid}"{attrs}>'
+
+    return re.sub(r"<mark([^>]*)>", repl, html), colors
+
+
+def _strip_color_styles(html: str) -> str:
+    """Remove color/background declarations for bilevel (AFP) output so
+    light-colored text cannot vanish when thresholded to black and white."""
+    import re
+    return re.sub(r"(?:background-)?color:\s*[^;\"']+;?", "", html)
+
+
 def _escape_html(text: str) -> str:
     return (text.replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
 def _render_body_html(body_html: str, block_texts: list[str],
-                      width_px: int, height_px: int) -> list[Image.Image] | None:
+                      width_px: int, height_px: int,
+                      color: bool = False) -> list[Image.Image] | None:
     """Lay out the editor's rich HTML (fonts, sizes, bold, alignment, lists)
     with PyMuPDF's Story engine and rasterize it at page resolution.
+
+    color=True (PDF output) keeps text colors and paints <mark> highlights;
+    color=False (AFP bilevel output) strips color declarations so light-
+    colored text cannot vanish when thresholded to black and white.
 
     Returns None when the body is empty or the layout engine fails, in which
     case the caller falls back to plain-text rendering.
@@ -114,6 +150,12 @@ def _render_body_html(body_html: str, block_texts: list[str],
     if not _html_to_text(html).strip():
         return None
 
+    highlight_colors: dict[str, str] = {}
+    if color:
+        html, highlight_colors = _prepare_highlights(html)
+    else:
+        html = _strip_color_styles(html)
+
     try:
         width_pt = width_px * 72.0 / DPI
         height_pt = height_px * 72.0 / DPI
@@ -126,19 +168,42 @@ def _render_body_html(body_html: str, block_texts: list[str],
         rect = fitz.Rect(0, 0, width_pt, height_pt)
         more = 1
         page_count = 0
+        highlight_rects: list[list[tuple[str, fitz.Rect]]] = []
         while more and page_count < MAX_BODY_PAGES:
             dev = writer.begin_page(rect)
             more, _ = story.place(rect)  # honors page-break-before between editor pages
+            page_marks: list[tuple[str, fitz.Rect]] = []
+            if highlight_colors:
+                story.element_positions(
+                    lambda pos: page_marks.append((pos.id, fitz.Rect(pos.rect)))
+                    if getattr(pos, "id", None) in highlight_colors else None,
+                    {})
+            highlight_rects.append(page_marks)
             story.draw(dev)
             writer.end_page()
             page_count += 1
         writer.close()
         doc = fitz.open("pdf", buf.getvalue())
+        scale = DPI / 72.0
+        mode = "RGB" if color else "L"
+        colorspace = fitz.csRGB if color else fitz.csGRAY
         images = []
-        for page in doc:
-            pix = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72),
-                                  colorspace=fitz.csGRAY)
-            images.append(Image.frombytes("L", (pix.width, pix.height), pix.samples))
+        for page_index, page in enumerate(doc):
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), colorspace=colorspace)
+            text_img = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+            marks = highlight_rects[page_index] if page_index < len(highlight_rects) else []
+            if color and marks:
+                # Paint highlights on a white layer, then multiply: black text
+                # stays black, white background takes the highlight color.
+                layer = Image.new("RGB", text_img.size, (255, 255, 255))
+                layer_draw = ImageDraw.Draw(layer)
+                for hid, mrect in marks:
+                    layer_draw.rectangle(
+                        (int(mrect.x0 * scale), int(mrect.y0 * scale),
+                         int(mrect.x1 * scale), int(mrect.y1 * scale)),
+                        fill=highlight_colors.get(hid, _DEFAULT_HIGHLIGHT))
+                text_img = ImageChops.multiply(text_img, layer)
+            images.append(text_img)
         return images
     except Exception:
         logger.exception("HTML body layout failed; falling back to plain text")
@@ -195,13 +260,17 @@ def _render_letter(
     block_texts: list[str],
     mailing_lines: list[str],
     return_lines: list[str],
+    color: bool = False,
 ) -> list[Image.Image]:
-    """Render a letter as one or more page images (grayscale).
+    """Render a letter as one or more page images (grayscale, or RGB for PDF).
 
     Callers needing encoded bytes should encode at the boundary — the
     previous PNG encode/decode round trip cost ~0.2-0.4s per letter.
     """
-    image = Image.new("L", (PAGE_WIDTH, PAGE_HEIGHT), color=255)
+    page_mode = "RGB" if color else "L"
+    page_white = (255, 255, 255) if color else 255
+    ink = (0, 0, 0) if color else 0
+    image = Image.new(page_mode, (PAGE_WIDTH, PAGE_HEIGHT), color=page_white)
     draw = ImageDraw.Draw(image)
     cfg = RenderConfig()
     font = _load_letter_font(cfg.font_size)
@@ -210,27 +279,28 @@ def _render_letter(
     y = cfg.margin_top
     for line in return_lines:
         if line:
-            draw.text((x, y), line, fill=0, font=font)
+            draw.text((x, y), line, fill=ink, font=font)
             y += cfg.line_height
 
     mx = cfg.margin_left + cfg.mailing_offset_x
     my = cfg.margin_top + cfg.mailing_offset_y
     for line in mailing_lines:
         if line:
-            draw.text((mx, my), line, fill=0, font=font)
+            draw.text((mx, my), line, fill=ink, font=font)
             my += cfg.line_height
 
     # Rich body: honor the editor's fonts/sizes/bold/alignment via the
     # HTML layout engine; fall back to plain text if layout fails.
     body_width = PAGE_WIDTH - cfg.margin_left * 2
     body_height = PAGE_HEIGHT - cfg.body_start_y - cfg.margin_left
-    body_pages = _render_body_html(body_html, block_texts, body_width, body_height)
+    body_pages = _render_body_html(body_html, block_texts, body_width, body_height,
+                                   color=color)
     if body_pages is not None:
         image.paste(body_pages[0], (cfg.margin_left, cfg.body_start_y))
         result = [image]
         # Continuation pages: body only, from the top margin down
         for continuation in body_pages[1:]:
-            cont_page = Image.new("L", (PAGE_WIDTH, PAGE_HEIGHT), color=255)
+            cont_page = Image.new(page_mode, (PAGE_WIDTH, PAGE_HEIGHT), color=page_white)
             cont_page.paste(continuation, (cfg.margin_left, cfg.margin_top))
             result.append(cont_page)
         return result
@@ -255,7 +325,7 @@ def _render_letter(
     for line in body_lines:
         if by > PAGE_HEIGHT - cfg.margin_left:
             break
-        draw.text((cfg.margin_left, by), line, fill=0, font=font)
+        draw.text((cfg.margin_left, by), line, fill=ink, font=font)
         by += cfg.line_height
 
     return [image]
@@ -900,6 +970,7 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 merged_blocks,
                 mailing_lines,
                 row_return_lines,
+                color=True,
             )
             for image in letter_pages:
                 if image.mode != "RGB":

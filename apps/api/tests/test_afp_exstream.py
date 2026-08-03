@@ -311,3 +311,29 @@ class TestMultiPageMailpieceGrouping:
         first_eng = names.index("ENG")
         assert names[:first_eng].count("BPG") == 2, "first group holds both pages"
         assert names.count("TLE") == 14, "TLEs once per letter, not per sheet"
+
+
+class TestColorAndHighlightRendering:
+    HTML = ('<p><span style="color: #cc0000">RED TEXT</span> '
+            '<mark data-color="#fff59d" style="background-color: #fff59d">MARKED</mark></p>')
+
+    def test_pdf_mode_keeps_text_color_and_paints_highlight(self):
+        from app.print_output import _render_body_html
+
+        pages = _render_body_html(self.HTML, [], 2000, 400, color=True)
+        assert pages and pages[0].mode == "RGB"
+        colors = pages[0].getcolors(200000) or []
+        assert any(c[0] > 150 and c[1] < 110 and c[2] < 110 for _, c in colors), \
+            "red text must survive in color output"
+        assert any(c[0] > 210 and c[1] > 210 and c[2] < 190 for _, c in colors), \
+            "yellow highlight must be painted in color output"
+
+    def test_afp_mode_flattens_color_to_legible_black(self):
+        from app.print_output import _render_body_html
+
+        pages = _render_body_html(
+            '<p><span style="color: #ffff00">YELLOW TEXT</span></p>', [], 2000, 400)
+        assert pages and pages[0].mode == "L"
+        dark = sum(1 for v in pages[0].getdata() if v < 100)
+        assert dark > 100, \
+            "light-colored text must be forced black in bilevel AFP output, not vanish"
