@@ -413,25 +413,43 @@ def _build_eog() -> bytes:
 
 
 def _build_obd(width: int, height: int, resolution: int = 300) -> bytes:
-    """Object Area Descriptor (OBD) - Elixir compatible."""
+    """Object Area Descriptor (OBD) — extent computed from the actual image.
+
+    Previous hardcoded 'Elixir-compatible' bytes declared a 1440-dpi-unit
+    6.3"x6.0" area regardless of the real image, which strict viewers use
+    for clipping/placement.
+    """
+    units = resolution * 10
     data = bytearray()
     data.extend([0x00, 0x00, 0x00])
-    data.extend([0x03, 0x43, 0x01])
-    data.extend([0x08, 0x4B, 0x00, 0x00, 0x38, 0x40, 0x38, 0x40])
-    data.extend([0x09, 0x4C, 0x02, 0x00, 0x23, 0x4E, 0x00, 0x21, 0x95])
+    data.extend([0x03, 0x43, 0x01])  # X'43' Descriptor Position
+    # X'4B' Measurement Units: base 00 (10 inches), L-units per base
+    data.extend([0x08, 0x4B, 0x00, 0x00])
+    data.extend(struct.pack('>H', units))
+    data.extend(struct.pack('>H', units))
+    # X'4C' Object Area Size: type 02, extent in L-units (= pixels at same res)
+    data.extend([0x09, 0x4C, 0x02])
+    data.extend(b'\x00' + struct.pack('>H', width))
+    data.extend(b'\x00' + struct.pack('>H', height))
     return _sf(SF_OBD, bytes(data))
 
 
 def _build_obp() -> bytes:
-    """Object Area Position (OBP) - Elixir compatible."""
+    """Object Area Position (OBP): origin offsets, standard 0/90 orientations.
+
+    Layout: OaOsetId(1) RGLength(1)=X'17' XoaOset(3) YoaOset(3) XoaOrent(2)
+    YoaOrent(2) XocaOset(3) YocaOset(3) XocaOrent(2) YocaOrent(2) RefCSys(1).
+    """
     data = bytearray()
     data.extend([0x00, 0x00, 0x00])
-    data.append(0x01)
-    data.append(0x17)
-    data.extend([0x00] * 8)
-    data.extend([0x2d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-    data.extend([0x00, 0x00, 0x00])
-    data.extend([0x2d, 0x00, 0x00])
+    data.append(0x01)                      # object area offset id
+    data.append(0x17)                      # repeating group length (23)
+    data.extend([0x00] * 6)                # XoaOset, YoaOset = 0,0
+    data.extend([0x00, 0x00, 0x2D, 0x00])  # XoaOrent 0deg, YoaOrent 90deg
+    data.append(0x00)                      # reserved (per MO:DCA / FOP reference)
+    data.extend([0x00] * 6)                # XocaOset, YocaOset = 0,0
+    data.extend([0x00, 0x00, 0x2D, 0x00])  # XocaOrent 0deg, YocaOrent 90deg
+    data.append(0x01)                      # RefCSys: absolute
     return _sf(SF_OBP, bytes(data))
 
 
@@ -545,11 +563,12 @@ def _to_bilevel(gray: bytes, w: int, h: int) -> bytes:
     ).tobytes()
 
 
-def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
-    """Extract and concatenate all compressed strip data from a TIFF file.
+def _extract_tiff_strip(tiff_bytes: bytes, expect_single_strip: bool = False) -> bytes:
+    """Extract and concatenate compressed strip data from a TIFF file.
 
-    Large images may produce multiple strips. All strips must be concatenated
-    to avoid truncating the G4 compressed image data.
+    NOTE: concatenated multi-strip data is NOT a valid continuous G4 stream
+    (each strip restarts the coder), so writers must produce a single strip;
+    pass expect_single_strip=True to enforce that.
     """
     if tiff_bytes[:2] == b'II':
         endian = '<'
@@ -595,6 +614,11 @@ def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
 
     if not strip_offsets or not strip_lengths:
         return b''
+    if expect_single_strip and len(strip_offsets) != 1:
+        raise ValueError(
+            f"expected single-strip TIFF, got {len(strip_offsets)} strips — "
+            "concatenated strips are not a valid continuous G4 stream"
+        )
 
     # Concatenate all strips
     result = bytearray()
@@ -604,16 +628,22 @@ def _extract_tiff_strip(tiff_bytes: bytes) -> bytes:
 
 
 def _compress_g4(bilevel_data: bytes, width: int, height: int) -> bytes:
-    """Compress 1-bit bilevel data using CCITT Group 4 via Pillow TIFF."""
+    """Compress 1-bit bilevel data using CCITT Group 4 via Pillow TIFF.
+
+    ROWSPERSTRIP (tag 278) is forced to the full image height: Pillow's
+    default targets 64KB strips (205 rows at letter width), and each TIFF
+    strip is an independent T.6 stream — concatenating them produced data
+    that strict IOCA decoders reject at the first strip boundary
+    ("Bad 2D code word at scanline 205", Papyrus ACMP0007E).
+    """
     img = Image.frombytes('1', (width, height), bilevel_data)
 
-    # Save as TIFF with G4 compression
     buf = io.BytesIO()
-    img.save(buf, format='TIFF', compression='group4')
+    img.save(buf, format='TIFF', compression='group4', tiffinfo={278: height})
     tiff_bytes = buf.getvalue()
 
     # Extract raw G4 data from TIFF container
-    return _extract_tiff_strip(tiff_bytes)
+    return _extract_tiff_strip(tiff_bytes, expect_single_strip=True)
 
 
 def generate_inline_image(

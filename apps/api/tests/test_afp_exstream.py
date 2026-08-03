@@ -210,3 +210,41 @@ class TestIocaEncodingHeader:
         assert bytes([0x95, 0x02, 0x82, 0x01]) in data, "Image Encoding must be G4 MMR + RIDIC"
         assert bytes([0x95, 0x02, 0x03, 0x03]) not in data
         assert bytes([0x97, 0x01, 0x00]) not in data, "X'97' is not a valid IOCA field"
+
+
+class TestG4SingleStrip:
+    def test_g4_stream_is_single_strip_and_roundtrips_bit_exact(self):
+        """Pillow's 64KB strip default split pages into 205-row independent
+        T.6 streams; concatenating them broke strict decoders at scanline 205
+        (Papyrus ACMP0007E). The stream must decode bit-exact as ONE strip."""
+        import io
+        from PIL import Image
+        from app.afp_document_generator import _compress_g4, _to_bilevel
+
+        w, h = 2552, 700  # tall enough to cross the old 205-row strip boundary
+        gray = bytearray([255] * (w * h))
+        for y in range(180, 240):  # black band straddling scanline 205
+            for x in range(300, 2200):
+                gray[y * w + x] = 0
+        for y in range(400, 420):
+            for x in range(100, 900):
+                gray[y * w + x] = 0
+
+        bilevel = _to_bilevel(bytes(gray), w, h)
+        g4 = _compress_g4(bilevel, w, h)
+
+        # decode as a SINGLE continuous G4 strip — what AFP viewers do
+        def entry(tag, typ, count, val):
+            return struct.pack("<HHI4s", tag, typ, count, struct.pack("<I", val))
+        entries = [entry(256, 3, 1, w), entry(257, 3, 1, h), entry(258, 3, 1, 1),
+                   entry(259, 3, 1, 4), entry(262, 3, 1, 0),
+                   entry(273, 4, 1, 8 + 2 + 12 * 9 + 4), entry(277, 3, 1, 1),
+                   entry(278, 3, 1, h), entry(279, 4, 1, len(g4))]
+        tiff = (b"II*\x00" + struct.pack("<I", 8) + struct.pack("<H", len(entries))
+                + b"".join(entries) + struct.pack("<I", 0) + g4)
+        decoded = Image.open(io.BytesIO(tiff))
+        decoded.load()
+        # PIL '1' packs bit=1 as white while our bilevel packs bit=1 as dark,
+        # so a perfect round trip yields the bitwise inverse.
+        inverted = bytes(b ^ 0xFF for b in decoded.tobytes())
+        assert inverted == bilevel, "G4 stream must decode bit-exact as one strip"
