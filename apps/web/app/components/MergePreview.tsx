@@ -173,6 +173,7 @@ export function MergePreview({
               <ChevronRight size={16} />
             </button>
           </div>
+          <div className="merge-letter-scroll">
           <div className="merge-letter-page">
             <div className="merge-letter-header">
               <div className="merge-letter-return">
@@ -198,6 +199,7 @@ export function MergePreview({
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mergedHtml) }}
             />
             {tagline && <div className="merge-letter-tagline">{tagline}</div>}
+          </div>
           </div>
         </div>
       </div>
