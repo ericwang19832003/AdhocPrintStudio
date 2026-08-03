@@ -47,6 +47,22 @@ class RenderConfig:
     mailing_offset_y: int = int(1.8 * DPI)
     body_start_y: int = int(3.1 * DPI)
     line_height: int = int(0.22 * DPI)
+    # ~12pt type at the render DPI. The previous default bitmap font was a
+    # fixed ~11px (~2.6pt at 300 DPI): microscopic glyphs inside 66px line
+    # slots read as "tiny font with huge line gaps" in viewers and on paper.
+    font_size: int = int(0.1667 * DPI)
+
+
+def _load_letter_font(size: int) -> ImageFont.ImageFont:
+    """Scalable font for letter rendering, safe in the offline bundle.
+
+    Pillow >= 10.1 ships a scalable default face via load_default(size=...);
+    fall back to the legacy bitmap font only if that is unavailable.
+    """
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:  # very old Pillow
+        return ImageFont.load_default()
 
 
 def _html_to_text(html: str) -> str:
@@ -107,8 +123,8 @@ def _render_letter(
     """
     image = Image.new("L", (PAGE_WIDTH, PAGE_HEIGHT), color=255)
     draw = ImageDraw.Draw(image)
-    font = ImageFont.load_default()
     cfg = RenderConfig()
+    font = _load_letter_font(cfg.font_size)
 
     x = cfg.margin_left
     y = cfg.margin_top
