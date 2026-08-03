@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 
 export type ReadinessItem = {
@@ -27,7 +26,11 @@ type InspectorPanelProps = {
   onOpenMerge: () => void;
   /** The data upload/mapping panel, hosted on the right side. */
   dataPanel: React.ReactNode;
+  activeTab: InspectorTab;
+  onTabChange: (tab: InspectorTab) => void;
 };
+
+export type InspectorTab = "data" | "block" | "document" | "merge";
 
 function ReadinessList({ items }: { items: ReadinessItem[] }) {
   if (items.length === 0) {
@@ -54,9 +57,9 @@ export function InspectorPanel({
   readiness,
   onOpenMerge,
   dataPanel,
+  activeTab,
+  onTabChange,
 }: InspectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<"block" | "document" | "merge" | "data">("data");
-
   return (
     <aside className={`inspector-panel${activeTab === "data" ? " inspector-panel--wide" : ""}`}>
       <div className="inspector-tabs">
@@ -65,7 +68,7 @@ export function InspectorPanel({
             key={tab}
             type="button"
             className={`inspector-tab${activeTab === tab ? " active" : ""}`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => onTabChange(tab)}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -154,7 +157,7 @@ export function InspectorPanel({
               type="button"
               className="btn-accent readiness-merge-btn"
               onClick={() => {
-                setActiveTab("data");
+                onTabChange("data");
                 onOpenMerge();
               }}
             >

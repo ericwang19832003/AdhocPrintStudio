@@ -13,7 +13,7 @@ import { env } from "@/lib/env";
 import { parseCsv, parseCsvHeader } from "@/lib/csv";
 import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
-import { InspectorPanel, type ReadinessItem } from "./components/InspectorPanel";
+import { InspectorPanel, type InspectorTab, type ReadinessItem } from "./components/InspectorPanel";
 import { EmptyState } from "./components/EmptyState";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
@@ -571,6 +571,7 @@ export default function BuilderClient() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [showMergePreview, setShowMergePreview] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("data");
   const [letterTitle, setLetterTitle] = useState("Untitled letter");
   const [savedAgo, setSavedAgo] = useState<string | null>(null);
   const savedAtRef = useRef<number | null>(null);
@@ -2598,7 +2599,14 @@ export default function BuilderClient() {
         onExport={handleExportWord}
         onManageLibrary={() => setShowManageLibrary(true)}
         onAiSettings={() => setShowAiSettings(true)}
-        onPreview={() => setShowMergePreview(true)}
+        onPreview={() => {
+          if (spreadsheetRows.length === 0) {
+            setInspectorTab("data");
+            setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
+          } else {
+            setShowMergePreview(true);
+          }
+        }}
         onGenerate={() => runPreflightThenGenerate(outputFormat)}
         generating={generating || preflightRunning}
         generateDisabled={generating || preflightRunning || !columns.length}
@@ -3191,6 +3199,8 @@ export default function BuilderClient() {
           }}
           readiness={readiness}
           onOpenMerge={() => setShowMergePreview(true)}
+          activeTab={inspectorTab}
+          onTabChange={setInspectorTab}
           dataPanel={
             <DataPanel
               spreadsheetName={spreadsheetName ?? null}
