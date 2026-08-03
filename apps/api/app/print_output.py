@@ -37,6 +37,7 @@ router = APIRouter(prefix="/print-output", tags=["print-output"])
 DPI = 300
 PAGE_WIDTH = int(8.5 * DPI)   # 2550
 PAGE_HEIGHT = int(11 * DPI)   # 3300
+MAX_BODY_PAGES = 10  # safety cap for runaway page-break content
 
 
 @dataclass
@@ -94,7 +95,7 @@ def _escape_html(text: str) -> str:
 
 
 def _render_body_html(body_html: str, block_texts: list[str],
-                      width_px: int, height_px: int) -> Image.Image | None:
+                      width_px: int, height_px: int) -> list[Image.Image] | None:
     """Lay out the editor's rich HTML (fonts, sizes, bold, alignment, lists)
     with PyMuPDF's Story engine and rasterize it at page resolution.
 
@@ -122,15 +123,22 @@ def _render_body_html(body_html: str, block_texts: list[str],
         buf = io.BytesIO()
         writer = fitz.DocumentWriter(buf)
         rect = fitz.Rect(0, 0, width_pt, height_pt)
-        dev = writer.begin_page(rect)
-        story.place(rect)  # single page region; overflow truncates like before
-        story.draw(dev)
-        writer.end_page()
+        more = 1
+        page_count = 0
+        while more and page_count < MAX_BODY_PAGES:
+            dev = writer.begin_page(rect)
+            more, _ = story.place(rect)  # honors page-break-before between editor pages
+            story.draw(dev)
+            writer.end_page()
+            page_count += 1
         writer.close()
         doc = fitz.open("pdf", buf.getvalue())
-        pix = doc[0].get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72),
-                                colorspace=fitz.csGRAY)
-        return Image.frombytes("L", (pix.width, pix.height), pix.samples)
+        images = []
+        for page in doc:
+            pix = page.get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72),
+                                  colorspace=fitz.csGRAY)
+            images.append(Image.frombytes("L", (pix.width, pix.height), pix.samples))
+        return images
     except Exception:
         logger.exception("HTML body layout failed; falling back to plain text")
         return None
@@ -186,8 +194,8 @@ def _render_letter(
     block_texts: list[str],
     mailing_lines: list[str],
     return_lines: list[str],
-) -> Image.Image:
-    """Render a letter page; returns the PIL image directly (grayscale).
+) -> list[Image.Image]:
+    """Render a letter as one or more page images (grayscale).
 
     Callers needing encoded bytes should encode at the boundary — the
     previous PNG encode/decode round trip cost ~0.2-0.4s per letter.
@@ -215,10 +223,16 @@ def _render_letter(
     # HTML layout engine; fall back to plain text if layout fails.
     body_width = PAGE_WIDTH - cfg.margin_left * 2
     body_height = PAGE_HEIGHT - cfg.body_start_y - cfg.margin_left
-    body_img = _render_body_html(body_html, block_texts, body_width, body_height)
-    if body_img is not None:
-        image.paste(body_img, (cfg.margin_left, cfg.body_start_y))
-        return image
+    body_pages = _render_body_html(body_html, block_texts, body_width, body_height)
+    if body_pages is not None:
+        image.paste(body_pages[0], (cfg.margin_left, cfg.body_start_y))
+        result = [image]
+        # Continuation pages: body only, from the top margin down
+        for continuation in body_pages[1:]:
+            cont_page = Image.new("L", (PAGE_WIDTH, PAGE_HEIGHT), color=255)
+            cont_page.paste(continuation, (cfg.margin_left, cfg.margin_top))
+            result.append(cont_page)
+        return result
 
     body_text = _html_to_text(body_html).strip()
     if block_texts:
@@ -243,7 +257,7 @@ def _render_letter(
         draw.text((cfg.margin_left, by), line, fill=0, font=font)
         by += cfg.line_height
 
-    return image
+    return [image]
 
 
 def _csv_from_rows(rows: list[list[Any]]) -> str:
@@ -737,32 +751,32 @@ def generate_afp(payload: dict[str, Any]) -> Response:
             # Get return lines for this row (static or dynamic)
             row_return_lines = get_return_lines_for_row(row)
 
-            image = _render_letter(
+            letter_pages = _render_letter(
                 merged_body,
                 merged_blocks,
                 mailing_lines,
                 row_return_lines,
             )
-            if image.mode != "L":
-                image = image.convert("L")
-            image_data = image.tobytes()
-            width, height = image.size
-
-            # Build page with TLE data
-            pages.append({
-                'image_data': image_data,
-                'width': width,
-                'height': height,
-                'tle_data': {
-                    'mailing_name': mailing_lines[0],
-                    'mailing_addr1': mailing_lines[1],
-                    'mailing_addr2': mailing_lines[2],
-                    'mailing_addr3': mailing_lines[3],
-                    'return_addr1': row_return_lines[0] if len(row_return_lines) > 0 else "",
-                    'return_addr2': row_return_lines[1] if len(row_return_lines) > 1 else "",
-                    'return_addr3': row_return_lines[2] if len(row_return_lines) > 2 else "",
-                }
-            })
+            tle_data = {
+                'mailing_name': mailing_lines[0],
+                'mailing_addr1': mailing_lines[1],
+                'mailing_addr2': mailing_lines[2],
+                'mailing_addr3': mailing_lines[3],
+                'return_addr1': row_return_lines[0] if len(row_return_lines) > 0 else "",
+                'return_addr2': row_return_lines[1] if len(row_return_lines) > 1 else "",
+                'return_addr3': row_return_lines[2] if len(row_return_lines) > 2 else "",
+            }
+            for page_index, image in enumerate(letter_pages):
+                if image.mode != "L":
+                    image = image.convert("L")
+                width, height = image.size
+                pages.append({
+                    'image_data': image.tobytes(),
+                    'width': width,
+                    'height': height,
+                    # TLE index tags identify the letter; tag every page of it
+                    'tle_data': tle_data,
+                })
 
             # Append babel pages after each letter
             for babel_page in babel_page_info:
@@ -877,15 +891,16 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
             # Get return lines for this row (static or dynamic)
             row_return_lines = get_return_lines_for_row(row)
 
-            image = _render_letter(
+            letter_pages = _render_letter(
                 merged_body,
                 merged_blocks,
                 mailing_lines,
                 row_return_lines,
             )
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            images.append(image)
+            for image in letter_pages:
+                if image.mode != "RGB":
+                    image = image.convert("RGB")
+                images.append(image)
 
             # Append babel pages after each letter
             for babel_img in babel_images:

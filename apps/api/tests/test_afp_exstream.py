@@ -259,6 +259,7 @@ class TestRichBodyRendering:
             '<p><span style="font-size: 24pt"><strong>HEADING</strong></span></p>', [], 2000, 600)
         small = _render_body_html('<p>HEADING</p>', [], 2000, 600)
         assert big is not None and small is not None
+        big, small = big[0], small[0]
 
         def ink_height(img):
             px = img.load()
@@ -274,3 +275,15 @@ class TestRichBodyRendering:
         html = '<span style="font-family: Times New Roman">x</span><span style="font-family: Courier New">y</span>'
         mapped = _map_font_families(html)
         assert "font-family: serif" in mapped and "font-family: monospace" in mapped
+
+    def test_page_breaks_produce_multiple_pages(self):
+        """Editor pages joined with page-break-before must not be truncated."""
+        from app.print_output import _render_body_html, _render_letter
+
+        html = ('<p>Page one content</p>'
+                '<div style="page-break-before:always"><p>Page two content</p></div>')
+        body_pages = _render_body_html(html, [], 2000, 600)
+        assert body_pages is not None and len(body_pages) == 2
+
+        letter_pages = _render_letter(html, [], ["", "", "", ""], ["", "", ""])
+        assert len(letter_pages) == 2
