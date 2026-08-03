@@ -3627,10 +3627,32 @@ export default function BuilderClient() {
           letterHtml={pages
             .map((_, i) => stripInlineControls(bodyContentByPage[i] ?? ""))
             .join("")}
-          returnLines={(selectedReturn?.content ?? "")
-            .split("\n").map((l) => l.trim()).filter(Boolean)}
-          logoUrl={selectedLogo?.imageUrl ?? null}
-          tagline={selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null}
+          assetsForRow={(row) => {
+            const staticReturn = (selectedReturn?.content ?? "")
+              .split("\n").map((l) => l.trim()).filter(Boolean);
+            let returnLines = staticReturn;
+            if (returnMode === "dynamic") {
+              const ret = (library["Return Address"] ?? [])
+                .find((r) => r.id === returnValueMap[row[returnColumn] ?? ""]);
+              if (ret?.content) {
+                returnLines = ret.content.split("\n").map((l) => l.trim()).filter(Boolean);
+              }
+            }
+            let logoUrl = selectedLogo?.imageUrl ?? null;
+            if (logoMode === "dynamic") {
+              const logo = (library.Logos ?? [])
+                .find((l) => l.id === logoValueMap[row[logoColumn] ?? ""]);
+              logoUrl = logo?.imageUrl ?? logoUrl;
+            }
+            let tagline =
+              selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null;
+            if (taglineMode === "dynamic") {
+              const t = (library.Taglines ?? [])
+                .find((x) => x.id === taglineValueMap[row[taglineColumn] ?? ""]);
+              tagline = t ? (t.content ?? t.label) : tagline;
+            }
+            return { returnLines, logoUrl, tagline };
+          }}
           mailingColumns={{
             name: normalizeMailingValue(mailingMap.mailing_name),
             addr1: normalizeMailingValue(mailingMap.mailing_addr1),

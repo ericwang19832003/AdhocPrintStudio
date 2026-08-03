@@ -11,9 +11,12 @@ type MergePreviewProps = {
   columns: string[];
   placeholderMap: Record<string, string>; // [Placeholder] → column name
   letterHtml: string; // the raw letter body HTML (with [Placeholder] tokens)
-  returnLines: string[];
-  logoUrl: string | null;
-  tagline: string | null;
+  /** Resolve header/footer assets for a row — follows dynamic asset modes. */
+  assetsForRow: (row: MergeRow) => {
+    returnLines: string[];
+    logoUrl: string | null;
+    tagline: string | null;
+  };
   mailingColumns: { name: string; addr1: string; addr2: string; addr3: string };
   outputFormat: "pdf" | "afp" | string;
   onFormatChange: (fmt: string) => void;
@@ -42,9 +45,7 @@ export function MergePreview({
   columns,
   placeholderMap,
   letterHtml,
-  returnLines,
-  logoUrl,
-  tagline,
+  assetsForRow,
   mailingColumns,
   outputFormat,
   onFormatChange,
@@ -74,6 +75,7 @@ export function MergePreview({
 
   const currentRow = rows[selectedRow] ?? {};
   const mergedHtml = mergeLetter(letterHtml, currentRow, placeholderMap);
+  const { returnLines, logoUrl, tagline } = assetsForRow(currentRow);
 
   // Try to get a display name from the row using common name-related column mappings
   const nameCol =
