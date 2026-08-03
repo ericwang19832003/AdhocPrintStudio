@@ -25,6 +25,8 @@ type InspectorPanelProps = {
   onYChange: (y: number) => void;
   readiness: ReadinessItem[];
   onOpenMerge: () => void;
+  /** The data upload/mapping panel, hosted on the right side. */
+  dataPanel: React.ReactNode;
 };
 
 function ReadinessList({ items }: { items: ReadinessItem[] }) {
@@ -51,13 +53,14 @@ export function InspectorPanel({
   onYChange,
   readiness,
   onOpenMerge,
+  dataPanel,
 }: InspectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<"block" | "document" | "merge">("block");
+  const [activeTab, setActiveTab] = useState<"block" | "document" | "merge" | "data">("data");
 
   return (
-    <aside className="inspector-panel">
+    <aside className={`inspector-panel${activeTab === "data" ? " inspector-panel--wide" : ""}`}>
       <div className="inspector-tabs">
-        {(["block", "document", "merge"] as const).map((tab) => (
+        {(["data", "block", "document", "merge"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -147,10 +150,21 @@ export function InspectorPanel({
           <div className="inspector-section">
             <label className="inspector-label">MERGE READINESS</label>
             <ReadinessList items={readiness} />
-            <button type="button" className="btn-accent readiness-merge-btn" onClick={onOpenMerge}>
+            <button
+              type="button"
+              className="btn-accent readiness-merge-btn"
+              onClick={() => {
+                setActiveTab("data");
+                onOpenMerge();
+              }}
+            >
               Open merge panel →
             </button>
           </div>
+        )}
+
+        {activeTab === "data" && (
+          <div className="inspector-section inspector-data">{dataPanel}</div>
         )}
       </div>
 

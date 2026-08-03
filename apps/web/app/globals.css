@@ -5283,3 +5283,15 @@ textarea:focus-visible {
   margin-left: 4px;
 }
 .page-add-btn:hover { color: var(--accent); }
+
+/* Data tab hosts the full upload/mapping panel — give it room */
+.inspector-panel--wide {
+  width: 380px;
+  flex: 0 0 380px;
+}
+.inspector-data {
+  padding: 0;
+}
+.inspector-data .data-panel {
+  width: 100%;
+}

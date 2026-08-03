@@ -7,11 +7,10 @@ import {
   Tag,
   FileText,
   Upload,
-  Database,
   type LucideIcon,
 } from "lucide-react";
 
-export type SidebarTab = "Logo" | "Return" | "Verbiage" | "Tagline" | "Templates" | "Import" | "Data";
+export type SidebarTab = "Logo" | "Return" | "Verbiage" | "Tagline" | "Templates" | "Import";
 
 const NAV_ITEMS: { id: SidebarTab; label: string; Icon: LucideIcon }[] = [
   { id: "Logo",      label: "Logo",      Icon: ImageIcon },
@@ -20,7 +19,6 @@ const NAV_ITEMS: { id: SidebarTab; label: string; Icon: LucideIcon }[] = [
   { id: "Tagline",   label: "Tagline",   Icon: Tag },
   { id: "Templates", label: "Templates", Icon: FileText },
   { id: "Import",    label: "Import",    Icon: Upload },
-  { id: "Data",      label: "Data",      Icon: Database },
 ];
 
 type SidebarNavProps = {

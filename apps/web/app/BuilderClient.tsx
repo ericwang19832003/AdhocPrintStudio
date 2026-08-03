@@ -2598,13 +2598,7 @@ export default function BuilderClient() {
         onExport={handleExportWord}
         onManageLibrary={() => setShowManageLibrary(true)}
         onAiSettings={() => setShowAiSettings(true)}
-        onPreview={() => {
-          if (spreadsheetRows.length === 0) {
-            setOpenMenuTab("Data");
-          } else {
-            setShowMergePreview(true);
-          }
-        }}
+        onPreview={() => setShowMergePreview(true)}
         onGenerate={() => runPreflightThenGenerate(outputFormat)}
         generating={generating || preflightRunning}
         generateDisabled={generating || preflightRunning || !columns.length}
@@ -2619,7 +2613,6 @@ export default function BuilderClient() {
               : openMenuTab === "Verbiage" ? "Verbiage"
               : openMenuTab === "Taglines" ? "Tagline"
               : openMenuTab === "Full Letters" ? "Templates"
-              : openMenuTab === "Data" ? "Data"
               : null
             }
             onSelect={(tab: SidebarTab) => {
@@ -2634,7 +2627,6 @@ export default function BuilderClient() {
                 : tab === "Verbiage" ? "Verbiage"
                 : tab === "Tagline" ? "Taglines"
                 : tab === "Templates" ? "Full Letters"
-                : tab === "Data" ? "Data"
                 : null;
               if (!legacyTab) return;
               setActiveTab(legacyTab);
@@ -2893,24 +2885,6 @@ export default function BuilderClient() {
                   if (sourceItem) handleDragStart(event as React.DragEvent<HTMLDivElement>, sourceItem);
                 }}
                 onDragEnd={handleDragEnd}
-              />
-            ) : openMenuTab === "Data" ? (
-              <DataPanel
-                spreadsheetName={spreadsheetName ?? null}
-                columns={columns}
-                rows={spreadsheetRows}
-                placeholders={placeholders}
-                placeholderMap={placeholderMap}
-                onPlaceholderMapChange={(map: PlaceholderMapping) => setPlaceholderMap(map)}
-                onUploadFile={(file) => handleSpreadsheetFile(file)}
-                mailingMap={mailingMap}
-                onMailingMapChange={setMailingMap}
-                spreadsheetNotPersisted={spreadsheetNotPersisted}
-                onAiAutomap={aiSettings ? runAiAutomap : undefined}
-                aiMapLoading={aiMapLoading}
-                aiSuggestions={aiSettings ? visibleAiSuggestions : undefined}
-                onApplySuggestion={applyAutoMatch}
-                onApplyAllAiSuggestions={applyAllAiSuggestions}
               />
             ) : (
               <BlockMenu
@@ -3216,7 +3190,26 @@ export default function BuilderClient() {
             }));
           }}
           readiness={readiness}
-          onOpenMerge={() => { setOpenMenuTab("Data"); setShowMergePreview(true); }}
+          onOpenMerge={() => setShowMergePreview(true)}
+          dataPanel={
+            <DataPanel
+              spreadsheetName={spreadsheetName ?? null}
+              columns={columns}
+              rows={spreadsheetRows}
+              placeholders={placeholders}
+              placeholderMap={placeholderMap}
+              onPlaceholderMapChange={(map: PlaceholderMapping) => setPlaceholderMap(map)}
+              onUploadFile={(file) => handleSpreadsheetFile(file)}
+              mailingMap={mailingMap}
+              onMailingMapChange={setMailingMap}
+              spreadsheetNotPersisted={spreadsheetNotPersisted}
+              onAiAutomap={aiSettings ? runAiAutomap : undefined}
+              aiMapLoading={aiMapLoading}
+              aiSuggestions={aiSettings ? visibleAiSuggestions : undefined}
+              onApplySuggestion={applyAutoMatch}
+              onApplyAllAiSuggestions={applyAllAiSuggestions}
+            />
+          }
         />
       </div>
 
