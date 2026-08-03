@@ -2143,6 +2143,10 @@ export default function BuilderClient() {
           },
           return_address: returnLines,
           spreadsheet_csv: spreadsheetContent,
+          logo_url: logoMode === "static" ? selectedLogo?.imageUrl ?? null : null,
+          tagline: taglineMode === "static"
+            ? selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null
+            : null,
           // Dynamic asset configuration
           dynamic_logo: logoMode === "dynamic" ? {
             column: logoColumn,
@@ -3620,7 +3624,19 @@ export default function BuilderClient() {
           rows={spreadsheetRows as MergeRow[]}
           columns={columns}
           placeholderMap={placeholderMap}
-          letterHtml={bodyContentByPage[activePage] ?? ""}
+          letterHtml={pages
+            .map((_, i) => stripInlineControls(bodyContentByPage[i] ?? ""))
+            .join("")}
+          returnLines={(selectedReturn?.content ?? "")
+            .split("\n").map((l) => l.trim()).filter(Boolean)}
+          logoUrl={selectedLogo?.imageUrl ?? null}
+          tagline={selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null}
+          mailingColumns={{
+            name: normalizeMailingValue(mailingMap.mailing_name),
+            addr1: normalizeMailingValue(mailingMap.mailing_addr1),
+            addr2: normalizeMailingValue(mailingMap.mailing_addr2),
+            addr3: normalizeMailingValue(mailingMap.mailing_addr3),
+          }}
           outputFormat={outputFormat}
           onFormatChange={(fmt) => setOutputFormat(fmt as "afp" | "pdf")}
           onGenerate={() => { handleGenerate(outputFormat); setShowMergePreview(false); }}

@@ -52,6 +52,69 @@ class RenderConfig:
     # fixed ~11px (~2.6pt at 300 DPI): microscopic glyphs inside 66px line
     # slots read as "tiny font with huge line gaps" in viewers and on paper.
     font_size: int = int(0.1667 * DPI)
+    logo_width: int = int(1.6 * DPI)
+    tagline_y: int = int((11 - 0.6) * DPI)
+
+
+def _absolutize_svg_text_coords(svg: str) -> str:
+    """Convert percentage x/y on SVG <text> to absolute coordinates.
+
+    MuPDF's SVG rasterizer silently drops text positioned with percentage
+    coordinates (the seed logo style); absolute coordinates render fine.
+    """
+    import re
+    width_match = re.search(r"<svg[^>]*\bwidth=['\"]([\d.]+)", svg)
+    height_match = re.search(r"<svg[^>]*\bheight=['\"]([\d.]+)", svg)
+    if not (width_match and height_match):
+        return svg
+    width, height = float(width_match.group(1)), float(height_match.group(1))
+
+    def fix(match: "re.Match[str]") -> str:
+        attr, pct = match.group(1), float(match.group(2))
+        base = width if attr == "x" else height
+        return f"{attr}='{base * pct / 100:.1f}'"
+
+    return re.sub(r"\b([xy])=['\"]([\d.]+)%['\"]", fix, svg)
+
+
+def _decode_logo_image(data_url: str, target_width: int, color: bool) -> Image.Image | None:
+    """Rasterize a logo data URL (PNG/JPG/SVG) to a paste-ready image.
+
+    SVG logos (the seed library) are rendered via PyMuPDF; transparent
+    rasters are flattened onto white. Returns None on any failure so a bad
+    logo never blocks letter generation.
+    """
+    try:
+        if not data_url.startswith("data:image/"):
+            return None
+        header, payload_part = data_url.split(",", 1)
+        if "svg" in header:
+            if ";base64" in header:
+                svg_text = base64.b64decode(payload_part).decode("utf-8", "replace")
+            else:
+                from urllib.parse import unquote
+                svg_text = unquote(payload_part)
+            doc = fitz.open("svg", _absolutize_svg_text_coords(svg_text).encode("utf-8"))
+            page = doc[0]
+            zoom = target_width / max(page.rect.width, 1)
+            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csRGB)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        else:
+            img = Image.open(io.BytesIO(base64.b64decode(payload_part)))
+            img.load()
+            if img.mode in ("RGBA", "LA", "P"):
+                rgba = img.convert("RGBA")
+                flat = Image.new("RGB", rgba.size, (255, 255, 255))
+                flat.paste(rgba, mask=rgba.split()[-1])
+                img = flat
+            else:
+                img = img.convert("RGB")
+            ratio = target_width / max(img.width, 1)
+            img = img.resize((target_width, max(1, int(img.height * ratio))))
+        return img if color else img.convert("L")
+    except Exception:
+        logger.exception("logo decode failed; letter renders without logo")
+        return None
 
 
 def _load_letter_font(size: int) -> ImageFont.ImageFont:
@@ -271,6 +334,8 @@ def _render_letter(
     mailing_lines: list[str],
     return_lines: list[str],
     color: bool = False,
+    logo_data_url: str | None = None,
+    tagline: str | None = None,
 ) -> list[Image.Image]:
     """Render a letter as one or more page images (grayscale, or RGB for PDF).
 
@@ -291,6 +356,18 @@ def _render_letter(
         if line:
             draw.text((x, y), line, fill=ink, font=font)
             y += cfg.line_height
+
+    # Logo top-right, mirroring the canvas layout
+    if logo_data_url:
+        logo = _decode_logo_image(logo_data_url, cfg.logo_width, color)
+        if logo is not None:
+            image.paste(logo, (PAGE_WIDTH - cfg.margin_left - logo.width, cfg.margin_top))
+
+    # Tagline centered at the bottom of the first page
+    if tagline and tagline.strip():
+        tagline_width = draw.textlength(tagline, font=font)
+        draw.text((max(0, (PAGE_WIDTH - tagline_width) // 2), cfg.tagline_y),
+                  tagline, fill=ink, font=font)
 
     mx = cfg.margin_left + cfg.mailing_offset_x
     my = cfg.margin_top + cfg.mailing_offset_y
@@ -802,6 +879,25 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 })
 
         # Helper to get return lines for a row
+        logo_url = payload.get("logo_url")
+        tagline_text = payload.get("tagline")
+        dynamic_logo = payload.get("dynamic_logo")
+        dynamic_tagline = payload.get("dynamic_tagline")
+
+        def get_logo_for_row(row: dict[str, str]) -> str | None:
+            if dynamic_logo:
+                value = row.get(dynamic_logo.get("column", ""), "")
+                mapped = (dynamic_logo.get("map") or {}).get(value)
+                return mapped or dynamic_logo.get("default") or None
+            return logo_url
+
+        def get_tagline_for_row(row: dict[str, str]) -> str | None:
+            if dynamic_tagline:
+                value = row.get(dynamic_tagline.get("column", ""), "")
+                mapped = (dynamic_tagline.get("map") or {}).get(value)
+                return mapped or dynamic_tagline.get("default") or None
+            return tagline_text
+
         def get_return_lines_for_row(row: dict[str, str]) -> list[str]:
             if dynamic_return:
                 column = dynamic_return.get("column", "")
@@ -837,6 +933,8 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 merged_blocks,
                 mailing_lines,
                 row_return_lines,
+                logo_data_url=get_logo_for_row(row),
+                tagline=get_tagline_for_row(row),
             )
             tle_data = {
                 'mailing_name': mailing_lines[0],
@@ -945,6 +1043,25 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 babel_images.append(img)
 
         # Helper to get return lines for a row
+        logo_url = payload.get("logo_url")
+        tagline_text = payload.get("tagline")
+        dynamic_logo = payload.get("dynamic_logo")
+        dynamic_tagline = payload.get("dynamic_tagline")
+
+        def get_logo_for_row(row: dict[str, str]) -> str | None:
+            if dynamic_logo:
+                value = row.get(dynamic_logo.get("column", ""), "")
+                mapped = (dynamic_logo.get("map") or {}).get(value)
+                return mapped or dynamic_logo.get("default") or None
+            return logo_url
+
+        def get_tagline_for_row(row: dict[str, str]) -> str | None:
+            if dynamic_tagline:
+                value = row.get(dynamic_tagline.get("column", ""), "")
+                mapped = (dynamic_tagline.get("map") or {}).get(value)
+                return mapped or dynamic_tagline.get("default") or None
+            return tagline_text
+
         def get_return_lines_for_row(row: dict[str, str]) -> list[str]:
             if dynamic_return:
                 column = dynamic_return.get("column", "")
@@ -981,6 +1098,8 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 mailing_lines,
                 row_return_lines,
                 color=True,
+                logo_data_url=get_logo_for_row(row),
+                tagline=get_tagline_for_row(row),
             )
             for image in letter_pages:
                 if image.mode != "RGB":

@@ -11,6 +11,10 @@ type MergePreviewProps = {
   columns: string[];
   placeholderMap: Record<string, string>; // [Placeholder] → column name
   letterHtml: string; // the raw letter body HTML (with [Placeholder] tokens)
+  returnLines: string[];
+  logoUrl: string | null;
+  tagline: string | null;
+  mailingColumns: { name: string; addr1: string; addr2: string; addr3: string };
   outputFormat: "pdf" | "afp" | string;
   onFormatChange: (fmt: string) => void;
   onGenerate: () => void;
@@ -38,6 +42,10 @@ export function MergePreview({
   columns,
   placeholderMap,
   letterHtml,
+  returnLines,
+  logoUrl,
+  tagline,
+  mailingColumns,
   outputFormat,
   onFormatChange,
   onGenerate,
@@ -53,12 +61,12 @@ export function MergePreview({
             <FileText size={16} />
             <span>Merge Preview</span>
           </div>
-          <button type="button" className="merge-close-btn" onClick={onClose} aria-label="Close">
-            <X size={18} />
+          <button type="button" className="btn-ghost-sm" onClick={onClose}>
+            ← Back to editor
           </button>
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-300)", fontSize: "14px" }}>
-          No data rows loaded. Upload a CSV from the Data panel first.
+          No data rows loaded. Upload a data file from the Data panel on the right first.
         </div>
       </div>
     );
@@ -102,6 +110,9 @@ export function MergePreview({
           </div>
           <button type="button" className="btn-accent" onClick={onGenerate}>
             Generate {rows.length} {rows.length === 1 ? "letter" : "letters"}
+          </button>
+          <button type="button" className="btn-ghost-sm" onClick={onClose}>
+            ← Back to editor
           </button>
           <button
             type="button"
@@ -160,10 +171,32 @@ export function MergePreview({
               <ChevronRight size={16} />
             </button>
           </div>
-          <div
-            className="merge-letter-body"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mergedHtml) }}
-          />
+          <div className="merge-letter-page">
+            <div className="merge-letter-header">
+              <div className="merge-letter-return">
+                {returnLines.length > 0
+                  ? returnLines.map((line, i) => <div key={i}>{line}</div>)
+                  : <div className="merge-letter-placeholder">No return address selected</div>}
+              </div>
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="Logo" className="merge-letter-logo" />
+              ) : (
+                <div className="merge-letter-placeholder">No logo</div>
+              )}
+            </div>
+            <div className="merge-letter-mailing">
+              {[mailingColumns.name, mailingColumns.addr1, mailingColumns.addr2, mailingColumns.addr3]
+                .map((col) => (col ? currentRow[col] ?? "" : ""))
+                .filter(Boolean)
+                .map((line, i) => <div key={i}>{line}</div>)}
+            </div>
+            <div
+              className="merge-letter-body"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mergedHtml) }}
+            />
+            {tagline && <div className="merge-letter-tagline">{tagline}</div>}
+          </div>
         </div>
       </div>
     </div>
