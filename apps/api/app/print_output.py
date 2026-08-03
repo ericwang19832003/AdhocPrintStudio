@@ -65,6 +65,77 @@ def _load_letter_font(size: int) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
+# Editor font names -> families PyMuPDF's layout engine can always resolve
+# (built-in faces; no font files needed in the offline bundle).
+_SERIF_FONTS = {"times new roman", "georgia", "garamond", "palatino",
+                "book antiqua", "cambria"}
+_MONO_FONTS = {"courier new", "lucida console"}
+
+
+def _map_font_families(html: str) -> str:
+    import re
+
+    def repl(match: "re.Match[str]") -> str:
+        family = match.group(1).strip().strip("'\"").lower()
+        if family in _SERIF_FONTS:
+            generic = "serif"
+        elif family in _MONO_FONTS:
+            generic = "monospace"
+        else:
+            generic = "sans-serif"
+        return f"font-family: {generic}"
+
+    return re.sub(r"font-family:\s*([^;\"']+)", repl, html)
+
+
+def _escape_html(text: str) -> str:
+    return (text.replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _render_body_html(body_html: str, block_texts: list[str],
+                      width_px: int, height_px: int) -> Image.Image | None:
+    """Lay out the editor's rich HTML (fonts, sizes, bold, alignment, lists)
+    with PyMuPDF's Story engine and rasterize it at page resolution.
+
+    Returns None when the body is empty or the layout engine fails, in which
+    case the caller falls back to plain-text rendering.
+    """
+    parts = [body_html or ""]
+    for text in block_texts:
+        if text.strip():
+            paragraphs = "".join(
+                f"<p>{_escape_html(p)}</p>" for p in text.split("\n") if p.strip()
+            )
+            parts.append(paragraphs)
+    html = _map_font_families("".join(parts))
+    if not _html_to_text(html).strip():
+        return None
+
+    try:
+        width_pt = width_px * 72.0 / DPI
+        height_pt = height_px * 72.0 / DPI
+        css = ("body { font-family: sans-serif; font-size: 12pt; color: #000; "
+               "line-height: 1.3; margin: 0; } "
+               "p { margin: 0 0 6pt 0; }")
+        story = fitz.Story(html=html, user_css=css)
+        buf = io.BytesIO()
+        writer = fitz.DocumentWriter(buf)
+        rect = fitz.Rect(0, 0, width_pt, height_pt)
+        dev = writer.begin_page(rect)
+        story.place(rect)  # single page region; overflow truncates like before
+        story.draw(dev)
+        writer.end_page()
+        writer.close()
+        doc = fitz.open("pdf", buf.getvalue())
+        pix = doc[0].get_pixmap(matrix=fitz.Matrix(DPI / 72, DPI / 72),
+                                colorspace=fitz.csGRAY)
+        return Image.frombytes("L", (pix.width, pix.height), pix.samples)
+    except Exception:
+        logger.exception("HTML body layout failed; falling back to plain text")
+        return None
+
+
 def _html_to_text(html: str) -> str:
     text = html.replace("</p>", "\n").replace("<br>", "\n").replace("<br/>", "\n")
     text = text.replace("<div>", "\n").replace("</div>", "\n")
@@ -139,6 +210,15 @@ def _render_letter(
         if line:
             draw.text((mx, my), line, fill=0, font=font)
             my += cfg.line_height
+
+    # Rich body: honor the editor's fonts/sizes/bold/alignment via the
+    # HTML layout engine; fall back to plain text if layout fails.
+    body_width = PAGE_WIDTH - cfg.margin_left * 2
+    body_height = PAGE_HEIGHT - cfg.body_start_y - cfg.margin_left
+    body_img = _render_body_html(body_html, block_texts, body_width, body_height)
+    if body_img is not None:
+        image.paste(body_img, (cfg.margin_left, cfg.body_start_y))
+        return image
 
     body_text = _html_to_text(body_html).strip()
     if block_texts:

@@ -248,3 +248,29 @@ class TestG4SingleStrip:
         # so a perfect round trip yields the bitwise inverse.
         inverted = bytes(b ^ 0xFF for b in decoded.tobytes())
         assert inverted == bilevel, "G4 stream must decode bit-exact as one strip"
+
+
+class TestRichBodyRendering:
+    def test_editor_formatting_reaches_the_rendered_page(self):
+        """Fonts/sizes/bold from the toolbar must survive into print output."""
+        from app.print_output import _render_body_html
+
+        big = _render_body_html(
+            '<p><span style="font-size: 24pt"><strong>HEADING</strong></span></p>', [], 2000, 600)
+        small = _render_body_html('<p>HEADING</p>', [], 2000, 600)
+        assert big is not None and small is not None
+
+        def ink_height(img):
+            px = img.load()
+            rows = [y for y in range(img.height)
+                    if any(px[x, y] < 128 for x in range(0, img.width, 4))]
+            return (max(rows) - min(rows) + 1) if rows else 0
+
+        assert ink_height(big) > ink_height(small) * 1.5, \
+            "24pt bold heading must render visibly larger than 12pt body"
+
+    def test_font_family_mapping(self):
+        from app.print_output import _map_font_families
+        html = '<span style="font-family: Times New Roman">x</span><span style="font-family: Courier New">y</span>'
+        mapped = _map_font_families(html)
+        assert "font-family: serif" in mapped and "font-family: monospace" in mapped
