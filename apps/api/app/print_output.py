@@ -116,9 +116,19 @@ def _prepare_highlights(html: str) -> tuple[str, dict[str, str]]:
 
 def _strip_color_styles(html: str) -> str:
     """Remove color/background declarations for bilevel (AFP) output so
-    light-colored text cannot vanish when thresholded to black and white."""
+    light-colored text cannot vanish when thresholded to black and white.
+
+    Only style attributes are touched — visible text that happens to look
+    like CSS (e.g. a letter mentioning "color: red;") is left alone.
+    """
     import re
-    return re.sub(r"(?:background-)?color:\s*[^;\"']+;?", "", html)
+
+    def clean(match: "re.Match[str]") -> str:
+        quote = match.group(1)
+        inner = re.sub(r"(?:background-)?color:\s*[^;\"']+;?", "", match.group(2))
+        return f"style={quote}{inner}{quote}"
+
+    return re.sub(r"style=([\"'])(.*?)\1", clean, html)
 
 
 def _escape_html(text: str) -> str:

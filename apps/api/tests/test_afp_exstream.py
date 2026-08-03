@@ -337,3 +337,11 @@ class TestColorAndHighlightRendering:
         dark = sum(1 for v in pages[0].getdata() if v < 100)
         assert dark > 100, \
             "light-colored text must be forced black in bilevel AFP output, not vanish"
+
+    def test_color_strip_leaves_visible_css_like_text_alone(self):
+        from app.print_output import _strip_color_styles
+
+        html = '<p>Set it to color: red; please</p><span style="color: #ffff00">x</span>'
+        stripped = _strip_color_styles(html)
+        assert "Set it to color: red; please" in stripped
+        assert "#ffff00" not in stripped
