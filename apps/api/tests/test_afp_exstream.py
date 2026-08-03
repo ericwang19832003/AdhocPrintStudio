@@ -276,6 +276,13 @@ class TestRichBodyRendering:
         mapped = _map_font_families(html)
         assert "font-family: serif" in mapped and "font-family: monospace" in mapped
 
+        quoted = _map_font_families(
+            "<span style='font-family: &quot;Times New Roman&quot;, Times, serif'>x</span>"
+            .replace("&quot;", '"'))
+        assert "font-family: serif" in quoted
+        fallback = _map_font_families('<span style="font-family: Georgia, serif">x</span>')
+        assert "font-family: serif" in fallback
+
     def test_page_breaks_produce_multiple_pages(self):
         """Editor pages joined with page-break-before must not be truncated."""
         from app.print_output import _render_body_html, _render_letter

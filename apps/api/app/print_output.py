@@ -77,16 +77,17 @@ def _map_font_families(html: str) -> str:
     import re
 
     def repl(match: "re.Match[str]") -> str:
-        family = match.group(1).strip().strip("'\"").lower()
-        if family in _SERIF_FONTS:
+        # Fallback lists like '"Times New Roman", Times, serif': first family wins
+        first = match.group(1).split(",")[0].strip().strip("'\"").lower()
+        if first in _SERIF_FONTS or first == "serif":
             generic = "serif"
-        elif family in _MONO_FONTS:
+        elif first in _MONO_FONTS or first == "monospace":
             generic = "monospace"
         else:
             generic = "sans-serif"
         return f"font-family: {generic}"
 
-    return re.sub(r"font-family:\s*([^;\"']+)", repl, html)
+    return re.sub(r"font-family:\s*([^;}\"]+|\"[^\"]*\"[^;}]*)", repl, html)
 
 
 def _escape_html(text: str) -> str:
