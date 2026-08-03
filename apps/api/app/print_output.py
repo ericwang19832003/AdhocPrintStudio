@@ -774,13 +774,16 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                     'image_data': image.tobytes(),
                     'width': width,
                     'height': height,
-                    # TLE index tags identify the letter; tag every page of it
                     'tle_data': tle_data,
+                    # pages after the first stay in the same mailpiece group
+                    'continuation': page_index > 0,
                 })
 
-            # Append babel pages after each letter
+            # Babel inserts belong to the same mailpiece as the letter
             for babel_page in babel_page_info:
-                pages.append(babel_page.copy())
+                insert = babel_page.copy()
+                insert['continuation'] = True
+                pages.append(insert)
 
         # Generate AFP document in OpenText Exstream 22.3 output format:
         # BDT/EDT document wrapper, BNG/ENG named page groups with group-level

@@ -287,3 +287,20 @@ class TestRichBodyRendering:
 
         letter_pages = _render_letter(html, [], ["", "", "", ""], ["", "", ""])
         assert len(letter_pages) == 2
+
+
+class TestMultiPageMailpieceGrouping:
+    def test_continuation_pages_share_one_named_group(self):
+        """A 2-page letter must be ONE BNG/ENG group with two BPGs — separate
+        groups would make inserters treat pages as separate mailpieces."""
+        pages = make_pages(1, with_image=True)
+        second = dict(pages[0])
+        second["continuation"] = True
+        two_page_letter = [pages[0], second, *make_pages(1, with_image=True)]
+
+        names = [n for n, _ in parse_fields(generate_afp_exstream(two_page_letter))]
+        assert names.count("BNG") == 2, "two letters -> two groups"
+        assert names.count("BPG") == 3, "three sheets total"
+        first_eng = names.index("ENG")
+        assert names[:first_eng].count("BPG") == 2, "first group holds both pages"
+        assert names.count("TLE") == 14, "TLEs once per letter, not per sheet"

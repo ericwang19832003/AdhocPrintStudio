@@ -1008,20 +1008,29 @@ def generate_afp_exstream(
     if include_banner:
         result.extend(_build_nop_comment(EXSTREAM_BANNER))
 
+    group_num = 0
+    group_name = None
     for page_num, page in enumerate(pages, start=1):
-        group_name = f"G{page_num:07d}"
         page_name = f"P{page_num:07d}"
 
-        # Named page group per letter (document boundary for indexing)
-        result.extend(_build_named(SF_BNG_STD, group_name))
+        # A page marked continuation stays inside the current letter's page
+        # group — one BNG/ENG per MAILPIECE, not per sheet, so downstream
+        # inserters do not split a multi-page letter into several envelopes.
+        is_continuation = bool(page.get('continuation')) and group_name is not None
+        if not is_continuation:
+            if group_name is not None:
+                result.extend(_build_named(SF_ENG_STD, group_name))
+            group_num += 1
+            group_name = f"G{group_num:07d}"
+            result.extend(_build_named(SF_BNG_STD, group_name))
 
-        # Group-level TLE index tags: after BNG, before the first BPG
-        tle_data = page.get('tle_data', {})
-        for field_name in (
-            'mailing_name', 'mailing_addr1', 'mailing_addr2', 'mailing_addr3',
-            'return_addr1', 'return_addr2', 'return_addr3',
-        ):
-            result.extend(_build_tle(field_name, tle_data.get(field_name, '')))
+            # Group-level TLE index tags: after BNG, before the first BPG
+            tle_data = page.get('tle_data', {})
+            for field_name in (
+                'mailing_name', 'mailing_addr1', 'mailing_addr2', 'mailing_addr3',
+                'return_addr1', 'return_addr2', 'return_addr3',
+            ):
+                result.extend(_build_tle(field_name, tle_data.get(field_name, '')))
 
         result.extend(_build_bpg(page_name))
 
@@ -1042,7 +1051,8 @@ def generate_afp_exstream(
             ))
 
         result.extend(_build_epg(page_name))
-        result.extend(_build_named(SF_ENG_STD, group_name))
 
+    if group_name is not None:
+        result.extend(_build_named(SF_ENG_STD, group_name))
     result.extend(_build_edt(document_name))
     return bytes(result)
