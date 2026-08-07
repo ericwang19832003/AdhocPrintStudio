@@ -15,6 +15,7 @@ import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type InspectorTab, type ReadinessItem } from "./components/InspectorPanel";
 import { EmptyState } from "./components/EmptyState";
+import { VaryByDataModal, VaryModeBar } from "./components/VaryByDataModal";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
 import { TaglineLibrary, type TaglineItem } from "./components/TaglineLibrary";
@@ -429,6 +430,12 @@ interface LetterDraft {
   selectedReturnId?: string;
   /** Items the user created (uploads, custom text) — lost on refresh before this existed. */
   customLibraryItems?: Record<string, LibraryItem[]>;
+  /** Vary-by-data rules; presence of a rule means the asset is dynamic. */
+  assetRules?: {
+    logo?: { column: string; valueMap: Record<string, string> };
+    tagline?: { column: string; valueMap: Record<string, string> };
+    return?: { column: string; valueMap: Record<string, string> };
+  };
 }
 
 export default function BuilderClient() {
@@ -454,6 +461,9 @@ export default function BuilderClient() {
   const [returnMode, setReturnMode] = useState<"static" | "dynamic">("static");
   const [returnColumn, setReturnColumn] = useState<string>("");
   const [returnValueMap, setReturnValueMap] = useState<Record<string, string>>({});
+
+  // Which asset the "Vary by data" modal is editing (null = closed)
+  const [varyModalFor, setVaryModalFor] = useState<"logo" | "return" | "tagline" | null>(null);
 
   const [pages, setPages] = useState(["Page 1"]);
   const [activePage, setActivePage] = useState(0);
@@ -701,6 +711,21 @@ export default function BuilderClient() {
           const ret = mergedLibrary["Return Address"]?.find((r) => r.id === draft.selectedReturnId);
           if (ret) setSelectedReturn(ret);
         }
+        if (draft.assetRules?.logo) {
+          setLogoColumn(draft.assetRules.logo.column);
+          setLogoValueMap(draft.assetRules.logo.valueMap ?? {});
+          setLogoMode("dynamic");
+        }
+        if (draft.assetRules?.tagline) {
+          setTaglineColumn(draft.assetRules.tagline.column);
+          setTaglineValueMap(draft.assetRules.tagline.valueMap ?? {});
+          setTaglineMode("dynamic");
+        }
+        if (draft.assetRules?.return) {
+          setReturnColumn(draft.assetRules.return.column);
+          setReturnValueMap(draft.assetRules.return.valueMap ?? {});
+          setReturnMode("dynamic");
+        }
       }
     } catch {
       // Corrupted draft — ignore and start fresh
@@ -752,6 +777,17 @@ export default function BuilderClient() {
               .map(([tab, items]) => [tab, items.filter((item) => !seedItemIds.has(item.id))])
               .filter(([, items]) => (items as LibraryItem[]).length > 0)
           ),
+          assetRules: {
+            ...(logoMode === "dynamic" && logoColumn
+              ? { logo: { column: logoColumn, valueMap: logoValueMap } }
+              : {}),
+            ...(taglineMode === "dynamic" && taglineColumn
+              ? { tagline: { column: taglineColumn, valueMap: taglineValueMap } }
+              : {}),
+            ...(returnMode === "dynamic" && returnColumn
+              ? { return: { column: returnColumn, valueMap: returnValueMap } }
+              : {}),
+          },
         };
         const serialized = JSON.stringify(draft);
         if (serialized.length > 4 * 1024 * 1024) {
@@ -787,6 +823,9 @@ export default function BuilderClient() {
     letterTitle, bodyContentByPage, blocksByPage, pages, activePage,
     spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
     selectedLogo?.id, selectedReturn?.id, library,
+    logoMode, logoColumn, logoValueMap,
+    taglineMode, taglineColumn, taglineValueMap,
+    returnMode, returnColumn, returnValueMap,
   ]);
 
   // Age the "Saved · X ago" badge every 30s
@@ -2558,13 +2597,13 @@ export default function BuilderClient() {
   const readiness: ReadinessItem[] = [
     {
       label: "Logo set",
-      status: selectedLogo ? "ok" : "warn",
-      detail: selectedLogo?.label,
+      status: (logoMode === "dynamic" ? !!logoColumn : !!selectedLogo) ? "ok" : "warn",
+      detail: logoMode === "dynamic" ? `Varies by ${logoColumn}` : selectedLogo?.label,
     },
     {
       label: "Return address",
-      status: selectedReturn ? "ok" : "warn",
-      detail: selectedReturn?.label,
+      status: (returnMode === "dynamic" ? !!returnColumn : !!selectedReturn) ? "ok" : "warn",
+      detail: returnMode === "dynamic" ? `Varies by ${returnColumn}` : selectedReturn?.label,
     },
     {
       label: "Data file",
@@ -2592,6 +2631,33 @@ export default function BuilderClient() {
         content: selectedBlockData.content,
       }
     : null;
+
+  const renderVaryBar = (kind: "logo" | "return" | "tagline") => {
+    const mode = kind === "logo" ? logoMode : kind === "return" ? returnMode : taglineMode;
+    const column = kind === "logo" ? logoColumn : kind === "return" ? returnColumn : taglineColumn;
+    const assetLabel = kind === "logo" ? "logo" : kind === "return" ? "return address" : "tagline";
+    return (
+      <VaryModeBar
+        assetLabel={assetLabel}
+        mode={mode}
+        column={column}
+        onVary={() => {
+          if (!columns.length) {
+            setInspectorTab("data");
+            setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
+            return;
+          }
+          setVaryModalFor(kind);
+        }}
+        onTurnOff={() => {
+          if (kind === "logo") setLogoMode("static");
+          else if (kind === "return") setReturnMode("static");
+          else setTaglineMode("static");
+          setToast({ message: `The ${assetLabel} is the same for every letter again.`, variant: "info" });
+        }}
+      />
+    );
+  };
 
   return (
     <div className="builder">
@@ -2707,6 +2773,8 @@ export default function BuilderClient() {
             }}
           >
             {openMenuTab === "Logos" ? (
+              <>
+              {renderVaryBar("logo")}
               <LogoLibrary
                 logos={(library.Logos ?? []).map((l) => ({
                   id: l.id,
@@ -2724,7 +2792,10 @@ export default function BuilderClient() {
                 }}
                 onUpload={() => setShowLogoModal(true)}
               />
+              </>
             ) : openMenuTab === "Return Address" ? (
+              <>
+              {renderVaryBar("return")}
               <div className="library-panel-enhanced">
                 {/* Recently Used Section */}
                 {recentlyUsedReturns.length > 0 && !flyoutQuery && (
@@ -2841,7 +2912,10 @@ export default function BuilderClient() {
                   </div>
                 </div>
               </div>
+              </>
             ) : openMenuTab === "Taglines" ? (
+              <>
+              {renderVaryBar("tagline")}
               <TaglineLibrary
                 items={(library.Taglines ?? []).map((t) => ({
                   id: t.id,
@@ -2867,6 +2941,7 @@ export default function BuilderClient() {
                 }}
                 onDragEnd={handleDragEnd}
               />
+              </>
             ) : openMenuTab === "Full Letters" ? (
               <TemplateLibrary
                 items={(library["Full Letters"] ?? []).map((t) => ({
@@ -3678,6 +3753,69 @@ export default function BuilderClient() {
           onClose={() => setShowMergePreview(false)}
         />
       )}
+
+      {varyModalFor && (() => {
+        const cfg =
+          varyModalFor === "logo"
+            ? {
+                label: "logo",
+                libraryItems: library.Logos ?? [],
+                column: logoColumn,
+                map: logoValueMap,
+                defaultLabel: selectedLogo?.label ?? null,
+                save: (col: string, map: Record<string, string>) => {
+                  setLogoColumn(col);
+                  setLogoValueMap(map);
+                  setLogoMode("dynamic");
+                },
+              }
+            : varyModalFor === "tagline"
+              ? {
+                  label: "tagline",
+                  libraryItems: library.Taglines ?? [],
+                  column: taglineColumn,
+                  map: taglineValueMap,
+                  defaultLabel: staticTagline?.label ?? null,
+                  save: (col: string, map: Record<string, string>) => {
+                    setTaglineColumn(col);
+                    setTaglineValueMap(map);
+                    setTaglineMode("dynamic");
+                  },
+                }
+              : {
+                  label: "return address",
+                  libraryItems: library["Return Address"] ?? [],
+                  column: returnColumn,
+                  map: returnValueMap,
+                  defaultLabel: selectedReturn?.label ?? null,
+                  save: (col: string, map: Record<string, string>) => {
+                    setReturnColumn(col);
+                    setReturnValueMap(map);
+                    setReturnMode("dynamic");
+                  },
+                };
+        return (
+          <VaryByDataModal
+            assetLabel={cfg.label}
+            columns={columns}
+            getUniqueValues={getUniqueValuesForColumn}
+            items={cfg.libraryItems.map((i) => ({ id: i.id, label: i.label, imageUrl: i.imageUrl }))}
+            suggest={(values) => autoMatchAssets(values, cfg.libraryItems)}
+            defaultLabel={cfg.defaultLabel}
+            initialColumn={cfg.column}
+            initialMap={cfg.map}
+            onSave={(col, map) => {
+              cfg.save(col, map);
+              setVaryModalFor(null);
+              setToast({
+                message: `Done — the ${cfg.label} now varies by “${col}”. Use Preview to see each letter.`,
+                variant: "success",
+              });
+            }}
+            onClose={() => setVaryModalFor(null)}
+          />
+        );
+      })()}
 
       {/* First-time drag tooltip */}
       {showDragTooltip && openMenuTab && (
