@@ -2081,7 +2081,7 @@ export default function BuilderClient() {
   const getLogoForRow = (rowIndex: number): LibraryItem | null => {
     if (logoMode === "static") return selectedLogo;
     const row = spreadsheetRows[rowIndex];
-    const value = row?.[logoColumn];
+    const value = (row?.[logoColumn] ?? "").trim();
     const logoId = logoValueMap[value];
     return (library.Logos ?? []).find((logo) => logo.id === logoId) ?? null;
   };
@@ -2095,7 +2095,7 @@ export default function BuilderClient() {
   const getTaglineForRow = (rowIndex: number): LibraryItem | null => {
     if (taglineMode === "static") return staticTagline;
     const row = spreadsheetRows[rowIndex];
-    const value = row?.[taglineColumn];
+    const value = (row?.[taglineColumn] ?? "").trim();
     const taglineId = taglineValueMap[value];
     return (library.Taglines ?? []).find((t) => t.id === taglineId) ?? null;
   };
@@ -2103,7 +2103,7 @@ export default function BuilderClient() {
   const getReturnForRow = (rowIndex: number): LibraryItem | null => {
     if (returnMode === "static") return selectedReturn;
     const row = spreadsheetRows[rowIndex];
-    const value = row?.[returnColumn];
+    const value = (row?.[returnColumn] ?? "").trim();
     const returnId = returnValueMap[value];
     return (library["Return Address"] ?? []).find((r) => r.id === returnId) ?? null;
   };
@@ -2603,16 +2603,27 @@ export default function BuilderClient() {
   }, [openMenuTab, flyoutQuery]);
 
   const mappedValues = Object.values(placeholderMap ?? {});
+  // A vary-by-data rule is only healthy while its column exists in the
+  // current data file — uploading a different file can orphan a saved rule.
+  const ruleHealth = (mode: "static" | "dynamic", column: string) =>
+    mode !== "dynamic"
+      ? null
+      : column && columns.includes(column)
+        ? { status: "ok" as const, detail: `Varies by ${column}` }
+        : { status: "error" as const, detail: `Column “${column}” not in data file` };
+  const logoRule = ruleHealth(logoMode, logoColumn);
+  const returnRule = ruleHealth(returnMode, returnColumn);
+
   const readiness: ReadinessItem[] = [
     {
       label: "Logo set",
-      status: (logoMode === "dynamic" ? !!logoColumn : !!selectedLogo) ? "ok" : "warn",
-      detail: logoMode === "dynamic" ? `Varies by ${logoColumn}` : selectedLogo?.label,
+      status: logoRule ? logoRule.status : selectedLogo ? "ok" : "warn",
+      detail: logoRule ? logoRule.detail : selectedLogo?.label,
     },
     {
       label: "Return address",
-      status: (returnMode === "dynamic" ? !!returnColumn : !!selectedReturn) ? "ok" : "warn",
-      detail: returnMode === "dynamic" ? `Varies by ${returnColumn}` : selectedReturn?.label,
+      status: returnRule ? returnRule.status : selectedReturn ? "ok" : "warn",
+      detail: returnRule ? returnRule.detail : selectedReturn?.label,
     },
     {
       label: "Data file",
@@ -3730,7 +3741,7 @@ export default function BuilderClient() {
             let returnLines = staticReturn;
             if (returnMode === "dynamic") {
               const ret = (library["Return Address"] ?? [])
-                .find((r) => r.id === returnValueMap[row[returnColumn] ?? ""]);
+                .find((r) => r.id === returnValueMap[(row[returnColumn] ?? "").trim()]);
               if (ret?.content) {
                 returnLines = ret.content.split("\n").map((l) => l.trim()).filter(Boolean);
               }
@@ -3738,14 +3749,14 @@ export default function BuilderClient() {
             let logoUrl = selectedLogo?.imageUrl ?? null;
             if (logoMode === "dynamic") {
               const logo = (library.Logos ?? [])
-                .find((l) => l.id === logoValueMap[row[logoColumn] ?? ""]);
+                .find((l) => l.id === logoValueMap[(row[logoColumn] ?? "").trim()]);
               logoUrl = logo?.imageUrl ?? logoUrl;
             }
             let tagline =
               staticTagline?.content ?? staticTagline?.label ?? null;
             if (taglineMode === "dynamic") {
               const t = (library.Taglines ?? [])
-                .find((x) => x.id === taglineValueMap[row[taglineColumn] ?? ""]);
+                .find((x) => x.id === taglineValueMap[(row[taglineColumn] ?? "").trim()]);
               tagline = t ? (t.content ?? t.label) : tagline;
             }
             return { returnLines, logoUrl, tagline };

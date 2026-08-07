@@ -886,14 +886,14 @@ def generate_afp(payload: dict[str, Any]) -> Response:
 
         def get_logo_for_row(row: dict[str, str]) -> str | None:
             if dynamic_logo:
-                value = row.get(dynamic_logo.get("column", ""), "")
+                value = (row.get(dynamic_logo.get("column", ""), "") or "").strip()
                 mapped = (dynamic_logo.get("map") or {}).get(value)
                 return mapped or dynamic_logo.get("default") or None
             return logo_url
 
         def get_tagline_for_row(row: dict[str, str]) -> str | None:
             if dynamic_tagline:
-                value = row.get(dynamic_tagline.get("column", ""), "")
+                value = (row.get(dynamic_tagline.get("column", ""), "") or "").strip()
                 mapped = (dynamic_tagline.get("map") or {}).get(value)
                 return mapped or dynamic_tagline.get("default") or None
             return tagline_text
@@ -904,7 +904,7 @@ def generate_afp(payload: dict[str, Any]) -> Response:
                 value_map = dynamic_return.get("map", {})
                 default = dynamic_return.get("default", ["", "", ""])
                 if column and value_map:
-                    value = row.get(column, "")
+                    value = (row.get(column, "") or "").strip()
                     if value in value_map:
                         return value_map[value]
                 return default if default else ["", "", ""]
@@ -1053,14 +1053,14 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
 
         def get_logo_for_row(row: dict[str, str]) -> str | None:
             if dynamic_logo:
-                value = row.get(dynamic_logo.get("column", ""), "")
+                value = (row.get(dynamic_logo.get("column", ""), "") or "").strip()
                 mapped = (dynamic_logo.get("map") or {}).get(value)
                 return mapped or dynamic_logo.get("default") or None
             return logo_url
 
         def get_tagline_for_row(row: dict[str, str]) -> str | None:
             if dynamic_tagline:
-                value = row.get(dynamic_tagline.get("column", ""), "")
+                value = (row.get(dynamic_tagline.get("column", ""), "") or "").strip()
                 mapped = (dynamic_tagline.get("map") or {}).get(value)
                 return mapped or dynamic_tagline.get("default") or None
             return tagline_text
@@ -1071,7 +1071,7 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 value_map = dynamic_return.get("map", {})
                 default = dynamic_return.get("default", ["", "", ""])
                 if column and value_map:
-                    value = row.get(column, "")
+                    value = (row.get(column, "") or "").strip()
                     if value in value_map:
                         return value_map[value]
                 return default if default else ["", "", ""]
