@@ -428,6 +428,7 @@ interface LetterDraft {
   mailingMap: { mailing_name: string; mailing_addr1: string; mailing_addr2: string; mailing_addr3: string };
   selectedLogoId?: string;
   selectedReturnId?: string;
+  selectedTaglineId?: string;
   /** Items the user created (uploads, custom text) — lost on refresh before this existed. */
   customLibraryItems?: Record<string, LibraryItem[]>;
   /** Vary-by-data rules; presence of a rule means the asset is dynamic. */
@@ -711,6 +712,10 @@ export default function BuilderClient() {
           const ret = mergedLibrary["Return Address"]?.find((r) => r.id === draft.selectedReturnId);
           if (ret) setSelectedReturn(ret);
         }
+        if (draft.selectedTaglineId) {
+          const tag = mergedLibrary.Taglines?.find((t) => t.id === draft.selectedTaglineId);
+          if (tag) setSelectedTaglineByPage((prev) => ({ ...prev, 0: tag }));
+        }
         if (draft.assetRules?.logo) {
           setLogoColumn(draft.assetRules.logo.column);
           setLogoValueMap(draft.assetRules.logo.valueMap ?? {});
@@ -772,6 +777,10 @@ export default function BuilderClient() {
           mailingMap: mailingMap as LetterDraft["mailingMap"],
           selectedLogoId: selectedLogo?.id,
           selectedReturnId: selectedReturn?.id,
+          // The letter's one tagline (first page with a selection) — also the
+          // "Use default" fallback for vary-by-data tagline rules.
+          selectedTaglineId:
+            pages.map((_, i) => selectedTaglineByPage[i]).find(Boolean)?.id,
           customLibraryItems: Object.fromEntries(
             Object.entries(library)
               .map(([tab, items]) => [tab, items.filter((item) => !seedItemIds.has(item.id))])
@@ -822,7 +831,7 @@ export default function BuilderClient() {
   }, [
     letterTitle, bodyContentByPage, blocksByPage, pages, activePage,
     spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
-    selectedLogo?.id, selectedReturn?.id, library,
+    selectedLogo?.id, selectedReturn?.id, selectedTaglineByPage, library,
     logoMode, logoColumn, logoValueMap,
     taglineMode, taglineColumn, taglineValueMap,
     returnMode, returnColumn, returnValueMap,
