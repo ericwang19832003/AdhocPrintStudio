@@ -2034,8 +2034,14 @@ export default function BuilderClient() {
     return (library.Logos ?? []).find((logo) => logo.id === logoId) ?? null;
   };
 
+  // The output model has one tagline per letter (printed on the first page),
+  // but the editor stores the click/drop per page — resolve to the first page
+  // that has one so preview and generate see it whichever page was active.
+  const staticTagline: LibraryItem | null =
+    pages.map((_, i) => selectedTaglineByPage[i]).find((t) => Boolean(t)) ?? null;
+
   const getTaglineForRow = (rowIndex: number): LibraryItem | null => {
-    if (taglineMode === "static") return selectedTaglineByPage[activePage];
+    if (taglineMode === "static") return staticTagline;
     const row = spreadsheetRows[rowIndex];
     const value = row?.[taglineColumn];
     const taglineId = taglineValueMap[value];
@@ -2145,7 +2151,7 @@ export default function BuilderClient() {
           spreadsheet_csv: spreadsheetContent,
           logo_url: logoMode === "static" ? selectedLogo?.imageUrl ?? null : null,
           tagline: taglineMode === "static"
-            ? selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null
+            ? staticTagline?.content ?? staticTagline?.label ?? null
             : null,
           // Dynamic asset configuration
           dynamic_logo: logoMode === "dynamic" ? {
@@ -2156,7 +2162,7 @@ export default function BuilderClient() {
           dynamic_tagline: taglineMode === "dynamic" ? {
             column: taglineColumn,
             map: buildDynamicTaglineMap(),
-            default: selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null,
+            default: staticTagline?.content ?? staticTagline?.label ?? null,
           } : null,
           dynamic_return: returnMode === "dynamic" ? {
             column: returnColumn,
@@ -3645,7 +3651,7 @@ export default function BuilderClient() {
               logoUrl = logo?.imageUrl ?? logoUrl;
             }
             let tagline =
-              selectedTaglineByPage[0]?.content ?? selectedTaglineByPage[0]?.label ?? null;
+              staticTagline?.content ?? staticTagline?.label ?? null;
             if (taglineMode === "dynamic") {
               const t = (library.Taglines ?? [])
                 .find((x) => x.id === taglineValueMap[row[taglineColumn] ?? ""]);
