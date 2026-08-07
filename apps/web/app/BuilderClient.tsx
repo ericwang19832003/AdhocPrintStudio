@@ -386,7 +386,7 @@ const seedItemIds = new Set(Object.values(librarySeed).flat().map((item) => item
 const libraryButtons = [
   { label: "Logo", tab: "Logos", icon: "🏷️" },
   { label: "Return Address", tab: "Return Address", icon: "📍" },
-  { label: "Verbiage", tab: "Verbiage", icon: "💬" },
+  { label: "Snippets", tab: "Verbiage", icon: "💬" },
   { label: "Tagline", tab: "Taglines", icon: "✨" },
   { label: "Letter Template", tab: "Full Letters", icon: "📄" },
   { label: "Upload Word", tab: "Upload", icon: "📂" },
@@ -568,10 +568,14 @@ export default function BuilderClient() {
     mailing_addr2: "",
     mailing_addr3: "",
   });
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewIndex, setPreviewIndex] = useState(0);
   const [showMergePreview, setShowMergePreview] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("data");
+  // Block properties are contextual: show the tab while a block is selected,
+  // fall back to Data when the selection clears.
+  useEffect(() => {
+    if (selectedBlockId) setInspectorTab("block");
+    else setInspectorTab((tab) => (tab === "block" ? "data" : tab));
+  }, [selectedBlockId]);
   const [letterTitle, setLetterTitle] = useState("Untitled letter");
   const [savedAgo, setSavedAgo] = useState<string | null>(null);
   const savedAtRef = useRef<number | null>(null);
@@ -2084,10 +2088,6 @@ export default function BuilderClient() {
     return_addr3: returnLines[2],
   });
 
-  const buildMergedHtml = () => buildMergedHtmlForRow(previewIndex);
-
-  const buildTleIndex = () => buildTleIndexForRow(previewIndex);
-
   const handleGenerate = async (format: "afp" | "pdf" = outputFormat) => {
     if (!spreadsheetContent) {
       setToast({ message: "Upload a spreadsheet in the Data panel first.", variant: "info" });
@@ -2196,7 +2196,6 @@ export default function BuilderClient() {
         message: `${format.toUpperCase()} downloaded — ${rowCount} letter${rowCount !== 1 ? "s" : ""} generated`,
         variant: "success",
       });
-      setShowPreview(false);
     } catch (error) {
       console.error(error);
       const raw = error instanceof Error ? error.message : "";
@@ -2330,12 +2329,6 @@ export default function BuilderClient() {
     } finally {
       setPreflightRunning(false);
     }
-  };
-
-  const handleMergePreview = () => {
-    if (spreadsheetRows.length === 0) return;
-    setPreviewIndex(0);
-    setShowPreview(true);
   };
 
   const unmappedPlaceholders = useMemo(
@@ -2617,9 +2610,16 @@ export default function BuilderClient() {
             setShowMergePreview(true);
           }
         }}
-        onGenerate={() => runPreflightThenGenerate(outputFormat)}
+        onGenerate={() => {
+          if (spreadsheetRows.length === 0) {
+            setInspectorTab("data");
+            setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
+          } else {
+            runPreflightThenGenerate(outputFormat);
+          }
+        }}
         generating={generating || preflightRunning}
-        generateDisabled={generating || preflightRunning || !columns.length}
+        generateDisabled={generating || preflightRunning}
       />
 
       <div className="builder-body">
@@ -2661,7 +2661,7 @@ export default function BuilderClient() {
             onWheel={handleFlyoutWheel}
             searchPlaceholder={
               openMenuTab === "Verbiage"
-                ? "Search verbiage..."
+                ? "Search snippets..."
                 : openMenuTab === "Logos"
                   ? "Search logos..."
                   : openMenuTab === "Return Address"
@@ -3208,7 +3208,14 @@ export default function BuilderClient() {
             }));
           }}
           readiness={readiness}
-          onOpenMerge={() => setShowMergePreview(true)}
+          onOpenMerge={() => {
+            if (spreadsheetRows.length === 0) {
+              setInspectorTab("data");
+              setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
+            } else {
+              setShowMergePreview(true);
+            }
+          }}
           activeTab={inspectorTab}
           onTabChange={setInspectorTab}
           dataPanel={
@@ -3522,7 +3529,7 @@ export default function BuilderClient() {
         <div className="modal-backdrop" onClick={() => setShowVerbiageModal(false)}>
           <div className="modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
-              <h3>Create verbiage</h3>
+              <h3>Create snippet</h3>
               <button className="ghost" onClick={() => setShowVerbiageModal(false)}>
                 Close
               </button>
@@ -3531,12 +3538,12 @@ export default function BuilderClient() {
               <input
                 value={verbiageTitle}
                 onChange={(event) => setVerbiageTitle(event.target.value)}
-                placeholder="Verbiage title"
+                placeholder="Snippet title"
               />
               <textarea
                 value={verbiageText}
                 onChange={(event) => setVerbiageText(event.target.value)}
-                placeholder="Verbiage text"
+                placeholder="Snippet text"
                 rows={4}
               />
             </div>
@@ -3670,146 +3677,6 @@ export default function BuilderClient() {
           onGenerate={() => { handleGenerate(outputFormat); setShowMergePreview(false); }}
           onClose={() => setShowMergePreview(false)}
         />
-      )}
-      {showPreview && (
-        <div className="modal-backdrop" onClick={() => setShowPreview(false)}>
-          <div className="modal preview-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Print Output Preview</h3>
-              <div className="preview-nav">
-                <button
-                  className="ghost"
-                  onClick={() => setPreviewIndex((i) => Math.max(0, i - 1))}
-                  disabled={previewIndex === 0}
-                >
-                  Previous
-                </button>
-                <span className="preview-counter">
-                  {previewIndex + 1} of {spreadsheetRows.length}
-                </span>
-                <button
-                  className="ghost"
-                  onClick={() => setPreviewIndex((i) => Math.min(spreadsheetRows.length - 1, i + 1))}
-                  disabled={previewIndex >= spreadsheetRows.length - 1}
-                >
-                  Next
-                </button>
-              </div>
-              <button className="ghost" onClick={() => setShowPreview(false)}>
-                Close
-              </button>
-            </div>
-            <div className="preview-grid">
-              <div className="preview-pages-column">
-                <div className="preview-page">
-                  {activePage === 0 && (
-                    <>
-                      <div className="preview-header">
-                        <div className="preview-return">
-                          {(() => {
-                            const previewReturnLines = getReturnLinesForRow(previewIndex);
-                            return previewReturnLines[0] || previewReturnLines[1] || previewReturnLines[2] ? (
-                              <>
-                                <div>{previewReturnLines[0]}</div>
-                                <div>{previewReturnLines[1]}</div>
-                                <div>{previewReturnLines[2]}</div>
-                              </>
-                            ) : (
-                              <div className="preview-placeholder">No return address</div>
-                            );
-                          })()}
-                        </div>
-                        <div className="preview-logo">
-                          {(() => {
-                            const previewLogo = getLogoForRow(previewIndex);
-                            return previewLogo?.imageUrl ? (
-                              <img src={previewLogo.imageUrl} alt={previewLogo.label} />
-                            ) : (
-                              <div className="preview-placeholder">No logo</div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      <div className="preview-mailing">
-                        <div>{buildTleIndex().mailing_name}</div>
-                        <div>{buildTleIndex().mailing_addr1}</div>
-                        <div>{buildTleIndex().mailing_addr2}</div>
-                        <div>{buildTleIndex().mailing_addr3}</div>
-                      </div>
-                    </>
-                  )}
-                  <div
-                    className="preview-body"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(buildMergedHtml()) }}
-                  />
-                  {(() => {
-                    const previewTagline = getTaglineForRow(previewIndex);
-                    return previewTagline ? (
-                      <div className="preview-tagline">
-                        {previewTagline.content ?? previewTagline.label}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-                {/* Babel pages preview */}
-                {babelPages.map((page, index) => (
-                  <div key={page.id} className="preview-page babel-preview-page">
-                    <div className="babel-page-label">Babel Page {index + 1}</div>
-                    <img src={page.dataUrl} alt={page.name} className="babel-preview-image" />
-                  </div>
-                ))}
-              </div>
-              <div className="preview-meta">
-                <h4>TLE Index (Row {previewIndex + 1})</h4>
-                {Object.entries(buildTleIndex()).map(([key, value]) => (
-                  <div key={key} className="preview-row">
-                    <span>{key}</span>
-                    <span>{value}</span>
-                  </div>
-                ))}
-                <div className="output-format-section">
-                  <h4>Select Output Format</h4>
-                  <div className="format-segmented-control">
-                    <button
-                      className={`format-segment ${outputFormat === "pdf" ? "active" : ""}`}
-                      onClick={() => setOutputFormat("pdf")}
-                    >
-                      <span className="format-icon">PDF</span>
-                      <span className="format-label">Preview & Print</span>
-                    </button>
-                    <button
-                      className={`format-segment ${outputFormat === "afp" ? "active" : ""}`}
-                      onClick={() => setOutputFormat("afp")}
-                    >
-                      <span className="format-icon">AFP</span>
-                      <span className="format-label">Mainframe</span>
-                    </button>
-                  </div>
-                  <p className="format-description">
-                    {outputFormat === "pdf"
-                      ? "Generate a PDF file for preview and direct printing."
-                      : "Generate AFP format for mainframe processing and mail sorting."}
-                  </p>
-                </div>
-                <div className="preview-actions">
-                  <button className="ghost" onClick={() => setShowPreview(false)}>
-                    Cancel
-                  </button>
-                  <button className="primary" onClick={() => handleGenerate(outputFormat)} disabled={generating}>
-                    {generating ? (
-                      <>
-                        <span className="spinner" aria-hidden="true" />
-                        Generating...
-                      </>
-                    ) : (
-                      `Download ${outputFormat.toUpperCase()}`
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* First-time drag tooltip */}

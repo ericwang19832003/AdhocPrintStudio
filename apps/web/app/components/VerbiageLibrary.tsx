@@ -52,9 +52,9 @@ export function VerbiageLibrary({ items, onInsert, onDragStart, onDragEnd }: Ver
         <Search size={14} className="lib-search-icon" />
         <input
           type="search"
-          aria-label="Search verbiage"
+          aria-label="Search snippets"
           className="lib-search-input"
-          placeholder="Search verbiage…"
+          placeholder="Search snippets…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

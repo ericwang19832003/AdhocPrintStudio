@@ -1,6 +1,10 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  AlignCenter, AlignLeft, AlignRight, Highlighter, Indent, Link2, List,
+  ListOrdered, Minus, Outdent, Redo2, RemoveFormatting, Undo2,
+} from "lucide-react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { Extension, Node as TiptapNode } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -604,8 +608,8 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
     return (
       <div className="editor-toolbar-bar editor-toolbar-loading">
         <div className="toolbar-group">
-          <button disabled className="disabled">↩</button>
-          <button disabled className="disabled">↪</button>
+          <button disabled className="disabled"><Undo2 size={15} /></button>
+          <button disabled className="disabled"><Redo2 size={15} /></button>
         </div>
         <div className="toolbar-group">
           <select disabled><option>Font</option></select>
@@ -619,16 +623,16 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
         </div>
         <div className="toolbar-group">
           <button disabled className="disabled">A</button>
-          <button disabled className="disabled">H</button>
+          <button disabled className="disabled"><Highlighter size={15} /></button>
         </div>
         <div className="toolbar-group">
-          <button disabled className="disabled">•≡</button>
-          <button disabled className="disabled">1.</button>
+          <button disabled className="disabled"><List size={15} /></button>
+          <button disabled className="disabled"><ListOrdered size={15} /></button>
         </div>
         <div className="toolbar-group">
-          <button disabled className="disabled">≡</button>
-          <button disabled className="disabled">≡</button>
-          <button disabled className="disabled">≡</button>
+          <button disabled className="disabled"><AlignLeft size={15} /></button>
+          <button disabled className="disabled"><AlignCenter size={15} /></button>
+          <button disabled className="disabled"><AlignRight size={15} /></button>
         </div>
       </div>
     );
@@ -644,7 +648,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           className={!editor.can().undo() ? "disabled" : ""}
           title="Undo (⌘Z)"
         >
-          ↩
+          <Undo2 size={15} />
         </button>
         <button
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().redo().run(); }}
@@ -652,7 +656,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           className={!editor.can().redo() ? "disabled" : ""}
           title="Redo (⌘⇧Z)"
         >
-          ↪
+          <Redo2 size={15} />
         </button>
       </div>
 
@@ -797,7 +801,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
             }}
             title="Highlight Color"
           >
-            <span style={{ backgroundColor: "#fef08a", padding: "0 2px" }}>H</span>
+            <Highlighter size={15} />
           </button>
           {showHighlightPicker && (
             <div className="color-picker-dropdown">
@@ -830,14 +834,14 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
           title="Bullet List"
         >
-          •≡
+          <List size={15} />
         </button>
         <button
           className={editor.isActive("orderedList") ? "active" : ""}
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); }}
           title="Numbered List"
         >
-          1.
+          <ListOrdered size={15} />
         </button>
         <button
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().liftListItem("listItem").run(); }}
@@ -845,7 +849,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           className={!editor.can().liftListItem("listItem") ? "disabled" : ""}
           title="Decrease Indent"
         >
-          ⇤
+          <Outdent size={15} />
         </button>
         <button
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().sinkListItem("listItem").run(); }}
@@ -853,7 +857,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           className={!editor.can().sinkListItem("listItem") ? "disabled" : ""}
           title="Increase Indent"
         >
-          ⇥
+          <Indent size={15} />
         </button>
       </div>
 
@@ -864,21 +868,21 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("left").run(); }}
           title="Align Left"
         >
-          ≡
+          <AlignLeft size={15} />
         </button>
         <button
           className={editor.isActive({ textAlign: "center" }) ? "active" : ""}
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("center").run(); }}
           title="Align Center"
         >
-          ≡
+          <AlignCenter size={15} />
         </button>
         <button
           className={editor.isActive({ textAlign: "right" }) ? "active" : ""}
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("right").run(); }}
           title="Align Right"
         >
-          ≡
+          <AlignRight size={15} />
         </button>
       </div>
 
@@ -895,7 +899,7 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           }}
           title="Line Spacing"
         >
-          <option value="">↕</option>
+          <option value="">Spacing</option>
           <option value="1">1.0</option>
           <option value="1.15">1.15</option>
           <option value="1.5">1.5</option>
@@ -910,19 +914,19 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
           onMouseDown={(e) => { e.preventDefault(); setLink(); }}
           title="Insert Link"
         >
-          🔗
+          <Link2 size={15} />
         </button>
         <button
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setHorizontalRule().run(); }}
           title="Insert Horizontal Rule"
         >
-          ―
+          <Minus size={15} />
         </button>
         <button
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().unsetAllMarks().clearNodes().run(); }}
           title="Clear Formatting"
         >
-          ⌫
+          <RemoveFormatting size={15} />
         </button>
       </div>
     </div>

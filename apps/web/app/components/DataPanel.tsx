@@ -135,7 +135,7 @@ export function DataPanel({
                 {s === "placeholders"
                   ? "Placeholders"
                   : s === "tle"
-                  ? "TLE Fields"
+                  ? "Index fields"
                   : "Preview"}
               </button>
             ))}

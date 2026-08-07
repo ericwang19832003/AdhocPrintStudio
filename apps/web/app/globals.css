@@ -3907,7 +3907,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 60px 40px;
+  padding: 16px 40px 24px;
   text-align: center;
   color: var(--ink-500);
   flex: 1;
@@ -5350,4 +5350,19 @@ textarea:focus-visible {
 .merge-letter-page .merge-letter-body {
   flex: none;
   overflow: visible;
+}
+
+/* One voice on an empty letter: while the starter hero is on the page,
+   the editor's "Start typing..." placeholder stays silent. */
+.page-body:has(.empty-state) .ProseMirror p.is-editor-empty::before {
+  content: none;
+}
+
+/* Keep the right panel (and its readiness checklist) in view while the
+   letter canvas scrolls — the checklist is the user's next-step guide. */
+.inspector-panel {
+  position: sticky;
+  top: 52px;
+  height: calc(100vh - 52px);
+  align-self: flex-start;
 }

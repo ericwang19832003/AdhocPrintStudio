@@ -22,7 +22,7 @@ type ManageLibraryProps = {
 
 const SECTION_CONFIG: Record<ManageSection, { label: string; Icon: LucideIcon }> = {
   logos:    { label: "Logos",            Icon: Image },
-  verbiage: { label: "Verbiage",         Icon: MessageSquare },
+  verbiage: { label: "Snippets",         Icon: MessageSquare },
   returns:  { label: "Return Addresses", Icon: MapPin },
 };
 

@@ -17,7 +17,8 @@ export function EmptyState({ onBlank, onTemplate, onImportWord, templateCount }:
       </div>
       <h2 className="empty-state-title">Start a new letter</h2>
       <p className="empty-state-sub">
-        Pick a starter below, or build from scratch by dragging blocks from the sidebar.
+        Choose how to begin. You can add a logo, return address, and tagline
+        from the left sidebar at any time.
       </p>
       <div className="empty-state-cards">
         <button type="button" className="empty-card" onClick={onBlank}>

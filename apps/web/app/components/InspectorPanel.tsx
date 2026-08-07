@@ -30,7 +30,7 @@ type InspectorPanelProps = {
   onTabChange: (tab: InspectorTab) => void;
 };
 
-export type InspectorTab = "data" | "block" | "document" | "merge";
+export type InspectorTab = "data" | "block";
 
 function ReadinessList({ items }: { items: ReadinessItem[] }) {
   if (items.length === 0) {
@@ -63,20 +63,21 @@ export function InspectorPanel({
   return (
     <aside className={`inspector-panel${activeTab === "data" ? " inspector-panel--wide" : ""}`}>
       <div className="inspector-tabs">
-        {(["data", "block", "document", "merge"] as const).map((tab) => (
+        {/* Block tab only exists while a block is selected — no dead tab. */}
+        {(selectedBlock ? (["data", "block"] as const) : (["data"] as const)).map((tab) => (
           <button
             key={tab}
             type="button"
             className={`inspector-tab${activeTab === tab ? " active" : ""}`}
             onClick={() => onTabChange(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === "data" ? "Data" : "Block"}
           </button>
         ))}
       </div>
 
       <div className="inspector-body">
-        {activeTab === "block" && (
+        {activeTab === "block" && selectedBlock && (
           <div className="inspector-section">
             {selectedBlock ? (
               <>
@@ -143,40 +144,22 @@ export function InspectorPanel({
           </div>
         )}
 
-        {activeTab === "document" && (
-          <div className="inspector-section">
-            <p className="inspector-empty">Document-level settings coming soon.</p>
-          </div>
-        )}
-
-        {activeTab === "merge" && (
-          <div className="inspector-section">
-            <label className="inspector-label">MERGE READINESS</label>
-            <ReadinessList items={readiness} />
-            <button
-              type="button"
-              className="btn-accent readiness-merge-btn"
-              onClick={() => {
-                onTabChange("data");
-                onOpenMerge();
-              }}
-            >
-              Open merge panel →
-            </button>
-          </div>
-        )}
-
         {activeTab === "data" && (
           <div className="inspector-section inspector-data">{dataPanel}</div>
         )}
       </div>
 
-      {activeTab !== "merge" && (
-        <div className="inspector-readiness-footer">
-          <label className="inspector-label">MERGE READINESS</label>
-          <ReadinessList items={readiness} />
-        </div>
-      )}
+      <div className="inspector-readiness-footer">
+        <label className="inspector-label">READY TO SEND?</label>
+        <ReadinessList items={readiness} />
+        <button
+          type="button"
+          className="btn-accent readiness-merge-btn"
+          onClick={onOpenMerge}
+        >
+          Preview letters →
+        </button>
+      </div>
     </aside>
   );
 }

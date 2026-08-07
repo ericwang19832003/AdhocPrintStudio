@@ -32,8 +32,6 @@ export function Topbar({
       <div className="topbar-brand">
         <div className="topbar-brand-avatar">A</div>
         <span className="topbar-brand-name">Adhoc Print Studio</span>
-        <span className="topbar-brand-divider">·</span>
-        <span className="topbar-brand-suffix">By PSD</span>
       </div>
 
       <div className="topbar-center">
@@ -58,7 +56,7 @@ export function Topbar({
       <div className="topbar-actions-v2">
         {onAiSettings && (
           <button type="button" className="btn-ghost-sm" onClick={onAiSettings}>
-            AI
+            AI settings
           </button>
         )}
         {onManageLibrary && (
@@ -66,7 +64,7 @@ export function Topbar({
             Manage library
           </button>
         )}
-        <button type="button" className="btn-ghost-sm" onClick={onExport}>Export</button>
+        <button type="button" className="btn-ghost-sm" onClick={onExport}>Export Word</button>
         <button type="button" className="btn-outline-sm" onClick={onPreview}>Preview</button>
         <button type="button" className="btn-accent" onClick={onGenerate} disabled={generateDisabled || generating}>
           {generating ? (

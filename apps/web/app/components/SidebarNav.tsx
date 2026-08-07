@@ -13,12 +13,12 @@ import {
 export type SidebarTab = "Logo" | "Return" | "Verbiage" | "Tagline" | "Templates" | "Import";
 
 const NAV_ITEMS: { id: SidebarTab; label: string; Icon: LucideIcon }[] = [
-  { id: "Logo",      label: "Logo",      Icon: ImageIcon },
-  { id: "Return",    label: "Return",    Icon: MapPin },
-  { id: "Verbiage",  label: "Verbiage",  Icon: MessageSquare },
-  { id: "Tagline",   label: "Tagline",   Icon: Tag },
-  { id: "Templates", label: "Templates", Icon: FileText },
-  { id: "Import",    label: "Import",    Icon: Upload },
+  { id: "Logo",      label: "Logo",           Icon: ImageIcon },
+  { id: "Return",    label: "Return address", Icon: MapPin },
+  { id: "Verbiage",  label: "Snippets",       Icon: MessageSquare },
+  { id: "Tagline",   label: "Tagline",        Icon: Tag },
+  { id: "Templates", label: "Templates",      Icon: FileText },
+  { id: "Import",    label: "Import Word",    Icon: Upload },
 ];
 
 type SidebarNavProps = {
