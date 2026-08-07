@@ -60,15 +60,19 @@ export function InspectorPanel({
   activeTab,
   onTabChange,
 }: InspectorPanelProps) {
+  // The Block tab can be left active while the selection vanishes out-of-band
+  // (e.g. switching pages) — fall back to Data so the panel never goes blank.
+  const effectiveTab: InspectorTab =
+    activeTab === "block" && !selectedBlock ? "data" : activeTab;
   return (
-    <aside className={`inspector-panel${activeTab === "data" ? " inspector-panel--wide" : ""}`}>
+    <aside className={`inspector-panel${effectiveTab === "data" ? " inspector-panel--wide" : ""}`}>
       <div className="inspector-tabs">
         {/* Block tab only exists while a block is selected — no dead tab. */}
         {(selectedBlock ? (["data", "block"] as const) : (["data"] as const)).map((tab) => (
           <button
             key={tab}
             type="button"
-            className={`inspector-tab${activeTab === tab ? " active" : ""}`}
+            className={`inspector-tab${effectiveTab === tab ? " active" : ""}`}
             onClick={() => onTabChange(tab)}
           >
             {tab === "data" ? "Data" : "Block"}
@@ -77,7 +81,7 @@ export function InspectorPanel({
       </div>
 
       <div className="inspector-body">
-        {activeTab === "block" && selectedBlock && (
+        {effectiveTab === "block" && selectedBlock && (
           <div className="inspector-section">
             {selectedBlock ? (
               <>
@@ -144,7 +148,7 @@ export function InspectorPanel({
           </div>
         )}
 
-        {activeTab === "data" && (
+        {effectiveTab === "data" && (
           <div className="inspector-section inspector-data">{dataPanel}</div>
         )}
       </div>
