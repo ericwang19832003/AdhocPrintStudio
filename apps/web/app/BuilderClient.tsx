@@ -1989,21 +1989,6 @@ export default function BuilderClient() {
     return Array.from(values).sort();
   };
 
-  const uniqueLogoValues = useMemo(
-    () => getUniqueValuesForColumn(logoColumn),
-    [logoColumn, spreadsheetRows]
-  );
-
-  const uniqueTaglineValues = useMemo(
-    () => getUniqueValuesForColumn(taglineColumn),
-    [taglineColumn, spreadsheetRows]
-  );
-
-  const uniqueReturnValues = useMemo(
-    () => getUniqueValuesForColumn(returnColumn),
-    [returnColumn, spreadsheetRows]
-  );
-
   // Auto-match function for library items
   const autoMatchAssets = (
     uniqueValues: string[],
@@ -2043,39 +2028,6 @@ export default function BuilderClient() {
   };
 
   // Auto-compute matches when column or library changes
-  const autoMatchedLogos = useMemo(
-    () => autoMatchAssets(uniqueLogoValues, library.Logos ?? []),
-    [uniqueLogoValues, library.Logos]
-  );
-
-  const autoMatchedTaglines = useMemo(
-    () => autoMatchAssets(uniqueTaglineValues, library.Taglines ?? []),
-    [uniqueTaglineValues, library.Taglines]
-  );
-
-  const autoMatchedReturns = useMemo(
-    () => autoMatchAssets(uniqueReturnValues, library["Return Address"] ?? []),
-    [uniqueReturnValues, library]
-  );
-
-  // Apply auto-matches when column changes
-  useEffect(() => {
-    if (logoColumn && uniqueLogoValues.length > 0) {
-      setLogoValueMap((prev) => ({ ...autoMatchedLogos, ...prev }));
-    }
-  }, [logoColumn, autoMatchedLogos]);
-
-  useEffect(() => {
-    if (taglineColumn && uniqueTaglineValues.length > 0) {
-      setTaglineValueMap((prev) => ({ ...autoMatchedTaglines, ...prev }));
-    }
-  }, [taglineColumn, autoMatchedTaglines]);
-
-  useEffect(() => {
-    if (returnColumn && uniqueReturnValues.length > 0) {
-      setReturnValueMap((prev) => ({ ...autoMatchedReturns, ...prev }));
-    }
-  }, [returnColumn, autoMatchedReturns]);
 
   // Get dynamic asset for a specific row
   const getLogoForRow = (rowIndex: number): LibraryItem | null => {
