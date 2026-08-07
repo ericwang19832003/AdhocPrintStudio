@@ -9,6 +9,7 @@ Start with:
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -20,6 +21,27 @@ from starlette.responses import Response
 # ---------------------------------------------------------------------------
 # 1. Monkey-patch cloud modules BEFORE importing routers that depend on them
 # ---------------------------------------------------------------------------
+# Guard: if a router module was imported before this file, it has already
+# bound the cloud db/model symbols and the patches below would silently not
+# apply — fail loudly instead of writing to the wrong database.
+_PATCH_SENSITIVE_MODULES = (
+    "app.jobs",
+    "app.runs",
+    "app.runs_local",
+    "app.assets",
+    "app.assets_local",
+    "app.print_output",
+    "app.local_storage",
+    "app.worker_thread",
+    "app.ai",
+)
+_premature = [m for m in _PATCH_SENSITIVE_MODULES if m in sys.modules]
+if _premature:
+    raise RuntimeError(
+        "app.main_local must be imported before any router module so its "
+        "local-DB patches take effect; already imported: "
+        + ", ".join(_premature)
+    )
 import app.db_local as db_local  # noqa: E402
 import app.models_local as models_local  # noqa: E402
 import app.db as db_mod  # noqa: E402
@@ -44,7 +66,10 @@ models_mod.Asset = models_local.Asset  # type: ignore[attr-defined]
 from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
+from slowapi import _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
 
+from app.ai import limiter as ai_limiter  # noqa: E402
 from app.ai import router as ai_router  # noqa: E402
 from app.local_storage import router as local_storage_router  # noqa: E402
 from app.assets_local import router as assets_local_router  # noqa: E402
@@ -84,6 +109,11 @@ app = FastAPI(
     version="1.0.0-local",
     lifespan=lifespan,
 )
+
+# The /ai routes are rate-limited by app.ai's limiter; without this wiring a
+# tripped limit surfaces as an unhandled 500 instead of a proper 429.
+app.state.limiter = ai_limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ---------------------------------------------------------------------------
 # 5. Middleware (order matters — last added runs first)

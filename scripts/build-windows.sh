@@ -124,22 +124,16 @@ echo "[6/11] Copying API app..."
 cp -R "$ROOT_DIR/apps/api/app" "$BUILD_DIR/app"
 
 # -----------------------------------------------------------
-# 6. Copy worker
+# 6. Build frontend and copy output
 # -----------------------------------------------------------
-echo "[7/11] Copying worker..."
-cp -R "$ROOT_DIR/apps/worker/worker" "$BUILD_DIR/worker"
-
-# -----------------------------------------------------------
-# 7. Build frontend and copy output
-# -----------------------------------------------------------
-echo "[8/11] Building frontend..."
+echo "[7/11] Building frontend..."
 (cd "$ROOT_DIR/apps/web" && npm install && BUILD_LOCAL=1 npm run build)
 cp -R "$ROOT_DIR/apps/web/out" "$BUILD_DIR/web"
 
 # -----------------------------------------------------------
 # 8. Copy launcher files from dist/
 # -----------------------------------------------------------
-echo "[9/11] Copying launcher files..."
+echo "[8/11] Copying launcher files..."
 cp "$ROOT_DIR/dist/start.bat" "$BUILD_DIR/start.bat"
 cp "$ROOT_DIR/dist/stop.bat" "$BUILD_DIR/stop.bat"
 cp "$ROOT_DIR/dist/README.txt" "$BUILD_DIR/README.txt"
@@ -147,7 +141,7 @@ cp "$ROOT_DIR/dist/README.txt" "$BUILD_DIR/README.txt"
 # -----------------------------------------------------------
 # 9. Create empty data/ and storage/ directories
 # -----------------------------------------------------------
-echo "[10/11] Creating data and storage directories..."
+echo "[9/11] Creating data and storage directories..."
 mkdir -p "$BUILD_DIR/data"
 mkdir -p "$BUILD_DIR/storage"
 
@@ -158,7 +152,7 @@ touch "$BUILD_DIR/storage/.gitkeep"
 # -----------------------------------------------------------
 # 10. Create setup.bat for first-run pip install
 # -----------------------------------------------------------
-echo "[10b/11] Creating setup.bat..."
+echo "[9b/11] Creating setup.bat..."
 cat > "$BUILD_DIR/setup.bat" << 'BATEOF'
 @echo off
 echo.
@@ -202,7 +196,7 @@ echo "       Part 2: Python packages..."
 # Part 3: App + frontend + launcher
 echo "       Part 3: Application..."
 (cd "$BUILD_DIR" && zip -r "$SPLIT_DIR/AdhocPrintStudio-Part3-App.zip" \
-    app/ worker/ web/ data/ storage/ start.bat stop.bat README.txt)
+    app/ web/ data/ storage/ start.bat stop.bat README.txt)
 
 # Also create a single combined zip for convenience
 echo "       Combined ZIP..."

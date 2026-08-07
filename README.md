@@ -1,6 +1,7 @@
 # AdhocPrintStudio
 
-Monorepo scaffold for web (Next.js), API (FastAPI), and a background worker.
+Monorepo for web (Next.js) and API (FastAPI). Local mode runs both in one
+process (`app.main_local`) with an in-process background worker thread.
 
 ## Mac setup
 
@@ -22,7 +23,6 @@ Each app reads `.env.local` if present and falls back to `.env`.
 Copy the example files and customize locally (do not commit secrets):
 ```
 cp apps/api/.env.example apps/api/.env.local
-cp apps/worker/.env.example apps/worker/.env.local
 cp apps/web/.env.example apps/web/.env.local
 ```
 
@@ -31,11 +31,6 @@ cp apps/web/.env.example apps/web/.env.local
 - API:
 ```
 make dev-api
-```
-
-- Worker:
-```
-make dev-worker
 ```
 
 - Web:

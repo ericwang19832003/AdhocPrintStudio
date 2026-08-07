@@ -5,10 +5,11 @@ import logging
 from pathlib import Path
 import subprocess
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
@@ -19,7 +20,7 @@ from app.assets import router as assets_router
 from app.jobs import router as jobs_router
 from app.runs import router as runs_router
 from app.print_output import router as print_output_router
-from app.security import SecurityHeadersMiddleware, sanitize_error_message
+from app.security import SecurityHeadersMiddleware, sanitize_error_message, verify_api_key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,8 +28,13 @@ logger = logging.getLogger(__name__)
 
 load_env()
 
-# Rate limiter configuration
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+# Rate limiter configuration. The default limit only takes effect through
+# SlowAPIMiddleware (added below); routes with their own @limit decorator
+# (here and in app.ai) are checked by the decorator instead.
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[os.getenv("RATE_LIMIT_DEFAULT", "300/minute")],
+)
 
 # CORS configuration - MUST be explicitly set in production
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
@@ -48,9 +54,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Add rate limiter
+# Add rate limiter. Without SlowAPIMiddleware the default_limits above are
+# never enforced — only explicitly decorated routes would be limited.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
@@ -64,12 +72,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(assets_router)
-app.include_router(jobs_router)
-app.include_router(runs_router)
-app.include_router(print_output_router)
-app.include_router(ai_router)
+# Include routers. verify_api_key is a no-op until API_KEYS is set in the
+# environment; once set, every business route requires an X-API-Key header
+# (health/version/db-ping stay open for load balancer checks).
+_auth = [Depends(verify_api_key)]
+app.include_router(assets_router, dependencies=_auth)
+app.include_router(jobs_router, dependencies=_auth)
+app.include_router(runs_router, dependencies=_auth)
+app.include_router(print_output_router, dependencies=_auth)
+app.include_router(ai_router, dependencies=_auth)
 
 
 @app.exception_handler(Exception)

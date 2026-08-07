@@ -1026,9 +1026,10 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
         # Dynamic asset configuration
         dynamic_return = payload.get("dynamic_return")
 
-        # Babel pages (PDF pages to append after each letter)
+        # Babel pages (PDF pages to append after each letter) — pre-encode to
+        # JPEG once; each letter reuses the same embedded image via its xref.
         babel_pages_data = payload.get("babel_pages", [])
-        babel_images: list[Image.Image] = []
+        babel_jpegs: list[bytes] = []
         for data_url in babel_pages_data:
             if data_url.startswith("data:image/"):
                 # Extract base64 data
@@ -1040,7 +1041,9 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                     img = img.resize((PAGE_WIDTH, PAGE_HEIGHT), Image.Resampling.LANCZOS)
                 if img.mode != "RGB":
                     img = img.convert("RGB")
-                babel_images.append(img)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=85, dpi=(DPI, DPI))
+                babel_jpegs.append(buf.getvalue())
 
         # Helper to get return lines for a row
         logo_url = payload.get("logo_url")
@@ -1074,8 +1077,21 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
                 return default if default else ["", "", ""]
             return return_lines
 
-        # Render each row as a page image
-        images: list[Image.Image] = []
+        # Build the PDF incrementally: each rendered page is JPEG-compressed
+        # and appended immediately, so peak memory is one letter's pages —
+        # not the whole run's uncompressed bitmaps (~25 MB per page).
+        page_w_pt = PAGE_WIDTH * 72.0 / DPI
+        page_h_pt = PAGE_HEIGHT * 72.0 / DPI
+        page_rect = fitz.Rect(0, 0, page_w_pt, page_h_pt)
+        pdf_doc = fitz.open()
+        babel_xrefs: list[int] = [0] * len(babel_jpegs)
+
+        def append_image_page(jpeg: bytes, xref: int = 0) -> int:
+            page = pdf_doc.new_page(width=page_w_pt, height=page_h_pt)
+            if xref:
+                return page.insert_image(page_rect, xref=xref)
+            return page.insert_image(page_rect, stream=jpeg)
+
         for index, row in enumerate(rows, start=1):
             merged_body = _replace_placeholders(body_html, row, placeholder_map)
             merged_blocks = [
@@ -1104,28 +1120,18 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
             for image in letter_pages:
                 if image.mode != "RGB":
                     image = image.convert("RGB")
-                images.append(image)
+                buf = io.BytesIO()
+                image.save(buf, format="JPEG", quality=85, dpi=(DPI, DPI))
+                append_image_page(buf.getvalue())
 
             # Append babel pages after each letter
-            for babel_img in babel_images:
-                images.append(babel_img.copy())
+            for i, babel_jpeg in enumerate(babel_jpegs):
+                babel_xrefs[i] = append_image_page(babel_jpeg, babel_xrefs[i])
 
-        # Save all images as a multi-page PDF
-        pdf_buffer = io.BytesIO()
-        if images:
-            first_image = images[0]
-            additional_images = images[1:] if len(images) > 1 else []
-            first_image.save(
-                pdf_buffer,
-                format="PDF",
-                save_all=True,
-                append_images=additional_images,
-                resolution=DPI,
-            )
-
-        pdf_buffer.seek(0)
+        pdf_bytes = pdf_doc.tobytes(deflate=True) if pdf_doc.page_count else b""
+        pdf_doc.close()
         return Response(
-            content=pdf_buffer.getvalue(),
+            content=pdf_bytes,
             media_type="application/pdf",
             headers={"Content-Disposition": 'attachment; filename="print_output.pdf"'},
         )
