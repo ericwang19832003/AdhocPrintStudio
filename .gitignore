@@ -24,3 +24,4 @@ tsconfig.tsbuildinfo
 apps/web/out/
 apps/api/web/
 build/
+.gstack/
