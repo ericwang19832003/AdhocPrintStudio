@@ -13,7 +13,7 @@ import { env } from "@/lib/env";
 import { parseCsv, parseCsvHeader } from "@/lib/csv";
 import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
-import { InspectorPanel, type InspectorTab, type ReadinessItem } from "./components/InspectorPanel";
+import { InspectorPanel, type InspectorTab } from "./components/InspectorPanel";
 import { EmptyState } from "./components/EmptyState";
 import { VaryByDataModal, VaryModeBar } from "./components/VaryByDataModal";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
@@ -2554,41 +2554,6 @@ export default function BuilderClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [openMenuTab, flyoutQuery]);
 
-  const mappedValues = Object.values(placeholderMap ?? {});
-  // A vary-by-data rule is only healthy while its column exists in the
-  // current data file — uploading a different file can orphan a saved rule.
-  const ruleHealth = (mode: "static" | "dynamic", column: string) =>
-    mode !== "dynamic"
-      ? null
-      : column && columns.includes(column)
-        ? { status: "ok" as const, detail: `Varies by ${column}` }
-        : { status: "error" as const, detail: `Column “${column}” not in data file` };
-  const logoRule = ruleHealth(logoMode, logoColumn);
-  const returnRule = ruleHealth(returnMode, returnColumn);
-
-  const readiness: ReadinessItem[] = [
-    {
-      label: "Logo set",
-      status: logoRule ? logoRule.status : selectedLogo ? "ok" : "warn",
-      detail: logoRule ? logoRule.detail : selectedLogo?.label,
-    },
-    {
-      label: "Return address",
-      status: returnRule ? returnRule.status : selectedReturn ? "ok" : "warn",
-      detail: returnRule ? returnRule.detail : selectedReturn?.label,
-    },
-    {
-      label: "Data file",
-      status: columns.length > 0 ? "ok" : "warn",
-      detail: columns.length > 0 ? spreadsheetName ?? undefined : undefined,
-    },
-    {
-      label: "Placeholders mapped",
-      status: mappedValues.length > 0 && mappedValues.every(Boolean) ? "ok" : "warn",
-      detail: mappedValues.every(Boolean) ? "All mapped" : "Some unmapped",
-    },
-  ];
-
   const selectedBlockData =
     selectedBlockId
       ? (blocksByPage[activePage] ?? []).find((b) => b.id === selectedBlockId) ?? null
@@ -3253,15 +3218,6 @@ export default function BuilderClient() {
                 b.id === selectedBlockId ? { ...b, y } : b
               ),
             }));
-          }}
-          readiness={readiness}
-          onOpenMerge={() => {
-            if (spreadsheetRows.length === 0) {
-              setInspectorTab("data");
-              setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
-            } else {
-              setShowMergePreview(true);
-            }
           }}
           activeTab={inspectorTab}
           onTabChange={setInspectorTab}

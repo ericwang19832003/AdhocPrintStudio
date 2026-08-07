@@ -1,13 +1,5 @@
 "use client";
 
-import { CheckCircle2, AlertTriangle } from "lucide-react";
-
-export type ReadinessItem = {
-  label: string;
-  status: "ok" | "warn" | "error";
-  detail?: string;
-};
-
 type SelectedBlock = {
   label: string;
   type: string;
@@ -22,8 +14,6 @@ type InspectorPanelProps = {
   onAlignChange: (align: "left" | "center" | "right") => void;
   onXChange: (x: number) => void;
   onYChange: (y: number) => void;
-  readiness: ReadinessItem[];
-  onOpenMerge: () => void;
   /** The data upload/mapping panel, hosted on the right side. */
   dataPanel: React.ReactNode;
   activeTab: InspectorTab;
@@ -32,30 +22,11 @@ type InspectorPanelProps = {
 
 export type InspectorTab = "data" | "block";
 
-function ReadinessList({ items }: { items: ReadinessItem[] }) {
-  if (items.length === 0) {
-    return <p className="inspector-empty">No readiness checks defined.</p>;
-  }
-  return (
-    <div className="readiness-list">
-      {items.map((item) => (
-        <div key={item.label} className={`readiness-row readiness-${item.status}`}>
-          {item.status === "ok" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-          <span className="readiness-label">{item.label}</span>
-          {item.detail && <span className="readiness-detail">{item.detail}</span>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function InspectorPanel({
   selectedBlock,
   onAlignChange,
   onXChange,
   onYChange,
-  readiness,
-  onOpenMerge,
   dataPanel,
   activeTab,
   onTabChange,
@@ -153,17 +124,6 @@ export function InspectorPanel({
         )}
       </div>
 
-      <div className="inspector-readiness-footer">
-        <label className="inspector-label">READY TO SEND?</label>
-        <ReadinessList items={readiness} />
-        <button
-          type="button"
-          className="btn-accent readiness-merge-btn"
-          onClick={onOpenMerge}
-        >
-          Preview letters →
-        </button>
-      </div>
     </aside>
   );
 }
