@@ -76,13 +76,18 @@ export function mailingTemplates(f: MailingFields): Record<string, string> {
 
 const LEGACY_SENTINELS = new Set(["", "__empty__", "__select__"]);
 
-/** Convert a legacy one-column-per-line mailing_map into semantic fields. */
+/** Convert a legacy one-column-per-line mailing_map into semantic fields.
+ *
+ * Legacy drafts predate templates, so every value is a raw column name —
+ * including headers that happen to contain braces. Only drafts without
+ * mailingFields reach this converter.
+ */
 export function fieldsFromLegacyMap(
   map: Record<string, string> | undefined
 ): MailingFields {
   const col = (value?: string) => {
     const v = value ?? "";
-    return LEGACY_SENTINELS.has(v) || v.includes("{") ? "" : v;
+    return LEGACY_SENTINELS.has(v) ? "" : v;
   };
   return {
     ...EMPTY_MAILING_FIELDS,
