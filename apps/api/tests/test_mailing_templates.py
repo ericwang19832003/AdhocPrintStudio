@@ -98,20 +98,29 @@ def test_preflight_checks_resolved_lines():
     assert "recipient name" in errors[0]["message"]
 
 
-def test_preflight_skips_template_columns_in_mapped_warnings():
-    # A column referenced by a required template must not double-report as a
-    # generic mapped-column warning.
+def test_preflight_mapped_warning_dedup_is_per_row():
+    tle = {
+        "mailing_name": "{first_name} {last_name}",
+        "mailing_addr1": "street",
+        "mailing_addr3": "{city}",
+    }
+    # Name line still resolves ("Smith"), but the letter body maps
+    # first_name — the blank-body warning must survive.
     issues = run_checks(
         rows=[{"first_name": "", "last_name": "Smith", "street": "1 Main St", "city": "X"}],
         mapped_columns=["first_name"],
-        tle_columns={
-            "mailing_name": "{first_name} {last_name}",
-            "mailing_addr1": "street",
-            "mailing_addr3": "{city}",
-        },
+        tle_columns=tle,
     )
-    warnings = [i for i in issues if i["severity"] == "warning"]
-    assert warnings == []
+    assert [i["severity"] for i in issues] == ["warning"]
+    assert issues[0]["field"] == "first_name"
+    # Whole name line empty: the required error fires and the redundant
+    # mapped-column warning is suppressed.
+    issues = run_checks(
+        rows=[{"first_name": "", "last_name": "", "street": "1 Main St", "city": "X"}],
+        mapped_columns=["first_name"],
+        tle_columns=tle,
+    )
+    assert [i["severity"] for i in issues] == ["error"]
 
 
 def test_header_containing_braces_is_plain_lookup():

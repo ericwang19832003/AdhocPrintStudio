@@ -36,19 +36,23 @@ def run_checks(
         if tle_columns.get(key)
     ]
     name_template = tle_columns.get("mailing_name")
-    # Columns already covered by required-line checks: don't warn about them
-    # again in the mapped-column loop. Both the raw value (exact column names,
-    # including headers that contain braces) and any parsed tokens are
-    # excluded — over-inclusion only suppresses duplicate warnings.
-    required_columns: set[str] = set()
-    for _, _, template in required:
-        required_columns.add(template)
+
+    def referenced_columns(template: str) -> set[str]:
+        # Raw value included too: exact column names (even brace-containing
+        # headers) resolve as plain lookups.
+        cols = {template}
         if "{" in template:
-            required_columns.update(re.findall(r"\{([^{}]+)\}", template))
+            cols.update(re.findall(r"\{([^{}]+)\}", template))
+        return cols
 
     empty_counts: dict[str, int] = {}
     caps_count = 0
     for index, row in enumerate(rows, start=1):
+        # Columns whose required-line check errored on THIS row: skip their
+        # generic mapped-column warning (it would duplicate the error). A
+        # column feeding a line that still resolved fine keeps its warning —
+        # the letter body would print a blank there.
+        errored_columns: set[str] = set()
         for key, label, template in required:
             if not _resolve_mailing_line(template, row):
                 if empty_counts.get(key, 0) < MAX_REPORTED_PER_CHECK:
@@ -61,8 +65,9 @@ def run_checks(
                         }
                     )
                 empty_counts[key] = empty_counts.get(key, 0) + 1
+                errored_columns.update(referenced_columns(template))
         for col in mapped_columns:
-            if col in required_columns:
+            if col in errored_columns:
                 continue
             if not (row.get(col) or "").strip():
                 if empty_counts.get(col, 0) < MAX_REPORTED_PER_CHECK:
