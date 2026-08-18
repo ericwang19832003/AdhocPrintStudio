@@ -43,18 +43,30 @@ export function resolveMailingLine(
   return resolved.replace(/^[\s,]+|[\s,]+$/g, "");
 }
 
-/** Derive the 4-line mailing_map templates from the semantic fields. */
+/** Derive the 4-line mailing_map templates from the semantic fields.
+ *
+ * A header containing braces cannot be a {token}; such columns fall back to
+ * the plain-column form (which accepts any characters), dropping composition
+ * for that line rather than producing a corrupt template.
+ */
 export function mailingTemplates(f: MailingFields): Record<string, string> {
-  const t = (col: string) => (col ? `{${col}}` : "");
+  const safe = (col: string) => !col.includes("{") && !col.includes("}");
+  const t = (col: string) => (col ? (safe(col) ? `{${col}}` : col) : "");
   const nameCol = f.first || f.last;
   return {
     mailing_name:
-      f.first && f.last ? `{${f.first}} {${f.last}}` : t(nameCol),
+      f.first && f.last && safe(f.first) && safe(f.last)
+        ? `{${f.first}} {${f.last}}`
+        : nameCol && safe(nameCol)
+          ? `{${nameCol}}`
+          : nameCol,
     mailing_addr1: t(f.street),
     mailing_addr2: t(f.apt),
     mailing_addr3:
-      f.city || f.state || f.zip
-        ? `${t(f.city)}, ${t(f.state)} ${t(f.zip)}`.trim()
+      [f.city, f.state, f.zip].some(Boolean)
+        ? [f.city, f.state, f.zip].filter(Boolean).every(safe)
+          ? `${f.city ? `{${f.city}}` : ""}, ${f.state ? `{${f.state}}` : ""} ${f.zip ? `{${f.zip}}` : ""}`.trim()
+          : f.city || f.state || f.zip
         : "",
   };
 }
