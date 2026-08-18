@@ -331,3 +331,19 @@ def test_preflight_ai_sample_expands_mailing_templates(monkeypatch):
     # columns still never leave the server.
     assert "{first_name}" not in captured["body"]
     assert "do not send" not in captured["body"]
+
+
+def test_preflight_accepts_long_composed_templates(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    long_a = "a" * 190
+    long_b = "b" * 190
+    client = TestClient(app)
+    response = client.post(
+        "/ai/preflight",
+        json={
+            "rows": [{long_a: "Ann", long_b: "Lee"}],
+            "mapped_columns": [],
+            "tle_columns": {"mailing_name": f"{{{long_a}}} {{{long_b}}}"},
+        },
+    )
+    assert response.status_code == 200

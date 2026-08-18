@@ -78,6 +78,9 @@ async def run_completion(**kwargs: Any) -> str | dict | list:
 # item counts and string lengths to put a ceiling on prompt size/cost.
 BoundedName = Annotated[str, StringConstraints(max_length=200)]
 BoundedValue = Annotated[str, StringConstraints(max_length=500)]
+# Mailing-line templates compose up to three {Column} tokens plus separators
+# ("{City}, {State} {Zip}"), so their bound is 3 column names + punctuation.
+BoundedTemplate = Annotated[str, StringConstraints(max_length=650)]
 
 
 def _validate_row_width(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -168,7 +171,7 @@ class PreflightRequest(BaseModel):
     model: str | None = None
     rows: Annotated[list[dict[BoundedName, BoundedValue]], Field(max_length=5000)]
     mapped_columns: Annotated[list[BoundedName], Field(max_length=500)] = []
-    tle_columns: dict[str, BoundedName | None] = {}
+    tle_columns: dict[str, BoundedTemplate | None] = {}
 
     @field_validator("rows")
     @classmethod
