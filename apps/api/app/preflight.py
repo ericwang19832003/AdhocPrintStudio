@@ -37,13 +37,14 @@ def run_checks(
     ]
     name_template = tle_columns.get("mailing_name")
     # Columns already covered by required-line checks: don't warn about them
-    # again in the mapped-column loop.
+    # again in the mapped-column loop. Both the raw value (exact column names,
+    # including headers that contain braces) and any parsed tokens are
+    # excluded — over-inclusion only suppresses duplicate warnings.
     required_columns: set[str] = set()
     for _, _, template in required:
+        required_columns.add(template)
         if "{" in template:
             required_columns.update(re.findall(r"\{([^{}]+)\}", template))
-        else:
-            required_columns.add(template)
 
     empty_counts: dict[str, int] = {}
     caps_count = 0
