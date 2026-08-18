@@ -107,3 +107,9 @@ def test_preflight_skips_template_columns_in_mapped_warnings():
     )
     warnings = [i for i in issues if i["severity"] == "warning"]
     assert warnings == []
+
+
+def test_header_containing_braces_is_plain_lookup():
+    # A column key that exists in the row wins over template parsing.
+    row = {"Client {Name}": "Acme Inc", "Name": "WRONG"}
+    assert _resolve_mailing_line("Client {Name}", row) == "Acme Inc"

@@ -36,6 +36,9 @@ export function resolveMailingLine(
   row: Record<string, string>
 ): string {
   if (!template) return "";
+  // An exact column key wins over template parsing — this keeps headers
+  // that themselves contain braces working as plain lookups.
+  if (template in row) return (row[template] ?? "").trim();
   if (!template.includes("{")) return (row[template] ?? "").trim();
   let resolved = template.replace(TOKEN, (_, col: string) => (row[col] ?? "").trim());
   resolved = resolved.replace(/\s+/g, " ");

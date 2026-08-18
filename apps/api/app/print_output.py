@@ -332,6 +332,10 @@ def _resolve_mailing_line(template: str, row: dict[str, str]) -> str:
     """
     if not template:
         return ""
+    # An exact column key wins over template parsing — this keeps headers
+    # that themselves contain braces working as plain lookups.
+    if template in row:
+        return (row.get(template) or "").strip()
     if "{" not in template:
         return (row.get(template, "") or "").strip()
     resolved = _MAILING_TOKEN.sub(
