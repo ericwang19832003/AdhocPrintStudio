@@ -587,9 +587,16 @@ export default function BuilderClient() {
   // (templates like "{First} {Last}") is derived from them.
   const [mailingFields, setMailingFields] = useState<MailingFields>(EMPTY_MAILING_FIELDS);
   const mailingMap = useMemo(() => mailingTemplates(mailingFields), [mailingFields]);
+  // Draft restore brings back the user's exact mapping — deliberately blank
+  // fields included — so it suppresses the next header auto-detection pass.
+  const skipMailingAutoDetectRef = useRef(false);
   // Prefill unset fields from header names whenever a data file arrives.
   useEffect(() => {
     if (!columns.length) return;
+    if (skipMailingAutoDetectRef.current) {
+      skipMailingAutoDetectRef.current = false;
+      return;
+    }
     const guessed = detectMailingFields(columns);
     setMailingFields((prev) => {
       const next = { ...prev };
@@ -719,8 +726,13 @@ export default function BuilderClient() {
           if (parsedColumns.length > 0) setColumns(parsedColumns);
         }
         if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
-        if (draft.mailingFields) setMailingFields({ ...EMPTY_MAILING_FIELDS, ...draft.mailingFields });
-        else if (draft.mailingMap) setMailingFields(fieldsFromLegacyMap(draft.mailingMap));
+        if (draft.mailingFields) {
+          setMailingFields({ ...EMPTY_MAILING_FIELDS, ...draft.mailingFields });
+          skipMailingAutoDetectRef.current = true;
+        } else if (draft.mailingMap) {
+          setMailingFields(fieldsFromLegacyMap(draft.mailingMap));
+          skipMailingAutoDetectRef.current = true;
+        }
         // Restore user-created library items first so selections can resolve to them
         const mergedLibrary: Record<string, LibraryItem[]> = { ...librarySeed };
         if (draft.customLibraryItems) {
