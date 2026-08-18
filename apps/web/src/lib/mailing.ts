@@ -71,13 +71,25 @@ export function mailingTemplates(f: MailingFields): Record<string, string> {
           : nameCol,
     mailing_addr1: t(f.street),
     mailing_addr2: t(f.apt),
-    mailing_addr3:
-      [f.city, f.state, f.zip].some(Boolean)
-        ? [f.city, f.state, f.zip].filter(Boolean).every(safe)
-          ? `${f.city ? `{${f.city}}` : ""}, ${f.state ? `{${f.state}}` : ""} ${f.zip ? `{${f.zip}}` : ""}`.trim()
-          : f.city || f.state || f.zip
-        : "",
+    mailing_addr3: cityLineTemplate(f),
   };
+}
+
+/** "City, State ZIP" with separators only between parts that are mapped. */
+function cityLineTemplate(f: MailingFields): string {
+  const parts = [f.city, f.state, f.zip].filter(Boolean);
+  if (parts.length === 0) return "";
+  const safe = (col: string) => !col.includes("{") && !col.includes("}");
+  if (!parts.every(safe)) return parts[0];
+  const stateZip = [f.state, f.zip]
+    .filter(Boolean)
+    .map((col) => `{${col}}`)
+    .join(" ");
+  if (!f.city) return stateZip;
+  if (!stateZip) return `{${f.city}}`;
+  // The comma belongs between city and state; with only a ZIP mapped the
+  // conventional form is "City 62704".
+  return f.state ? `{${f.city}}, ${stateZip}` : `{${f.city}} ${stateZip}`;
 }
 
 const LEGACY_SENTINELS = new Set(["", "__empty__", "__select__"]);
