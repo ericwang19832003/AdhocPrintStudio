@@ -17,7 +17,8 @@ type MergePreviewProps = {
     logoUrl: string | null;
     tagline: string | null;
   };
-  mailingColumns: { name: string; addr1: string; addr2: string; addr3: string };
+  /** Resolve the 4 mailing lines for a row (handles multi-column templates). */
+  mailingLinesForRow: (row: MergeRow) => string[];
   outputFormat: "pdf" | "afp" | string;
   onFormatChange: (fmt: string) => void;
   onGenerate: () => void;
@@ -46,7 +47,7 @@ export function MergePreview({
   placeholderMap,
   letterHtml,
   assetsForRow,
-  mailingColumns,
+  mailingLinesForRow,
   outputFormat,
   onFormatChange,
   onGenerate,
@@ -77,7 +78,8 @@ export function MergePreview({
   const mergedHtml = mergeLetter(letterHtml, currentRow, placeholderMap);
   const { returnLines, logoUrl, tagline } = assetsForRow(currentRow);
 
-  // Try to get a display name from the row using common name-related column mappings
+  // Display name: the composed mailing name line, falling back to common
+  // name-related placeholder mappings, then the first column.
   const nameCol =
     placeholderMap["[Name]"] ??
     placeholderMap["[FirstName]"] ??
@@ -85,7 +87,9 @@ export function MergePreview({
     placeholderMap["[FIRST_NAME]"] ??
     columns[0] ??
     "";
-  const recipientName = currentRow[nameCol] || `Row ${selectedRow + 1}`;
+  const displayName = (row: MergeRow, index: number) =>
+    mailingLinesForRow(row)[0] || row[nameCol] || `Row ${index + 1}`;
+  const recipientName = displayName(currentRow, selectedRow);
 
   return (
     <div className="merge-preview-overlay" role="dialog" aria-modal="true" aria-label="Merge preview">
@@ -134,7 +138,7 @@ export function MergePreview({
           <p className="merge-recipient-label">Recipients</p>
           <div className="merge-recipient-items">
             {rows.map((row, i) => {
-              const name = row[nameCol] || `Row ${i + 1}`;
+              const name = displayName(row, i);
               return (
                 <button
                   key={i}
@@ -189,8 +193,7 @@ export function MergePreview({
               )}
             </div>
             <div className="merge-letter-mailing">
-              {[mailingColumns.name, mailingColumns.addr1, mailingColumns.addr2, mailingColumns.addr3]
-                .map((col) => (col ? currentRow[col] ?? "" : ""))
+              {mailingLinesForRow(currentRow)
                 .filter(Boolean)
                 .map((line, i) => <div key={i}>{line}</div>)}
             </div>

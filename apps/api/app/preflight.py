@@ -4,10 +4,18 @@ Row numbers in issues are 1-based (matching what users see in a spreadsheet).
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
-# TLE fields the inserter hardware requires to route mail.
-REQUIRED_TLE = {"mailing_name", "mailing_addr1", "mailing_addr3"}
+from app.print_output import _resolve_mailing_line
+
+# Mailing lines the inserter hardware requires to route mail. Values in
+# tle_columns may be plain column names (legacy) or "{Col} {Col}" templates.
+REQUIRED_TLE = {
+    "mailing_name": "recipient name",
+    "mailing_addr1": "street address",
+    "mailing_addr3": "city/state/ZIP",
+}
 
 MAX_REPORTED_PER_CHECK = 50
 
@@ -22,28 +30,38 @@ def run_checks(
     # Dedupe while preserving order — duplicate mapped columns would otherwise
     # produce duplicate warnings and burn the per-column cap twice as fast.
     mapped_columns = list(dict.fromkeys(mapped_columns))
-    required_cols = sorted(
-        {tle_columns[k] for k in REQUIRED_TLE if tle_columns.get(k)}
-    )
-    name_col = tle_columns.get("mailing_name")
+    required = [
+        (key, label, tle_columns[key])
+        for key, label in REQUIRED_TLE.items()
+        if tle_columns.get(key)
+    ]
+    name_template = tle_columns.get("mailing_name")
+    # Columns already covered by required-line checks: don't warn about them
+    # again in the mapped-column loop.
+    required_columns: set[str] = set()
+    for _, _, template in required:
+        if "{" in template:
+            required_columns.update(re.findall(r"\{([^{}]+)\}", template))
+        else:
+            required_columns.add(template)
 
     empty_counts: dict[str, int] = {}
     caps_count = 0
     for index, row in enumerate(rows, start=1):
-        for col in required_cols:
-            if not (row.get(col) or "").strip():
-                if empty_counts.get(col, 0) < MAX_REPORTED_PER_CHECK:
+        for key, label, template in required:
+            if not _resolve_mailing_line(template, row):
+                if empty_counts.get(key, 0) < MAX_REPORTED_PER_CHECK:
                     issues.append(
                         {
                             "row": index,
-                            "field": col,
+                            "field": template,
                             "severity": "error",
-                            "message": f"Required mailing field '{col}' is empty.",
+                            "message": f"Required mailing field ({label}) is empty.",
                         }
                     )
-                empty_counts[col] = empty_counts.get(col, 0) + 1
+                empty_counts[key] = empty_counts.get(key, 0) + 1
         for col in mapped_columns:
-            if col in required_cols:
+            if col in required_columns:
                 continue
             if not (row.get(col) or "").strip():
                 if empty_counts.get(col, 0) < MAX_REPORTED_PER_CHECK:
@@ -56,14 +74,14 @@ def run_checks(
                         }
                     )
                 empty_counts[col] = empty_counts.get(col, 0) + 1
-        if name_col:
-            value = (row.get(name_col) or "").strip()
+        if name_template:
+            value = _resolve_mailing_line(name_template, row)
             if len(value) > 3 and value.isupper():
                 if caps_count < MAX_REPORTED_PER_CHECK:
                     issues.append(
                         {
                             "row": index,
-                            "field": name_col,
+                            "field": name_template,
                             "severity": "warning",
                             "message": (
                                 "Recipient name is in ALL CAPS — it will print "

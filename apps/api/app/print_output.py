@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -316,6 +317,29 @@ def _wrap_text(text: str, draw: ImageDraw.ImageDraw, font: ImageFont.ImageFont, 
     if current:
         lines.append(" ".join(current))
     return lines
+
+
+_MAILING_TOKEN = re.compile(r"\{([^{}]+)\}")
+
+
+def _resolve_mailing_line(template: str, row: dict[str, str]) -> str:
+    """Build one mailing line from a template like "{First Name} {Last Name}"
+    or "{City}, {State} {Zip}".
+
+    A plain string without braces is treated as a single column name (the
+    legacy mailing_map contract). Missing parts must not leave artifacts:
+    separators dangling around empty substitutions are stripped.
+    """
+    if not template:
+        return ""
+    if "{" not in template:
+        return (row.get(template, "") or "").strip()
+    resolved = _MAILING_TOKEN.sub(
+        lambda m: (row.get(m.group(1), "") or "").strip(), template
+    )
+    resolved = re.sub(r"\s+", " ", resolved)
+    resolved = re.sub(r"\s*,\s*(?=,)", "", resolved)  # collapse ",  ," runs
+    return resolved.strip(" ,")
 
 
 def _replace_placeholders(text: str, row: dict[str, str], placeholder_map: dict[str, str]) -> str:
@@ -919,10 +943,10 @@ def generate_afp(payload: dict[str, Any]) -> Response:
             ]
 
             mailing_lines = [
-                row.get(mailing_map.get("mailing_name", ""), ""),
-                row.get(mailing_map.get("mailing_addr1", ""), ""),
-                row.get(mailing_map.get("mailing_addr2", ""), ""),
-                row.get(mailing_map.get("mailing_addr3", ""), ""),
+                _resolve_mailing_line(mailing_map.get("mailing_name", ""), row),
+                _resolve_mailing_line(mailing_map.get("mailing_addr1", ""), row),
+                _resolve_mailing_line(mailing_map.get("mailing_addr2", ""), row),
+                _resolve_mailing_line(mailing_map.get("mailing_addr3", ""), row),
             ]
 
             # Get return lines for this row (static or dynamic)
@@ -1099,10 +1123,10 @@ def generate_pdf(payload: dict[str, Any]) -> Response:
             ]
 
             mailing_lines = [
-                row.get(mailing_map.get("mailing_name", ""), ""),
-                row.get(mailing_map.get("mailing_addr1", ""), ""),
-                row.get(mailing_map.get("mailing_addr2", ""), ""),
-                row.get(mailing_map.get("mailing_addr3", ""), ""),
+                _resolve_mailing_line(mailing_map.get("mailing_name", ""), row),
+                _resolve_mailing_line(mailing_map.get("mailing_addr1", ""), row),
+                _resolve_mailing_line(mailing_map.get("mailing_addr2", ""), row),
+                _resolve_mailing_line(mailing_map.get("mailing_addr3", ""), row),
             ]
 
             # Get return lines for this row (static or dynamic)

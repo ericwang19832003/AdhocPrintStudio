@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, CheckCircle2, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
+import type { MailingFields } from "@/lib/mailing";
 
 export type PlaceholderMapping = Record<string, string>; // placeholder → column name (empty = unmapped)
 
@@ -19,9 +20,9 @@ type DataPanelProps = {
   placeholderMap: PlaceholderMapping;
   onPlaceholderMapChange: (map: PlaceholderMapping) => void;
   onUploadFile: (file: File) => void;
-  // TLE / mailing fields (4 slots used by the TLE engine)
-  mailingMap: Record<string, string>;
-  onMailingMapChange: (map: Record<string, string>) => void;
+  // Semantic mailing-address fields (composed into mailing lines/templates)
+  mailingFields: MailingFields;
+  onMailingFieldsChange: (fields: MailingFields) => void;
   spreadsheetNotPersisted?: boolean;
   // AI auto-map (all optional — omitted entirely when AI is disabled)
   onAiAutomap?: () => void;
@@ -31,11 +32,20 @@ type DataPanelProps = {
   onApplyAllAiSuggestions?: () => void;
 };
 
-const TLE_FIELDS: { key: string; label: string }[] = [
-  { key: "mailing_name", label: "Recipient Name" },
-  { key: "mailing_addr1", label: "Address Line 1" },
-  { key: "mailing_addr2", label: "Address Line 2" },
-  { key: "mailing_addr3", label: "City / State / ZIP" },
+// The mailing-address form: each entry is one dropdown mapped to a data
+// column. Grouping and captions communicate the split/combined cases.
+const MAILING_FORM: Array<{
+  field: keyof MailingFields;
+  label: string;
+  hint?: string;
+}> = [
+  { field: "first", label: "Name (or first name)" },
+  { field: "last", label: "Last name", hint: "Only if first and last names are separate columns" },
+  { field: "street", label: "Street address" },
+  { field: "apt", label: "Apt / Suite", hint: "Optional — line is skipped when empty" },
+  { field: "city", label: "City", hint: "If city, state and ZIP are combined in one column, map just City" },
+  { field: "state", label: "State" },
+  { field: "zip", label: "ZIP code" },
 ];
 
 export function DataPanel({
@@ -46,8 +56,8 @@ export function DataPanel({
   placeholderMap,
   onPlaceholderMapChange,
   onUploadFile,
-  mailingMap,
-  onMailingMapChange,
+  mailingFields,
+  onMailingFieldsChange,
   spreadsheetNotPersisted,
   onAiAutomap,
   aiMapLoading,
@@ -135,7 +145,7 @@ export function DataPanel({
                 {s === "placeholders"
                   ? "Placeholders"
                   : s === "tle"
-                  ? "Index fields"
+                  ? "Mailing address"
                   : "Preview"}
               </button>
             ))}
@@ -235,31 +245,35 @@ export function DataPanel({
             </div>
           )}
 
-          {/* TLE field mapping */}
+          {/* Mailing address mapping */}
           {activeSection === "tle" && (
             <div className="data-section">
               <p className="data-section-hint">
-                Map CSV columns to mailing address fields used by the TLE engine.
+                Tell us which columns hold each part of the mailing address —
+                the envelope lines are composed automatically.
               </p>
               <div className="mapping-table">
-                {TLE_FIELDS.map(({ key, label }) => (
-                  <div key={key} className="mapping-row">
-                    <span className="mapping-placeholder">{label}</span>
-                    <select
-                      aria-label={`TLE field: ${label}`}
-                      className="mapping-select"
-                      value={mailingMap[key] ?? ""}
-                      onChange={(e) =>
-                        onMailingMapChange({ ...mailingMap, [key]: e.target.value })
-                      }
-                    >
-                      <option value="">-- select column --</option>
-                      {columns.map((col) => (
-                        <option key={col} value={col}>
-                          {col}
-                        </option>
-                      ))}
-                    </select>
+                {MAILING_FORM.map(({ field, label, hint }) => (
+                  <div key={field} className="mapping-row mailing-form-row">
+                    <span className="mapping-placeholder" title={hint}>{label}</span>
+                    <div className="mailing-form-control">
+                      <select
+                        aria-label={`Mailing field: ${label}`}
+                        className="mapping-select"
+                        value={mailingFields[field]}
+                        onChange={(e) =>
+                          onMailingFieldsChange({ ...mailingFields, [field]: e.target.value })
+                        }
+                      >
+                        <option value="">— not in my data —</option>
+                        {columns.map((col) => (
+                          <option key={col} value={col}>
+                            {col}
+                          </option>
+                        ))}
+                      </select>
+                      {hint && <span className="mailing-form-hint">{hint}</span>}
+                    </div>
                   </div>
                 ))}
               </div>

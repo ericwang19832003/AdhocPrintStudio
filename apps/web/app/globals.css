@@ -5468,3 +5468,9 @@ textarea:focus-visible {
   border-top: 1px solid var(--outline);
 }
 .vary-match-count { margin-right: auto; font-size: 12px; color: var(--ink-500); }
+
+/* Mailing-address form in the Data panel */
+.mailing-form-row { align-items: flex-start; }
+.mailing-form-control { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.mailing-form-control .mapping-select { width: 100%; }
+.mailing-form-hint { font-size: 11px; color: var(--ink-400, var(--ink-500)); line-height: 1.3; }

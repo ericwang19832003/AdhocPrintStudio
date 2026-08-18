@@ -156,8 +156,8 @@ def test_deterministic_ordering_of_required_columns():
         },
     )
     error_fields = [i["field"] for i in issues if i["severity"] == "error"]
-    assert error_fields == sorted(error_fields)
-    assert set(error_fields) == {"zeta_name", "alpha_addr", "mid_zip"}
+    # Deterministic envelope order: name, street, city/state/ZIP.
+    assert error_fields == ["zeta_name", "alpha_addr", "mid_zip"]
 
 
 def test_unmapped_tle_key_ignored():

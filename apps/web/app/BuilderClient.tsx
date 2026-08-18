@@ -11,6 +11,14 @@ import mammoth from "mammoth";
 
 import { env } from "@/lib/env";
 import { parseCsv, parseCsvHeader } from "@/lib/csv";
+import {
+  EMPTY_MAILING_FIELDS,
+  detectMailingFields,
+  fieldsFromLegacyMap,
+  mailingTemplates,
+  resolveMailingLine,
+  type MailingFields,
+} from "@/lib/mailing";
 import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type InspectorTab } from "./components/InspectorPanel";
@@ -426,6 +434,8 @@ interface LetterDraft {
   spreadsheetNotSaved?: boolean;
   placeholderMap: Record<string, string>;
   mailingMap: { mailing_name: string; mailing_addr1: string; mailing_addr2: string; mailing_addr3: string };
+  /** Semantic mailing fields (source of truth since 2026-08); mailingMap kept for old drafts. */
+  mailingFields?: MailingFields;
   selectedLogoId?: string;
   selectedReturnId?: string;
   selectedTaglineId?: string;
@@ -573,12 +583,26 @@ export default function BuilderClient() {
     }
     return true;
   });
-  const [mailingMap, setMailingMap] = useState<Record<string, string>>({
-    mailing_name: "",
-    mailing_addr1: "",
-    mailing_addr2: "",
-    mailing_addr3: "",
-  });
+  // Semantic mailing fields are the source of truth; the 4-line mailing_map
+  // (templates like "{First} {Last}") is derived from them.
+  const [mailingFields, setMailingFields] = useState<MailingFields>(EMPTY_MAILING_FIELDS);
+  const mailingMap = useMemo(() => mailingTemplates(mailingFields), [mailingFields]);
+  // Prefill unset fields from header names whenever a data file arrives.
+  useEffect(() => {
+    if (!columns.length) return;
+    const guessed = detectMailingFields(columns);
+    setMailingFields((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [field, col] of Object.entries(guessed) as [keyof MailingFields, string][]) {
+        if (!next[field] && col) {
+          next[field] = col;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [columns]);
   const [showMergePreview, setShowMergePreview] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("data");
   // Block properties are contextual: show the tab while a block is selected,
@@ -695,7 +719,8 @@ export default function BuilderClient() {
           if (parsedColumns.length > 0) setColumns(parsedColumns);
         }
         if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
-        if (draft.mailingMap) setMailingMap(draft.mailingMap);
+        if (draft.mailingFields) setMailingFields({ ...EMPTY_MAILING_FIELDS, ...draft.mailingFields });
+        else if (draft.mailingMap) setMailingFields(fieldsFromLegacyMap(draft.mailingMap));
         // Restore user-created library items first so selections can resolve to them
         const mergedLibrary: Record<string, LibraryItem[]> = { ...librarySeed };
         if (draft.customLibraryItems) {
@@ -775,6 +800,7 @@ export default function BuilderClient() {
           spreadsheetContent: spreadsheetContent ?? "",
           placeholderMap,
           mailingMap: mailingMap as LetterDraft["mailingMap"],
+          mailingFields,
           selectedLogoId: selectedLogo?.id,
           selectedReturnId: selectedReturn?.id,
           // The letter's one tagline (first page with a selection) — also the
@@ -830,7 +856,7 @@ export default function BuilderClient() {
     return () => clearTimeout(timer);
   }, [
     letterTitle, bodyContentByPage, blocksByPage, pages, activePage,
-    spreadsheetName, spreadsheetContent, placeholderMap, mailingMap,
+    spreadsheetName, spreadsheetContent, placeholderMap, mailingFields, mailingMap,
     selectedLogo?.id, selectedReturn?.id, selectedTaglineByPage, library,
     logoMode, logoColumn, logoValueMap,
     taglineMode, taglineColumn, taglineValueMap,
@@ -1799,17 +1825,6 @@ export default function BuilderClient() {
     return [lines[0] ?? "", lines[1] ?? "", lines[2] ?? ""];
   };
 
-  const normalizeMailingValue = (value: string) => (value === "__empty__" ? "" : value);
-
-  const unmappedMailing = useMemo(
-    () =>
-      ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"].filter((key) => {
-        const value = mailingMap[key] ?? "";
-        return value === "" || value === "__select__";
-      }),
-    [mailingMap]
-  );
-
   const sampleValueForColumn = (column: string) => {
     const seed = column.replace(/_/g, " ");
     return `Sample ${seed}`;
@@ -1939,22 +1954,26 @@ export default function BuilderClient() {
       }
       setAiSuggestions(suggestions);
 
-      // Merge TLE picks only into slots the user hasn't already set.
+      // Merge TLE picks only into mailing fields the user hasn't already set.
       const tle = (data?.tle ?? {}) as Record<string, string>;
-      const tleUpdates: Record<string, string> = {};
-      for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
+      const tleFieldByKey: Record<string, keyof MailingFields> = {
+        mailing_name: "first",
+        mailing_addr1: "street",
+        mailing_addr2: "apt",
+        mailing_addr3: "city",
+      };
+      const tleUpdates: Partial<MailingFields> = {};
+      for (const [key, field] of Object.entries(tleFieldByKey)) {
         const col = tle[key];
-        const current = mailingMap[key] ?? "";
-        const unset = current === "" || current === "__select__";
-        if (typeof col === "string" && columns.includes(col) && unset) {
-          tleUpdates[key] = col;
+        if (typeof col === "string" && columns.includes(col) && !mailingFields[field]) {
+          tleUpdates[field] = col;
         }
       }
       if (Object.keys(tleUpdates).length > 0) {
-        setMailingMap((prev) => {
+        setMailingFields((prev) => {
           const next = { ...prev };
-          for (const [key, col] of Object.entries(tleUpdates)) {
-            if (!next[key] || next[key] === "__select__") next[key] = col;
+          for (const [field, col] of Object.entries(tleUpdates) as [keyof MailingFields, string][]) {
+            if (!next[field]) next[field] = col;
           }
           return next;
         });
@@ -2060,34 +2079,6 @@ export default function BuilderClient() {
     return (library["Return Address"] ?? []).find((r) => r.id === returnId) ?? null;
   };
 
-  const getValueForRow = (rowIndex: number, column: string) => {
-    const row = spreadsheetRows[rowIndex];
-    if (!row) return sampleValueForColumn(column);
-    return row[column] ?? sampleValueForColumn(column);
-  };
-
-  const buildMergedHtmlForRow = (rowIndex: number) => {
-    const bodyHtml = stripInlineControls(bodyContentByPage[activePage] ?? "");
-    const mergedBody = bodyHtml.replace(/\[([^\]]+)\]/g, (match) => {
-      const key = match.replace(/^\[|\]$/g, "");
-      const mappedColumn = placeholderMap[match] || key;
-      return getValueForRow(rowIndex, mappedColumn);
-    });
-    return mergedBody;
-  };
-
-  const buildTleIndexForRow = (rowIndex: number) => ({
-    mailing_name: getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_name) || "mailing_name"),
-    mailing_addr1: getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_addr1) || "mailing_addr1"),
-    mailing_addr2: getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_addr2) || "mailing_addr2"),
-    mailing_addr3: normalizeMailingValue(mailingMap.mailing_addr3)
-      ? getValueForRow(rowIndex, normalizeMailingValue(mailingMap.mailing_addr3))
-      : "",
-    return_addr1: returnLines[0],
-    return_addr2: returnLines[1],
-    return_addr3: returnLines[2],
-  });
-
   const handleGenerate = async (format: "afp" | "pdf" = outputFormat) => {
     if (!spreadsheetContent) {
       setToast({ message: "Upload a spreadsheet in the Data panel first.", variant: "info" });
@@ -2141,12 +2132,7 @@ export default function BuilderClient() {
             .join(""),
           block_texts: [],
           placeholder_map: placeholderMap,
-          mailing_map: {
-            mailing_name: normalizeMailingValue(mailingMap.mailing_name),
-            mailing_addr1: normalizeMailingValue(mailingMap.mailing_addr1),
-            mailing_addr2: normalizeMailingValue(mailingMap.mailing_addr2),
-            mailing_addr3: normalizeMailingValue(mailingMap.mailing_addr3),
-          },
+          mailing_map: mailingMap,
           return_address: returnLines,
           spreadsheet_csv: spreadsheetContent,
           logo_url: logoMode === "static" ? selectedLogo?.imageUrl ?? null : null,
@@ -2248,8 +2234,8 @@ export default function BuilderClient() {
       ).slice(0, 500);
       const tleColumns: Record<string, string> = {};
       for (const key of ["mailing_name", "mailing_addr1", "mailing_addr2", "mailing_addr3"]) {
-        const value = normalizeMailingValue(mailingMap[key] ?? "");
-        if (value && value !== "__select__") tleColumns[key] = value;
+        const value = mailingMap[key] ?? "";
+        if (value) tleColumns[key] = value;
       }
       const basePayload = {
         rows,
@@ -3230,8 +3216,8 @@ export default function BuilderClient() {
               placeholderMap={placeholderMap}
               onPlaceholderMapChange={(map: PlaceholderMapping) => setPlaceholderMap(map)}
               onUploadFile={(file) => handleSpreadsheetFile(file)}
-              mailingMap={mailingMap}
-              onMailingMapChange={setMailingMap}
+              mailingFields={mailingFields}
+              onMailingFieldsChange={setMailingFields}
               spreadsheetNotPersisted={spreadsheetNotPersisted}
               onAiAutomap={aiSettings ? runAiAutomap : undefined}
               aiMapLoading={aiMapLoading}
@@ -3669,12 +3655,14 @@ export default function BuilderClient() {
             }
             return { returnLines, logoUrl, tagline };
           }}
-          mailingColumns={{
-            name: normalizeMailingValue(mailingMap.mailing_name),
-            addr1: normalizeMailingValue(mailingMap.mailing_addr1),
-            addr2: normalizeMailingValue(mailingMap.mailing_addr2),
-            addr3: normalizeMailingValue(mailingMap.mailing_addr3),
-          }}
+          mailingLinesForRow={(row) =>
+            [
+              mailingMap.mailing_name,
+              mailingMap.mailing_addr1,
+              mailingMap.mailing_addr2,
+              mailingMap.mailing_addr3,
+            ].map((template) => resolveMailingLine(template, row))
+          }
           outputFormat={outputFormat}
           onFormatChange={(fmt) => setOutputFormat(fmt as "afp" | "pdf")}
           onGenerate={() => { handleGenerate(outputFormat); setShowMergePreview(false); }}
