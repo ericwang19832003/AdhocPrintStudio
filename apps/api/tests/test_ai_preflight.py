@@ -296,3 +296,38 @@ def test_preflight_rate_limited_after_20(monkeypatch):
     codes = [client.post("/ai/preflight", json=body).status_code for _ in range(20)]
     assert codes == [200] * 20
     assert client.post("/ai/preflight", json=body).status_code == 429
+
+
+def test_preflight_ai_sample_expands_mailing_templates(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.content.decode()
+        return httpx.Response(
+            200, json={"content": [{"type": "text", "text": '{"issues": []}'}]}
+        )
+
+    monkeypatch.setattr(ai_module, "_test_transport", httpx.MockTransport(handler))
+    client = TestClient(app)
+    response = client.post(
+        "/ai/preflight",
+        json=ai_payload(
+            rows=[{"first_name": "Ann", "last_name": "Lee", "street": "1 Main St",
+                   "secret": "do not send"}],
+            mapped_columns=[],
+            tle_columns={
+                "mailing_name": "{first_name} {last_name}",
+                "mailing_addr1": "street",
+                "mailing_addr3": "{city}, {state} {zip}",
+            },
+        ),
+    )
+    assert response.status_code == 200
+    # The template's referenced columns are sampled with real values...
+    for expected in ("first_name", "Ann", "last_name", "Lee", "street", "1 Main St"):
+        assert expected in captured["body"]
+    # ...the raw template string is not sent as a column name, and unrelated
+    # columns still never leave the server.
+    assert "{first_name}" not in captured["body"]
+    assert "do not send" not in captured["body"]
