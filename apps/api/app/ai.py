@@ -199,13 +199,16 @@ async def preflight(request: Request, payload: PreflightRequest) -> dict[str, An
         validate_selection(payload.provider, payload.model)
         # Data minimization: only mapped/TLE columns leave the server. TLE
         # values may be composition templates ("{First} {Last}") — sample the
-        # columns they reference, not the template string itself.
+        # columns they reference, not the template string itself. As in the
+        # resolvers, an exact column name wins over template parsing so
+        # headers containing braces stay plain lookups.
+        known_columns = {col for row in payload.rows[:PREFLIGHT_AI_SAMPLE] for col in row}
         tle_referenced: set[str] = set()
         for value in tle_columns.values():
-            if "{" in value:
-                tle_referenced.update(re.findall(r"\{([^{}]+)\}", value))
-            else:
+            if value in known_columns or "{" not in value:
                 tle_referenced.add(value)
+            else:
+                tle_referenced.update(re.findall(r"\{([^{}]+)\}", value))
         relevant = sorted(set(payload.mapped_columns) | tle_referenced)
         sample = [
             {col: row.get(col, "") for col in relevant}
