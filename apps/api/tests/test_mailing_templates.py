@@ -42,6 +42,11 @@ def test_missing_parts_leave_no_artifacts():
     assert _resolve_mailing_line("{first_name} {last_name}", row) == "Alice"
     row = dict(ROW, city="")
     assert _resolve_mailing_line("{city}, {state} {zip}", row) == "IL 62704"
+    # A blank middle part must not leave an interior comma behind.
+    row = dict(ROW, state="")
+    assert _resolve_mailing_line("{city}, {state} {zip}", row) == "Springfield 62704"
+    row = dict(ROW, zip="")
+    assert _resolve_mailing_line("{city}, {state} {zip}", row) == "Springfield, IL"
 
 
 def test_untrimmed_cells_are_cleaned():

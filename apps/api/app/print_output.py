@@ -338,11 +338,14 @@ def _resolve_mailing_line(template: str, row: dict[str, str]) -> str:
         return (row.get(template) or "").strip()
     if "{" not in template:
         return (row.get(template, "") or "").strip()
+    # Empty tokens leave a sentinel so each one is removed together with its
+    # leading separator: "{city}, {state} {zip}" with a blank state yields
+    # "Springfield 62704", not "Springfield, 62704".
     resolved = _MAILING_TOKEN.sub(
-        lambda m: (row.get(m.group(1), "") or "").strip(), template
+        lambda m: (row.get(m.group(1), "") or "").strip() or "\x00", template
     )
+    resolved = re.sub(r"[\s,]*\x00", "", resolved)
     resolved = re.sub(r"\s+", " ", resolved)
-    resolved = re.sub(r"\s*,\s*(?=,)", "", resolved)  # collapse ",  ," runs
     return resolved.strip(" ,")
 
 

@@ -40,9 +40,15 @@ export function resolveMailingLine(
   // that themselves contain braces working as plain lookups.
   if (template in row) return (row[template] ?? "").trim();
   if (!template.includes("{")) return (row[template] ?? "").trim();
-  let resolved = template.replace(TOKEN, (_, col: string) => (row[col] ?? "").trim());
+  // Empty tokens leave a sentinel so each one is removed together with its
+  // leading separator: "{city}, {state} {zip}" with a blank state yields
+  // "Springfield 62704", not "Springfield, 62704".
+  let resolved = template.replace(
+    TOKEN,
+    (_, col: string) => (row[col] ?? "").trim() || "\x00"
+  );
+  resolved = resolved.replace(/[\s,]*\x00/g, "");
   resolved = resolved.replace(/\s+/g, " ");
-  resolved = resolved.replace(/\s*,\s*(?=,)/g, "");
   return resolved.replace(/^[\s,]+|[\s,]+$/g, "");
 }
 
