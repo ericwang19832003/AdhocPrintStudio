@@ -6,10 +6,12 @@ type EmptyStateProps = {
   onBlank: () => void;
   onTemplate: () => void;
   onImportWord: () => void;
+  /** Loads a ready-made demo letter + recipients so first-timers see the whole flow. */
+  onSample?: () => void;
   templateCount: number;
 };
 
-export function EmptyState({ onBlank, onTemplate, onImportWord, templateCount }: EmptyStateProps) {
+export function EmptyState({ onBlank, onTemplate, onImportWord, onSample, templateCount }: EmptyStateProps) {
   return (
     <div className="empty-state">
       <div className="empty-state-icon">
@@ -37,6 +39,11 @@ export function EmptyState({ onBlank, onTemplate, onImportWord, templateCount }:
           <span className="empty-card-sub">.docx files</span>
         </button>
       </div>
+      {onSample && (
+        <button type="button" className="empty-sample-link" onClick={onSample}>
+          New here? Try it with sample data →
+        </button>
+      )}
     </div>
   );
 }

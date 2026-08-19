@@ -5632,3 +5632,42 @@ textarea:focus-visible {
 .merge-format-btn { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; }
 .merge-format-name { font-weight: 700; }
 .merge-format-sub { font-size: 10px; font-weight: 400; opacity: 0.75; }
+
+/* Sample-data walkthrough link on the empty state */
+.empty-sample-link {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.empty-sample-link:hover { background: var(--surface, #f5f2ee); }
+
+/* Generate success moment */
+.success-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 40px;
+  text-align: center;
+  max-width: 360px;
+}
+.success-modal h3 { margin: 0; font-size: 19px; }
+.success-check {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.success-sub { margin: 0; font-size: 13px; color: var(--ink-500); line-height: 1.5; }
+.success-modal .primary { margin-top: 6px; }

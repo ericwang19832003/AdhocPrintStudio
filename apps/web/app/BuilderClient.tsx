@@ -607,10 +607,20 @@ export default function BuilderClient() {
           changed = true;
         }
       }
+      if (changed) {
+        setToast({
+          message: `${columns.length} columns found — address fields matched automatically.`,
+          variant: "success",
+        });
+      }
       return changed ? next : prev;
     });
   }, [columns]);
   const [showMergePreview, setShowMergePreview] = useState(false);
+  const [generatedSummary, setGeneratedSummary] = useState<{
+    count: number;
+    format: "afp" | "pdf";
+  } | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("data");
   // Block properties are contextual: show the tab while a block is selected,
   // fall back to Data when the selection clears.
@@ -1466,6 +1476,35 @@ export default function BuilderClient() {
     editorRef.current?.focusAtPoint(x, y);
   };
 
+  const SAMPLE_CSV = [
+    "First name,Last name,Street address,Suite,City,State,ZIP,Amount due",
+    "Alice,Smith,1 Main St,Suite 4,Springfield,IL,62704,$120.50",
+    "Bob,Jones,2 Oak Ave,,Shelbyville,IL,62565,$88.00",
+    "Carol,White,3 Pine Rd,Unit 9,Capital City,IL,62700,$45.25",
+  ].join("\n");
+
+  const loadSampleData = () => {
+    setLetterTitle("Sample letter — payment reminder");
+    const body =
+      "<p>Dear [First name],</p>" +
+      "<p>This is a friendly reminder that your balance of [Amount due] is due " +
+      "at the end of the month. If you have already sent your payment, please " +
+      "disregard this notice.</p>" +
+      "<p>Thank you for your continued business.</p>" +
+      "<p>Sincerely,<br>The Adhoc Print Studio Team</p>";
+    updateBodyContent(0, body);
+    setPlaceholderMap({ "[First name]": "First name", "[Amount due]": "Amount due" });
+    setSelectedLogo((library.Logos ?? [])[0] ?? null);
+    setSelectedReturn((library["Return Address"] ?? [])[0] ?? null);
+    setSelectedTaglineByPage((prev) => ({ ...prev, 0: (library.Taglines ?? [])[0] ?? null }));
+    const file = new File([SAMPLE_CSV], "sample-recipients.csv", { type: "text/csv" });
+    void handleSpreadsheetFile(file);
+    setToast({
+      message: "Sample letter and recipients loaded — click Preview & create to see it work.",
+      variant: "success",
+    });
+  };
+
   const handleSpreadsheetFile = async (file: File) => {
     setSpreadsheetLoading(true);
     setSpreadsheetError(null);
@@ -2190,10 +2229,7 @@ export default function BuilderClient() {
       link.click();
       URL.revokeObjectURL(url);
       const rowCount = Math.max(0, (spreadsheetContent ?? "").split("\n").filter(Boolean).length - 1);
-      setToast({
-        message: `${format.toUpperCase()} downloaded — ${rowCount} letter${rowCount !== 1 ? "s" : ""} generated`,
-        variant: "success",
-      });
+      setGeneratedSummary({ count: rowCount, format });
     } catch (error) {
       console.error(error);
       const raw = error instanceof Error ? error.message : "";
@@ -3142,6 +3178,7 @@ export default function BuilderClient() {
                     onBlank={() => { editorInstance?.commands.focus(); }}
                     onTemplate={() => setOpenMenuTab("Full Letters")}
                     onImportWord={() => setShowImportWordModal(true)}
+                    onSample={loadSampleData}
                     templateCount={fullLetterSeed.length}
                   />
                 )}
@@ -3792,6 +3829,25 @@ export default function BuilderClient() {
           />
         );
       })()}
+
+      {generatedSummary && (
+        <div className="modal-backdrop" onClick={() => setGeneratedSummary(null)}>
+          <div className="modal success-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="success-check" aria-hidden="true">✓</div>
+            <h3>
+              {generatedSummary.count} letter{generatedSummary.count !== 1 ? "s" : ""} created
+            </h3>
+            <p className="success-sub">
+              {generatedSummary.format === "pdf"
+                ? "Your PDF is in your Downloads folder — open it to print."
+                : "Your AFP file is in your Downloads folder — send it to the mail house."}
+            </p>
+            <button className="primary" onClick={() => setGeneratedSummary(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* First-time drag tooltip */}
       {showDragTooltip && openMenuTab && (
