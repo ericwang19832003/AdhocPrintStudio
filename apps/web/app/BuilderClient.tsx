@@ -3845,11 +3845,29 @@ export default function BuilderClient() {
       )}
 
       {varyModalFor && (() => {
-        // Rule-driver eligibility: name/mailing columns are per-recipient
-        // unique — exclude them; rank category-like columns (a small value
-        // set that repeats across rows) first.
-        const mailingInUse = new Set(Object.values(mailingFields).filter(Boolean));
-        const eligible = columns.filter((c) => !mailingInUse.has(c));
+        // Rule-driver eligibility: identity columns (name/street/apt) are
+        // per-recipient unique — always excluded. Geographic mailing columns
+        // (city/state/zip) stay eligible when their values repeat like
+        // categories ("different return address per state"). Category-like
+        // columns rank first.
+        const identityInUse = new Set(
+          [mailingFields.first, mailingFields.last, mailingFields.street, mailingFields.apt]
+            .filter(Boolean)
+        );
+        const geoInUse = new Set(
+          [mailingFields.city, mailingFields.state, mailingFields.zip].filter(Boolean)
+        );
+        const isCategoryLike = (c: string) => {
+          const n = getUniqueValuesForColumn(c).length;
+          return n >= 1 && n <= 30 && n < spreadsheetRows.length;
+        };
+        const eligible = columns.filter(
+          (c) =>
+            !identityInUse.has(c) && (!geoInUse.has(c) || isCategoryLike(c))
+        );
+        const mailingInUse = new Set(
+          columns.filter((c) => (identityInUse.has(c) || geoInUse.has(c)) && !eligible.includes(c))
+        );
         const varyColumnOptions: VaryColumnOption[] = eligible
           .map((c) => {
             const uniqueCount = getUniqueValuesForColumn(c).length;
