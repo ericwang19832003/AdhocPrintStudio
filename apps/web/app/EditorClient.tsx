@@ -151,12 +151,19 @@ const VerbiageBlock = TiptapNode.create({
  * boundaries never skew the math) — never from a stored position, which
  * can go stale between updates and corrupt text when used in deleteRange.
  */
+// ASCII plus the full-width brackets produced by Chinese/Japanese input
+// sources — a bilingual user typing 【 or ［ means the same thing as [.
+const BRACKET_OPENERS = ["[", "\uFF3B", "\u3010"]; // [ ［ 【
+const BRACKET_CLOSERS = ["]", "\uFF3D", "\u3011"]; // ] ］ 】
+
 function findOpenBracketPos(editor: Editor): number | null {
   const { $from, empty } = editor.state.selection;
   if (!empty || !$from.parent.isTextblock) return null;
   const before = $from.parent.textBetween(0, $from.parentOffset, "", "\ufffc");
-  const idx = before.lastIndexOf("[");
-  if (idx === -1 || before.slice(idx).includes("]")) return null;
+  const idx = Math.max(...BRACKET_OPENERS.map((o) => before.lastIndexOf(o)));
+  if (idx === -1) return null;
+  const after = before.slice(idx + 1);
+  if (BRACKET_CLOSERS.some((c) => after.includes(c))) return null;
   return $from.start() + idx;
 }
 
