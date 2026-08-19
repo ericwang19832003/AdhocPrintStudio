@@ -357,6 +357,13 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [pickerOpen, editor, filteredColumns, selectedIndex]);
 
+  // Keep the keyboard-selected row visible while browsing a long list
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const selected = pickerRef.current?.querySelector(".placeholder-picker-item.selected");
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [pickerOpen, selectedIndex]);
+
   // Select placeholder column from picker
   const selectColumn = useCallback(
     (column: string) => {
@@ -530,7 +537,7 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
           style={{ top: pickerPosition.top, left: pickerPosition.left }}
         >
           {filteredColumns.length > 0 ? (
-            filteredColumns.slice(0, 10).map((column, index) => (
+            filteredColumns.map((column, index) => (
               <div
                 key={column}
                 className={`placeholder-picker-item${index === selectedIndex ? " selected" : ""}`}
@@ -545,11 +552,6 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
             ))
           ) : (
             <div className="placeholder-picker-empty">No matching columns</div>
-          )}
-          {filteredColumns.length > 10 && (
-            <div className="placeholder-picker-more">
-              +{filteredColumns.length - 10} more
-            </div>
           )}
         </div>
       )}
