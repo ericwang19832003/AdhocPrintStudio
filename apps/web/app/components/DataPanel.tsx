@@ -311,25 +311,44 @@ export function DataPanel({
             );
           })()}
 
-          {/* Data preview */}
+          {/* Data preview — every column, scrollable table */}
           {activeSection === "preview" && (
             <div className="data-section data-preview-section">
               {rows.length === 0 ? (
                 <p className="lib-empty">No rows to preview.</p>
               ) : (
-                rows.slice(0, 5).map((row, i) => (
-                  <div key={i} className="data-preview-row">
-                    <span className="data-preview-num">{i + 1}</span>
-                    <div className="data-preview-fields">
-                      {columns.slice(0, 4).map((col) => (
-                        <span key={col} className="data-preview-field">
-                          <span className="data-preview-col">{col}:</span>{" "}
-                          {row[col] ?? "—"}
-                        </span>
-                      ))}
-                    </div>
+                <>
+                  <div className="data-preview-table-wrap">
+                    <table className="data-preview-table">
+                      <thead>
+                        <tr>
+                          <th aria-label="Row number">#</th>
+                          {columns.map((col) => (
+                            <th key={col} title={col}>{col}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.slice(0, 5).map((row, i) => (
+                          <tr key={i}>
+                            <td className="data-preview-num">{i + 1}</td>
+                            {columns.map((col) => (
+                              <td key={col} title={row[col] ?? ""}>
+                                {row[col] ?? "—"}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))
+                  {rows.length > 5 && (
+                    <p className="data-preview-note">
+                      Showing the first 5 of {rows.length} rows · scroll sideways
+                      for more columns
+                    </p>
+                  )}
+                </>
               )}
             </div>
           )}

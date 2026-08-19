@@ -5528,3 +5528,42 @@ textarea:focus-visible {
 
 /* Canvas mailing window before data is mapped */
 .mailing-placeholder-line { color: var(--ink-300); font-style: italic; }
+
+/* Data preview table — all columns, horizontal scroll inside the panel */
+.data-preview-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.data-preview-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: max-content;
+  min-width: 100%;
+}
+.data-preview-table th,
+.data-preview-table td {
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--outline);
+}
+.data-preview-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface, #faf8f5);
+  font-weight: 600;
+  color: var(--ink-500);
+  font-size: 11px;
+}
+.data-preview-table tbody tr:last-child td { border-bottom: none; }
+.data-preview-table .data-preview-num { color: var(--ink-300); }
+.data-preview-note {
+  font-size: 11px;
+  color: var(--ink-400, var(--ink-500));
+  margin: 6px 0 0;
+}
