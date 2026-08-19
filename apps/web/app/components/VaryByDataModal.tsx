@@ -52,10 +52,20 @@ export function VaryModeBar({
   );
 }
 
+export type VaryColumnOption = {
+  column: string;
+  uniqueCount: number;
+  /** Category-like: a small set of values that repeat across recipients. */
+  suggested: boolean;
+};
+
 type VaryByDataModalProps = {
   /** Lowercase asset name for copy, e.g. "logo", "return address", "tagline". */
   assetLabel: string;
-  columns: string[];
+  /** Rule-eligible columns (mailing/name columns are excluded upstream). */
+  columnOptions: VaryColumnOption[];
+  /** How many columns were hidden because they hold names/mailing address. */
+  excludedCount: number;
   getUniqueValues: (column: string) => string[];
   items: VaryItem[];
   /** Auto-match values to item ids (existing fuzzy matcher, bound to this library). */
@@ -72,7 +82,8 @@ const MANY_VALUES = 30;
 
 export function VaryByDataModal({
   assetLabel,
-  columns,
+  columnOptions,
+  excludedCount,
   getUniqueValues,
   items,
   suggest,
@@ -130,9 +141,28 @@ export function VaryByDataModal({
               onChange={(e) => pickColumn(e.target.value)}
             >
               <option value="">Choose a column…</option>
-              {columns.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+              {columnOptions.some((o) => o.suggested) && (
+                <optgroup label="Suggested — a few values that repeat">
+                  {columnOptions
+                    .filter((o) => o.suggested)
+                    .map((o) => (
+                      <option key={o.column} value={o.column}>
+                        {o.column} ({o.uniqueCount} value{o.uniqueCount !== 1 ? "s" : ""})
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+              {columnOptions.some((o) => !o.suggested) && (
+                <optgroup label="Other columns">
+                  {columnOptions
+                    .filter((o) => !o.suggested)
+                    .map((o) => (
+                      <option key={o.column} value={o.column}>
+                        {o.column}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
             </select>
             {column && (
               <span className="vary-column-hint">
@@ -141,6 +171,13 @@ export function VaryByDataModal({
               </span>
             )}
           </div>
+
+          {excludedCount > 0 && (
+            <p className="vary-excluded-note">
+              Columns used for the recipient&apos;s name or mailing address are
+              not listed — they are different for every letter.
+            </p>
+          )}
 
           {column && values.length > MANY_VALUES && (
             <div className="vary-warning">

@@ -23,7 +23,7 @@ import { Topbar } from "./components/Topbar";
 import { SidebarNav, type SidebarTab } from "./components/SidebarNav";
 import { InspectorPanel, type InspectorTab } from "./components/InspectorPanel";
 import { EmptyState } from "./components/EmptyState";
-import { VaryByDataModal, VaryModeBar } from "./components/VaryByDataModal";
+import { VaryByDataModal, VaryModeBar, type VaryColumnOption } from "./components/VaryByDataModal";
 import { LogoLibrary, type LibraryLogo } from "./components/LogoLibrary";
 import { VerbiageLibrary, type VerbiageItem } from "./components/VerbiageLibrary";
 import { TaglineLibrary, type TaglineItem } from "./components/TaglineLibrary";
@@ -3845,6 +3845,30 @@ export default function BuilderClient() {
       )}
 
       {varyModalFor && (() => {
+        // Rule-driver eligibility: name/mailing columns are per-recipient
+        // unique — exclude them; rank category-like columns (a small value
+        // set that repeats across rows) first.
+        const mailingInUse = new Set(Object.values(mailingFields).filter(Boolean));
+        const eligible = columns.filter((c) => !mailingInUse.has(c));
+        const varyColumnOptions: VaryColumnOption[] = eligible
+          .map((c) => {
+            const uniqueCount = getUniqueValuesForColumn(c).length;
+            return {
+              column: c,
+              uniqueCount,
+              suggested:
+                uniqueCount >= 1 &&
+                uniqueCount <= 30 &&
+                uniqueCount < spreadsheetRows.length,
+            };
+          })
+          .sort((a, b) =>
+            a.suggested === b.suggested
+              ? a.column.localeCompare(b.column)
+              : a.suggested
+                ? -1
+                : 1
+          );
         const cfg =
           varyModalFor === "logo"
             ? {
@@ -3887,7 +3911,8 @@ export default function BuilderClient() {
         return (
           <VaryByDataModal
             assetLabel={cfg.label}
-            columns={columns}
+            columnOptions={varyColumnOptions}
+            excludedCount={mailingInUse.size}
             getUniqueValues={getUniqueValuesForColumn}
             items={cfg.libraryItems.map((i) => ({ id: i.id, label: i.label, imageUrl: i.imageUrl }))}
             suggest={(values) => autoMatchAssets(values, cfg.libraryItems)}
