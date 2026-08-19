@@ -1848,12 +1848,27 @@ export default function BuilderClient() {
         continue;
       }
 
-      // 4. Unique containment — "[date]" -> "effective date", but only when
-      // exactly one column contains the token (ambiguity stays manual).
+      // 4. Unique word-boundary containment — "[date]" -> "effective date",
+      // but only when exactly one column matches, and only on whole word
+      // runs ("date" matches "effective date", never "Candidate").
       if (normalizedKey.length >= 3) {
-        const containing = columns.filter((col) =>
-          normalizeString(col).includes(normalizedKey)
-        );
+        const matchesAsTokenRun = (col: string) => {
+          const tokens = col
+            .replace(/([a-z0-9])([A-Z])/g, "$1 $2") // split camelCase
+            .split(/[_\-\s]+/)
+            .map((t) => t.toLowerCase())
+            .filter(Boolean);
+          for (let start = 0; start < tokens.length; start++) {
+            let run = "";
+            for (let end = start; end < tokens.length; end++) {
+              run += tokens[end];
+              if (run === normalizedKey) return true;
+              if (run.length > normalizedKey.length) break;
+            }
+          }
+          return false;
+        };
+        const containing = columns.filter(matchesAsTokenRun);
         if (containing.length === 1) {
           suggestions.push({ placeholder, column: containing[0], confidence: "medium" });
         }
