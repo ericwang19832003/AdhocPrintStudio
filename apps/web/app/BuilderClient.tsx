@@ -2711,6 +2711,7 @@ export default function BuilderClient() {
               <>
               {renderVaryBar("logo")}
               <LogoLibrary
+                query={flyoutQuery}
                 logos={(library.Logos ?? []).map((l) => ({
                   id: l.id,
                   label: l.label,
@@ -3064,15 +3065,37 @@ export default function BuilderClient() {
                   </div>
                 )}
 
-                {/* Mailing window */}
+                {/* Mailing window — shows the first recipient's composed
+                    address once data is mapped; friendly labels before that. */}
                 {activePage === 0 && (
                   <div className="mail-window" aria-hidden="true">
                     <div className="mail-label">Recipient address</div>
                     <div className="mailing-variables">
-                      <div>[mailing_name]</div>
-                      <div>[mailing_addr1]</div>
-                      <div>[mailing_addr2]</div>
-                      <div>[mailing_addr3]</div>
+                      {(() => {
+                        const row = spreadsheetRows[0];
+                        const lines = row
+                          ? [
+                              mailingMap.mailing_name,
+                              mailingMap.mailing_addr1,
+                              mailingMap.mailing_addr2,
+                              mailingMap.mailing_addr3,
+                            ]
+                              .map((template) => resolveMailingLine(template, row))
+                              .filter(Boolean)
+                          : [];
+                        const placeholderLines = [
+                          "Recipient name",
+                          "Street address",
+                          "City, State ZIP",
+                        ];
+                        return (lines.length > 0 ? lines : placeholderLines).map(
+                          (line, i) => (
+                            <div key={i} className={lines.length ? "" : "mailing-placeholder-line"}>
+                              {line}
+                            </div>
+                          )
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -3747,10 +3770,7 @@ export default function BuilderClient() {
 
       {/* First-time drag tooltip */}
       {showDragTooltip && openMenuTab && (
-        <div
-          className="drag-tooltip"
-          style={{ top: "200px", left: "420px" }}
-        >
+        <div className="drag-tooltip">
           <div className="tooltip-title">
             <span>✨</span> Drag & Drop
           </div>

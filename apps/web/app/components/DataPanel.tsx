@@ -215,7 +215,7 @@ export function DataPanel({
                           onPlaceholderMapChange({ ...placeholderMap, [ph]: e.target.value })
                         }
                       >
-                        <option value="">-- select column --</option>
+                        <option value="">Choose column…</option>
                         {columns.map((col) => (
                           <option key={col} value={col}>
                             {col}

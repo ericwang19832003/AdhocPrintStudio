@@ -15,13 +15,14 @@ type LogoLibraryProps = {
   selectedId: string | null;
   onSelect: (logo: LibraryLogo) => void;
   onUpload: () => void;
+  /** Search text from the flyout header (the panel's single search box). */
+  query?: string;
 };
 
 type Tab = "all" | "favorites" | "custom";
 
-export function LogoLibrary({ logos, selectedId, onSelect, onUpload }: LogoLibraryProps) {
+export function LogoLibrary({ logos, selectedId, onSelect, onUpload, query = "" }: LogoLibraryProps) {
   const [tab, setTab] = useState<Tab>("all");
-  const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [recentIds, setRecentIds] = useState<string[]>([]);
 
@@ -57,19 +58,6 @@ export function LogoLibrary({ logos, selectedId, onSelect, onUpload }: LogoLibra
 
   return (
     <div className="logo-library">
-      {/* Search */}
-      <div className="lib-search-row">
-        <Search size={14} className="lib-search-icon" />
-        <input
-          type="search"
-          aria-label="Search logos"
-          className="lib-search-input"
-          placeholder="Search logos…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
       {/* Tabs */}
       <div className="lib-tabs">
         {(["all", "favorites", "custom"] as Tab[]).map((t) => (
