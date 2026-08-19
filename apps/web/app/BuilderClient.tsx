@@ -1845,11 +1845,50 @@ export default function BuilderClient() {
       );
       if (normalizedMatch) {
         suggestions.push({ placeholder, column: normalizedMatch, confidence: "medium" });
+        continue;
+      }
+
+      // 4. Unique containment — "[date]" -> "effective date", but only when
+      // exactly one column contains the token (ambiguity stays manual).
+      if (normalizedKey.length >= 3) {
+        const containing = columns.filter((col) =>
+          normalizeString(col).includes(normalizedKey)
+        );
+        if (containing.length === 1) {
+          suggestions.push({ placeholder, column: containing[0], confidence: "medium" });
+        }
       }
     }
 
     return suggestions;
   }, [placeholders, columns, placeholderMap]);
+
+  // Auto-apply matches whenever the letter's fields or the data columns
+  // change. Keyed on that signature — not on placeholderMap — so manually
+  // clearing a mapping is never immediately refought.
+  const autoAppliedSigRef = useRef("");
+  useEffect(() => {
+    if (placeholders.length === 0 || columns.length === 0) return;
+    const sig = `${placeholders.join("\u0001")}\u0002${columns.join("\u0001")}`;
+    if (autoAppliedSigRef.current === sig) return;
+    autoAppliedSigRef.current = sig;
+    const applicable = autoMatchSuggestions;
+    if (applicable.length === 0) return;
+    setPlaceholderMap((prev) => {
+      const next = { ...prev };
+      for (const { placeholder, column } of applicable) {
+        if (!next[placeholder]) next[placeholder] = column;
+      }
+      return next;
+    });
+    queueMicrotask(() => {
+      setToast({
+        message: `Matched ${applicable.length} fill-in field${applicable.length !== 1 ? "s" : ""} to your data automatically.`,
+        variant: "success",
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeholders, columns]);
 
   // Apply a single auto-match suggestion
   const applyAutoMatch = (placeholder: string, column: string) => {
