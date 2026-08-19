@@ -165,9 +165,8 @@ function findOpenBracketPos(editor: Editor): number | null {
  *
  * mode "picker": always consume — the picker is only open while the user is
  * actively completing an unmatched bracket, so the text after "[" is their
- * filter query. mode "toolbar": consume only when that text is empty or a
- * prefix of the chosen column, so a literal "[" earlier in the sentence
- * ("review [pending details") is never swallowed by a toolbar insert.
+ * filter query. mode "toolbar": consume only a bare dangling "[" right
+ * before the cursor — never any prose after a literal bracket.
  */
 export function insertFieldToken(
   editor: Editor,
@@ -178,10 +177,7 @@ export function insertFieldToken(
   const to = editor.state.selection.from;
   let consume = from !== null;
   if (consume && mode === "toolbar") {
-    const typed = editor.state.doc.textBetween(from! + 1, to, "", "\ufffc");
-    consume =
-      typed.length === 0 ||
-      column.toLowerCase().startsWith(typed.toLowerCase());
+    consume = from === to - 1;
   }
   const chain = editor.chain().focus();
   if (consume) {
