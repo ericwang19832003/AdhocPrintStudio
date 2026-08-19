@@ -92,8 +92,8 @@ export function Topbar({
           </button>
         )}
         <button type="button" className="btn-ghost-sm" onClick={onExport}>Export Word</button>
-        <button type="button" className="btn-outline-sm" onClick={onPreview}>Preview</button>
-        <button type="button" className="btn-accent" onClick={onGenerate} disabled={generateDisabled || generating}>
+        <button type="button" className="btn-accent" onClick={onPreview}>Preview</button>
+        <button type="button" className="btn-outline-sm" onClick={onGenerate} disabled={generateDisabled || generating}>
           {generating ? (
             <><span className="topbar-spinner" aria-hidden="true" />Generating…</>
           ) : (

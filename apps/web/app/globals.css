@@ -5572,8 +5572,8 @@ textarea:focus-visible {
 .journey-strip {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 18px;
+  gap: 2px;
+  margin-left: 8px;
 }
 .journey-step {
   display: inline-flex;
@@ -5584,7 +5584,7 @@ textarea:focus-visible {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-500);
-  padding: 5px 8px;
+  padding: 5px 6px;
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
@@ -5671,3 +5671,51 @@ textarea:focus-visible {
 }
 .success-sub { margin: 0; font-size: 13px; color: var(--ink-500); line-height: 1.5; }
 .success-modal .primary { margin-top: 6px; }
+
+/* ── Wave 3: accessibility + visual calm ────────────────────────── */
+/* Visible keyboard focus everywhere */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Contrast: muted hint text was below AA on the cream background */
+.addr-hint,
+.mailing-form-hint,
+.data-preview-note,
+.empty-card-sub,
+.vary-column-hint,
+.vary-default-note { color: #6b7280; }
+
+/* Larger, friendlier hit area for the tiny page-tab close buttons */
+.page-tab-delete {
+  padding: 4px 7px;
+  border-radius: 6px;
+}
+.page-tab-delete:hover { background: var(--surface, #f3efe9); color: var(--ink-900); }
+
+/* Visual calm: one accent for the primary action; section tabs go neutral */
+.data-section-tab.active {
+  background: var(--ink-900);
+  color: #fff;
+}
+
+/* Canvas placeholders whisper instead of shouting */
+.logo-placeholder,
+.return-content { font-size: 12px; }
+.logo-block .logo-placeholder { color: var(--ink-300); font-style: italic; }
+.return-content--empty { color: var(--ink-300); font-style: italic; }
+
+/* Journey strip yields gracefully on narrow windows */
+@media (max-width: 1360px) {
+  .journey-step { font-size: 0; gap: 0; padding: 5px 4px; }
+  .journey-step .journey-step-num { margin: 0; }
+  .journey-step + .journey-step::before { width: 8px; }
+}
+@media (max-width: 1150px) {
+  .journey-strip { display: none; }
+}

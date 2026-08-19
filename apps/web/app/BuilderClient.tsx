@@ -598,6 +598,7 @@ export default function BuilderClient() {
       return;
     }
     const guessed = detectMailingFields(columns);
+    let applied = false;
     setMailingFields((prev) => {
       const next = { ...prev };
       let changed = false;
@@ -607,13 +608,17 @@ export default function BuilderClient() {
           changed = true;
         }
       }
-      if (changed) {
+      applied = changed;
+      return changed ? next : prev;
+    });
+    // Announce outside the updater (updaters must stay side-effect free).
+    queueMicrotask(() => {
+      if (applied) {
         setToast({
           message: `${columns.length} columns found — address fields matched automatically.`,
           variant: "success",
         });
       }
-      return changed ? next : prev;
     });
   }, [columns]);
   const [showMergePreview, setShowMergePreview] = useState(false);
@@ -737,11 +742,19 @@ export default function BuilderClient() {
         }
         if (draft.placeholderMap) setPlaceholderMap(draft.placeholderMap);
         if (draft.mailingFields) {
-          setMailingFields({ ...EMPTY_MAILING_FIELDS, ...draft.mailingFields });
-          skipMailingAutoDetectRef.current = true;
+          const restored = { ...EMPTY_MAILING_FIELDS, ...draft.mailingFields };
+          setMailingFields(restored);
+          // Only suppress auto-detection when there is a real mapping to
+          // protect — an all-empty restored form should still auto-fill.
+          if (Object.values(restored).some(Boolean)) {
+            skipMailingAutoDetectRef.current = true;
+          }
         } else if (draft.mailingMap) {
-          setMailingFields(fieldsFromLegacyMap(draft.mailingMap));
-          skipMailingAutoDetectRef.current = true;
+          const restored = fieldsFromLegacyMap(draft.mailingMap);
+          setMailingFields(restored);
+          if (Object.values(restored).some(Boolean)) {
+            skipMailingAutoDetectRef.current = true;
+          }
         }
         // Restore user-created library items first so selections can resolve to them
         const mergedLibrary: Record<string, LibraryItem[]> = { ...librarySeed };
@@ -1497,6 +1510,15 @@ export default function BuilderClient() {
     setSelectedLogo((library.Logos ?? [])[0] ?? null);
     setSelectedReturn((library["Return Address"] ?? [])[0] ?? null);
     setSelectedTaglineByPage((prev) => ({ ...prev, 0: (library.Taglines ?? [])[0] ?? null }));
+    setMailingFields({
+      first: "First name",
+      last: "Last name",
+      street: "Street address",
+      apt: "Suite",
+      city: "City",
+      state: "State",
+      zip: "ZIP",
+    });
     const file = new File([SAMPLE_CSV], "sample-recipients.csv", { type: "text/csv" });
     void handleSpreadsheetFile(file);
     setToast({
@@ -3072,10 +3094,10 @@ export default function BuilderClient() {
                       {isDraggingLibraryItem && dragItemType === "return" && (
                         <span className="drop-zone-label">Drop return address</span>
                       )}
-                      <div className="return-content">
+                      <div className={`return-content${selectedReturn ? "" : " return-content--empty"}`}>
                         {selectedReturn
                           ? selectedReturn.content ?? selectedReturn.label
-                          : "Return address"}
+                          : "Add a return address"}
                       </div>
                     </div>
 
@@ -3119,7 +3141,7 @@ export default function BuilderClient() {
                           {isDraggingLibraryItem && dragItemType === "logo" && (
                             <span className="drop-zone-label">Drop logo</span>
                           )}
-                          <span className="logo-placeholder">Logo</span>
+                          <span className="logo-placeholder">Add a logo — optional</span>
                         </>
                       )}
                     </div>
