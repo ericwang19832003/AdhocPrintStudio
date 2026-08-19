@@ -2594,23 +2594,48 @@ export default function BuilderClient() {
     );
   };
 
+  const letterWritten =
+    Object.values(bodyContentByPage).some((html) => {
+      const text = stripInlineControls(html ?? "").replace(/<[^>]*>/g, "").trim();
+      return text.length > 0;
+    }) || Object.values(blocksByPage).some((blocks) => (blocks ?? []).length > 0);
+  const hasRecipients = spreadsheetRows.length > 0;
+  const openPreviewGuarded = () => {
+    if (spreadsheetRows.length === 0) {
+      setInspectorTab("data");
+      setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
+    } else {
+      setShowMergePreview(true);
+    }
+  };
+
   return (
     <div className="builder">
       <Topbar
+        steps={[
+          {
+            label: "Write letter",
+            done: letterWritten,
+            onClick: () => editorInstance?.commands.focus(),
+          },
+          {
+            label: "Add recipients",
+            done: hasRecipients,
+            onClick: () => setInspectorTab("data"),
+          },
+          {
+            label: "Preview & create",
+            done: false,
+            onClick: openPreviewGuarded,
+          },
+        ]}
         letterTitle={letterTitle}
         onTitleChange={setLetterTitle}
         savedAgo={savedAgo}
         onExport={handleExportWord}
         onManageLibrary={() => setShowManageLibrary(true)}
         onAiSettings={() => setShowAiSettings(true)}
-        onPreview={() => {
-          if (spreadsheetRows.length === 0) {
-            setInspectorTab("data");
-            setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
-          } else {
-            setShowMergePreview(true);
-          }
-        }}
+        onPreview={openPreviewGuarded}
         onGenerate={() => {
           if (spreadsheetRows.length === 0) {
             setInspectorTab("data");
@@ -2975,7 +3000,7 @@ export default function BuilderClient() {
             <div className="canvas-area" onMouseDown={() => setOpenMenuTab(null)}>
           <section className="canvas">
             {/* Toolbar above the page */}
-            <EditorToolbar editor={editorInstance} />
+            <EditorToolbar editor={editorInstance} columns={columns} />
 
             {/* Unified page surface - everything on one "paper" */}
             <div className="page-wrapper">

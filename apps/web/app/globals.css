@@ -5567,3 +5567,68 @@ textarea:focus-visible {
   color: var(--ink-400, var(--ink-500));
   margin: 6px 0 0;
 }
+
+/* ── Journey strip (topbar 3-step guide) ────────────────────────── */
+.journey-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 18px;
+}
+.journey-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-500);
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.journey-step:hover { background: var(--surface, #f5f2ee); color: var(--ink-900); }
+.journey-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-300);
+  color: var(--ink-500);
+  font-size: 10px;
+  font-weight: 700;
+}
+.journey-step.done { color: var(--ink-900); }
+.journey-step.done .journey-step-num {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.journey-step + .journey-step::before {
+  content: "";
+  width: 12px;
+  height: 1px;
+  background: var(--outline);
+  margin-right: 4px;
+}
+
+/* Insert-field toolbar control */
+.toolbar-field-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600 !important;
+  color: var(--accent) !important;
+  white-space: nowrap;
+}
+.toolbar-field-btn:disabled { color: #b9b3ab !important; cursor: default; }
+.toolbar-field-menu { max-height: 260px; overflow-y: auto; }
+
+/* Human labels on the PDF/AFP toggle */
+.merge-format-btn { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.merge-format-name { font-weight: 700; }
+.merge-format-sub { font-size: 10px; font-weight: 400; opacity: 0.75; }

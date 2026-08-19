@@ -2,6 +2,12 @@
 
 import { CheckCircle } from "lucide-react";
 
+export type JourneyStep = {
+  label: string;
+  done: boolean;
+  onClick: () => void;
+};
+
 type TopbarProps = {
   letterTitle: string;
   onTitleChange: (t: string) => void;
@@ -13,6 +19,8 @@ type TopbarProps = {
   generating?: boolean;
   onManageLibrary?: () => void;
   onAiSettings?: () => void;
+  /** The three-step journey: write letter → add recipients → preview & create. */
+  steps?: JourneyStep[];
 };
 
 export function Topbar({
@@ -26,6 +34,7 @@ export function Topbar({
   generating,
   onManageLibrary,
   onAiSettings,
+  steps,
 }: TopbarProps) {
   return (
     <header className="topbar-v2">
@@ -33,6 +42,24 @@ export function Topbar({
         <div className="topbar-brand-avatar">A</div>
         <span className="topbar-brand-name">Adhoc Print Studio</span>
       </div>
+
+      {steps && (
+        <nav className="journey-strip" aria-label="Letter progress">
+          {steps.map((step, i) => (
+            <button
+              key={step.label}
+              type="button"
+              className={`journey-step${step.done ? " done" : ""}`}
+              onClick={step.onClick}
+            >
+              <span className="journey-step-num" aria-hidden="true">
+                {step.done ? "✓" : i + 1}
+              </span>
+              {step.label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <div className="topbar-center">
         <input

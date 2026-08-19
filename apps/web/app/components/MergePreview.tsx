@@ -103,14 +103,20 @@ export function MergePreview({
         <div className="merge-preview-header-actions">
           {/* Format toggle */}
           <div className="merge-format-toggle">
-            {(["pdf", "afp"] as const).map((fmt) => (
+            {(
+              [
+                { fmt: "pdf", sub: "print yourself" },
+                { fmt: "afp", sub: "for the mail house" },
+              ] as const
+            ).map(({ fmt, sub }) => (
               <button
                 key={fmt}
                 type="button"
                 className={`merge-format-btn${outputFormat === fmt ? " active" : ""}`}
                 onClick={() => onFormatChange(fmt)}
               >
-                {fmt.toUpperCase()}
+                <span className="merge-format-name">{fmt.toUpperCase()}</span>
+                <span className="merge-format-sub">{sub}</span>
               </button>
             ))}
           </div>

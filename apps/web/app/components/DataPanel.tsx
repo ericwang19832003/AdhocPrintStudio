@@ -127,7 +127,7 @@ export function DataPanel({
                 onClick={() => setActiveSection(s)}
               >
                 {s === "placeholders"
-                  ? "Placeholders"
+                  ? "Fill-in fields"
                   : s === "tle"
                   ? "Mailing address"
                   : "Preview"}
@@ -201,7 +201,7 @@ export function DataPanel({
                 </div>
               )}
               {placeholders.length === 0 ? (
-                <p className="lib-empty">No placeholders detected in the letter.</p>
+                <p className="lib-empty">No fill-in fields in the letter yet. Use “Insert field” in the toolbar to add spots that fill from your data.</p>
               ) : (
                 <div className="mapping-table">
                   {placeholders.map((ph) => (

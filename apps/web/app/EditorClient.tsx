@@ -561,11 +561,12 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
 EditorClient.displayName = "EditorClient";
 
 // Separate toolbar component that can be rendered outside the canvas
-export function EditorToolbar({ editor }: { editor: Editor | null }) {
+export function EditorToolbar({ editor, columns = [] }: { editor: Editor | null; columns?: string[] }) {
   const [showTextColorPicker, setShowTextColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showFontMenu, setShowFontMenu] = useState(false);
   const [showSizeMenu, setShowSizeMenu] = useState(false);
+  const [showFieldMenu, setShowFieldMenu] = useState(false);
 
   const textColors = [
     { name: "Black", value: "#000000" },
@@ -928,6 +929,49 @@ export function EditorToolbar({ editor }: { editor: Editor | null }) {
         >
           <RemoveFormatting size={15} />
         </button>
+      </div>
+
+      {/* Insert a fill-in field from the data file */}
+      <div className="toolbar-group">
+        <div className="toolbar-dropdown">
+          <button
+            type="button"
+            className="toolbar-field-btn"
+            disabled={columns.length === 0}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (columns.length === 0) return;
+              setShowFieldMenu(!showFieldMenu);
+              setShowFontMenu(false);
+              setShowSizeMenu(false);
+            }}
+            title={
+              columns.length === 0
+                ? "Upload a data file to insert fill-in fields"
+                : "Insert a fill-in field — it's replaced with each recipient's data"
+            }
+          >
+            Insert field
+            <span className="toolbar-dropdown-arrow">▾</span>
+          </button>
+          {showFieldMenu && (
+            <div className="toolbar-dropdown-menu toolbar-field-menu">
+              {columns.map((col) => (
+                <div
+                  key={col}
+                  className="toolbar-dropdown-item"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor.chain().focus().insertContent(`[${col}]`).run();
+                    setShowFieldMenu(false);
+                  }}
+                >
+                  {col}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
