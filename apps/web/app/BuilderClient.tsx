@@ -1855,7 +1855,7 @@ export default function BuilderClient() {
         const matchesAsTokenRun = (col: string) => {
           const tokens = col
             .replace(/([a-z0-9])([A-Z])/g, "$1 $2") // split camelCase
-            .split(/[_\-\s]+/)
+            .split(/[^a-zA-Z0-9]+/)
             .map((t) => t.toLowerCase())
             .filter(Boolean);
           for (let start = 0; start < tokens.length; start++) {
