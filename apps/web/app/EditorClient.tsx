@@ -161,12 +161,31 @@ function findOpenBracketPos(editor: Editor): number | null {
 }
 
 /** Insert a [Column] token at the cursor, consuming a dangling "[" if the
- * user already typed one (prevents "[[Column]" doubles). */
-export function insertFieldToken(editor: Editor, column: string) {
+ * user already typed one (prevents "[[Column]" doubles).
+ *
+ * mode "picker": always consume — the picker is only open while the user is
+ * actively completing an unmatched bracket, so the text after "[" is their
+ * filter query. mode "toolbar": consume only when that text is empty or a
+ * prefix of the chosen column, so a literal "[" earlier in the sentence
+ * ("review [pending details") is never swallowed by a toolbar insert.
+ */
+export function insertFieldToken(
+  editor: Editor,
+  column: string,
+  mode: "picker" | "toolbar" = "picker"
+) {
   const from = findOpenBracketPos(editor);
+  const to = editor.state.selection.from;
+  let consume = from !== null;
+  if (consume && mode === "toolbar") {
+    const typed = editor.state.doc.textBetween(from! + 1, to, "", "\ufffc");
+    consume =
+      typed.length === 0 ||
+      column.toLowerCase().startsWith(typed.toLowerCase());
+  }
   const chain = editor.chain().focus();
-  if (from !== null) {
-    chain.deleteRange({ from, to: editor.state.selection.from });
+  if (consume) {
+    chain.deleteRange({ from: from!, to });
   }
   chain.insertContent(`[${column}]`).run();
 }
@@ -964,7 +983,7 @@ export function EditorToolbar({ editor, columns = [] }: { editor: Editor | null;
                   className="toolbar-dropdown-item"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    insertFieldToken(editor, col);
+                    insertFieldToken(editor, col, "toolbar");
                     setShowFieldMenu(false);
                   }}
                 >
