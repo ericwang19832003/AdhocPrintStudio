@@ -1854,7 +1854,8 @@ export default function BuilderClient() {
       if (normalizedKey.length >= 3) {
         const matchesAsTokenRun = (col: string) => {
           const tokens = col
-            .replace(/([a-z0-9])([A-Z])/g, "$1 $2") // split camelCase
+            .replace(/([a-z0-9])([A-Z])/g, "$1 $2") // camelCase
+            .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2") // acronym boundary: DOBDate
             .split(/[^a-zA-Z0-9]+/)
             .map((t) => t.toLowerCase())
             .filter(Boolean);
