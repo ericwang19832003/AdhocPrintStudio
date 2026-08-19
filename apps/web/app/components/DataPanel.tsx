@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, CheckCircle2, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
-import type { MailingFields } from "@/lib/mailing";
+import { mailingTemplates, resolveMailingLine, type MailingFields } from "@/lib/mailing";
 
 export type PlaceholderMapping = Record<string, string>; // placeholder → column name (empty = unmapped)
 
@@ -31,22 +31,6 @@ type DataPanelProps = {
   onApplySuggestion?: (placeholder: string, column: string) => void;
   onApplyAllAiSuggestions?: () => void;
 };
-
-// The mailing-address form: each entry is one dropdown mapped to a data
-// column. Grouping and captions communicate the split/combined cases.
-const MAILING_FORM: Array<{
-  field: keyof MailingFields;
-  label: string;
-  hint?: string;
-}> = [
-  { field: "first", label: "Name (or first name)" },
-  { field: "last", label: "Last name", hint: "Only if first and last names are separate columns" },
-  { field: "street", label: "Street address" },
-  { field: "apt", label: "Apt / Suite", hint: "Optional — line is skipped when empty" },
-  { field: "city", label: "City", hint: "If city, state and ZIP are combined in one column, map just City" },
-  { field: "state", label: "State" },
-  { field: "zip", label: "ZIP code" },
-];
 
 export function DataPanel({
   spreadsheetName,
@@ -246,39 +230,86 @@ export function DataPanel({
           )}
 
           {/* Mailing address mapping */}
-          {activeSection === "tle" && (
-            <div className="data-section">
-              <p className="data-section-hint">
-                Tell us which columns hold each part of the mailing address —
-                the envelope lines are composed automatically.
-              </p>
-              <div className="mapping-table">
-                {MAILING_FORM.map(({ field, label, hint }) => (
-                  <div key={field} className="mapping-row mailing-form-row">
-                    <span className="mapping-placeholder" title={hint}>{label}</span>
-                    <div className="mailing-form-control">
-                      <select
-                        aria-label={`Mailing field: ${label}`}
-                        className="mapping-select"
-                        value={mailingFields[field]}
-                        onChange={(e) =>
-                          onMailingFieldsChange({ ...mailingFields, [field]: e.target.value })
-                        }
-                      >
-                        <option value="">— not in my data —</option>
-                        {columns.map((col) => (
-                          <option key={col} value={col}>
-                            {col}
-                          </option>
-                        ))}
-                      </select>
-                      {hint && <span className="mailing-form-hint">{hint}</span>}
-                    </div>
+          {activeSection === "tle" && (() => {
+            const fieldSelect = (field: keyof MailingFields, label: string) => (
+              <label className="addr-field">
+                <span className="addr-field-label">{label}</span>
+                <select
+                  aria-label={`Mailing field: ${label}`}
+                  value={mailingFields[field]}
+                  onChange={(e) =>
+                    onMailingFieldsChange({ ...mailingFields, [field]: e.target.value })
+                  }
+                >
+                  <option value="">—</option>
+                  {columns.map((col) => (
+                    <option key={col} value={col}>
+                      {col}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+            const templates = mailingTemplates(mailingFields);
+            const previewRow = rows[0];
+            const previewLines = previewRow
+              ? [
+                  templates.mailing_name,
+                  templates.mailing_addr1,
+                  templates.mailing_addr2,
+                  templates.mailing_addr3,
+                ]
+                  .map((template) => resolveMailingLine(template, previewRow))
+                  .filter(Boolean)
+              : [];
+            return (
+              <div className="data-section addr-form">
+                <p className="data-section-hint">
+                  Match each part of the address to a column — the envelope is
+                  composed for you.
+                </p>
+
+                <div className="addr-group">
+                  <div className="addr-row addr-row-name">
+                    {fieldSelect("first", "First or full name")}
+                    {fieldSelect("last", "Last name")}
                   </div>
-                ))}
+                  <p className="addr-hint">
+                    One column with the whole name? Map it as “First or full name”.
+                  </p>
+                </div>
+
+                <div className="addr-group">
+                  <div className="addr-row addr-row-street">
+                    {fieldSelect("street", "Street address")}
+                    {fieldSelect("apt", "Apt / Suite")}
+                  </div>
+                </div>
+
+                <div className="addr-group">
+                  <div className="addr-row addr-row-city">
+                    {fieldSelect("city", "City")}
+                    {fieldSelect("state", "State")}
+                    {fieldSelect("zip", "ZIP")}
+                  </div>
+                  <p className="addr-hint">City, state and ZIP in one column? Map just City.</p>
+                </div>
+
+                <div className="addr-envelope">
+                  <span className="addr-envelope-title">Envelope preview</span>
+                  <div className="addr-envelope-card">
+                    {previewLines.length > 0 ? (
+                      previewLines.map((line, i) => <div key={i}>{line}</div>)
+                    ) : (
+                      <span className="addr-envelope-empty">
+                        Map columns above to see the first recipient&apos;s address.
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Data preview */}
           {activeSection === "preview" && (
