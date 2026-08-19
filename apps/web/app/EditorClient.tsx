@@ -145,6 +145,32 @@ const VerbiageBlock = TiptapNode.create({
   },
 });
 
+/** Doc position of the unmatched "[" the user is typing, or null.
+ *
+ * Derived fresh from the current document (paragraph-local, so block
+ * boundaries never skew the math) — never from a stored position, which
+ * can go stale between updates and corrupt text when used in deleteRange.
+ */
+function findOpenBracketPos(editor: Editor): number | null {
+  const { $from, empty } = editor.state.selection;
+  if (!empty || !$from.parent.isTextblock) return null;
+  const before = $from.parent.textBetween(0, $from.parentOffset, "", "\ufffc");
+  const idx = before.lastIndexOf("[");
+  if (idx === -1 || before.slice(idx).includes("]")) return null;
+  return $from.start() + idx;
+}
+
+/** Insert a [Column] token at the cursor, consuming a dangling "[" if the
+ * user already typed one (prevents "[[Column]" doubles). */
+export function insertFieldToken(editor: Editor, column: string) {
+  const from = findOpenBracketPos(editor);
+  const chain = editor.chain().focus();
+  if (from !== null) {
+    chain.deleteRange({ from, to: editor.state.selection.from });
+  }
+  chain.insertContent(`[${column}]`).run();
+}
+
 const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
   ({ value, onChange, placeholder, onDropItem, columns = [], onEditorReady, innerRef }, ref) => {
   // Placeholder picker state
@@ -232,17 +258,13 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
 
     const handleUpdate = () => {
       const { state } = editor;
-      const { from } = state.selection;
-      const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, "");
+      const { from, $from } = state.selection;
+      const bracketPos = findOpenBracketPos(editor);
 
-      // Find the last unmatched [ bracket
-      const lastBracketIndex = textBefore.lastIndexOf("[");
-      const hasClosingBracket = lastBracketIndex >= 0 && textBefore.slice(lastBracketIndex).includes("]");
-
-      if (lastBracketIndex >= 0 && !hasClosingBracket && columns.length > 0) {
+      if (bracketPos !== null && columns.length > 0) {
         // We have an open bracket - show picker
-        const query = textBefore.slice(lastBracketIndex + 1);
-        const bracketPos = from - textBefore.length + lastBracketIndex;
+        const query = $from.parent.textBetween(0, $from.parentOffset, "", "\ufffc")
+          .slice(bracketPos - $from.start() + 1);
 
         if (!pickerOpen || bracketStartPosRef.current !== bracketPos) {
           // Get cursor coordinates for positioning
@@ -315,16 +337,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       } else if (event.key === "Enter" && filteredColumns.length > 0) {
         event.preventDefault();
         const selectedColumn = filteredColumns[selectedIndex];
-        if (selectedColumn && bracketStartPosRef.current !== null) {
-          // Delete from bracket start to current position and insert [columnName]
-          const from = bracketStartPosRef.current;
-          const to = editor.state.selection.from;
-          editor
-            .chain()
-            .focus()
-            .deleteRange({ from, to })
-            .insertContent(`[${selectedColumn}]`)
-            .run();
+        if (selectedColumn) {
+          insertFieldToken(editor, selectedColumn);
         }
         setPickerOpen(false);
         setPickerQuery("");
@@ -337,15 +351,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
       } else if (event.key === "Tab" && filteredColumns.length > 0) {
         event.preventDefault();
         const selectedColumn = filteredColumns[selectedIndex];
-        if (selectedColumn && bracketStartPosRef.current !== null) {
-          const from = bracketStartPosRef.current;
-          const to = editor.state.selection.from;
-          editor
-            .chain()
-            .focus()
-            .deleteRange({ from, to })
-            .insertContent(`[${selectedColumn}]`)
-            .run();
+        if (selectedColumn) {
+          insertFieldToken(editor, selectedColumn);
         }
         setPickerOpen(false);
         setPickerQuery("");
@@ -367,15 +374,8 @@ const EditorClient = forwardRef<EditorClientHandle, EditorClientProps>(
   // Select placeholder column from picker
   const selectColumn = useCallback(
     (column: string) => {
-      if (!editor || bracketStartPosRef.current === null) return;
-      const from = bracketStartPosRef.current;
-      const to = editor.state.selection.from;
-      editor
-        .chain()
-        .focus()
-        .deleteRange({ from, to })
-        .insertContent(`[${column}]`)
-        .run();
+      if (!editor) return;
+      insertFieldToken(editor, column);
       setPickerOpen(false);
       setPickerQuery("");
       bracketStartPosRef.current = null;
@@ -964,7 +964,7 @@ export function EditorToolbar({ editor, columns = [] }: { editor: Editor | null;
                   className="toolbar-dropdown-item"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    editor.chain().focus().insertContent(`[${col}]`).run();
+                    insertFieldToken(editor, col);
                     setShowFieldMenu(false);
                   }}
                 >
