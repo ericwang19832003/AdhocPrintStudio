@@ -37,8 +37,16 @@ import { ManageLibrary, type ManageSection } from "./components/ManageLibrary";
 import { Toast, type ToastMessage } from "./components/Toast";
 import { AiSettingsModal } from "./components/AiSettingsModal";
 import { PreflightModal, type PreflightIssue } from "./components/PreflightModal";
+import { DraftManager } from "./components/DraftManager";
 import { loadAiSettings, type AiSettings } from "@/lib/aiSettings";
 import { postAi } from "@/lib/aiFetch";
+import {
+  buildOutputFileName,
+  createDraftSummary,
+  upsertDraftSummary,
+  type DataSection,
+  type DraftSummary,
+} from "@/lib/ux";
 
 const EditorClient = dynamic(() => import("./EditorClient"), { ssr: false }) as any;
 
@@ -418,6 +426,9 @@ function createBlock(item: LibraryItem, x: number, y: number): PlacedBlock | nul
 }
 
 const DRAFT_KEY = "adhoc_letter_draft";
+const DRAFT_INDEX_KEY = "adhoc_letter_drafts";
+const CURRENT_DRAFT_ID_KEY = "adhoc_current_draft_id";
+const draftStorageKey = (id: string) => `${DRAFT_KEY}:${id}`;
 
 interface LetterDraft {
   title: string;
@@ -625,8 +636,23 @@ export default function BuilderClient() {
   const [generatedSummary, setGeneratedSummary] = useState<{
     count: number;
     format: "afp" | "pdf";
+    fileName: string;
   } | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("data");
+  const [dataSection, setDataSection] = useState<DataSection>("placeholders");
+  const [showDraftManager, setShowDraftManager] = useState(false);
+  const [draftId] = useState(() => {
+    if (typeof window === "undefined") return "default";
+    return localStorage.getItem(CURRENT_DRAFT_ID_KEY) || "default";
+  });
+  const [draftSummaries, setDraftSummaries] = useState<DraftSummary[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem(DRAFT_INDEX_KEY) || "[]") as DraftSummary[];
+    } catch {
+      return [];
+    }
+  });
   // Block properties are contextual: show the tab while a block is selected,
   // fall back to Data when the selection clears.
   useEffect(() => {
@@ -719,7 +745,7 @@ export default function BuilderClient() {
 
     // Restore letter draft
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = localStorage.getItem(draftStorageKey(draftId)) ?? localStorage.getItem(DRAFT_KEY);
       if (raw) {
         const draft: LetterDraft = JSON.parse(raw);
         if (draft.title) setLetterTitle(draft.title);
@@ -795,7 +821,7 @@ export default function BuilderClient() {
     } catch {
       // Corrupted draft — ignore and start fresh
     }
-  }, []);
+  }, [draftId]);
 
   // Save recently used items to localStorage
   useEffect(() => {
@@ -876,12 +902,21 @@ export default function BuilderClient() {
             );
             slimSerialized = JSON.stringify(slim);
           }
-          localStorage.setItem(DRAFT_KEY, slimSerialized);
+          localStorage.setItem(draftStorageKey(draftId), slimSerialized);
+          localStorage.removeItem(DRAFT_KEY);
           setSpreadsheetNotPersisted(true);
         } else {
-          localStorage.setItem(DRAFT_KEY, serialized);
+          localStorage.setItem(draftStorageKey(draftId), serialized);
+          localStorage.removeItem(DRAFT_KEY);
           setSpreadsheetNotPersisted(false);
         }
+        localStorage.setItem(CURRENT_DRAFT_ID_KEY, draftId);
+        const summary = createDraftSummary(draftId, letterTitle);
+        setDraftSummaries((current) => {
+          const next = upsertDraftSummary(current, summary);
+          localStorage.setItem(DRAFT_INDEX_KEY, JSON.stringify(next));
+          return next;
+        });
         savedAtRef.current = Date.now();
         setSavedAgo("just now");
       } catch {
@@ -895,7 +930,7 @@ export default function BuilderClient() {
     selectedLogo?.id, selectedReturn?.id, selectedTaglineByPage, library,
     logoMode, logoColumn, logoValueMap,
     taglineMode, taglineColumn, taglineValueMap,
-    returnMode, returnColumn, returnValueMap,
+    returnMode, returnColumn, returnValueMap, draftId,
   ]);
 
   // Age the "Saved · X ago" badge every 30s
@@ -2292,10 +2327,8 @@ export default function BuilderClient() {
         throw new Error(message || `Failed to generate ${format.toUpperCase()}`);
       }
       const blob = await response.blob();
-      const fileExt = format === "pdf" ? ".pdf" : ".afp";
-      const fileName = `print_output${fileExt}`;
-      const mimeType = format === "pdf" ? "application/pdf" : "application/octet-stream";
-      const description = format === "pdf" ? "PDF Document" : "AFP Document";
+      const rowCount = spreadsheetRows.length;
+      const fileName = buildOutputFileName(letterTitle, format, rowCount);
 
       // Use <a> download — showSaveFilePicker fails after async fetch
       // because the browser no longer considers it a user gesture
@@ -2305,8 +2338,7 @@ export default function BuilderClient() {
       link.download = fileName;
       link.click();
       URL.revokeObjectURL(url);
-      const rowCount = Math.max(0, (spreadsheetContent ?? "").split("\n").filter(Boolean).length - 1);
-      setGeneratedSummary({ count: rowCount, format });
+      setGeneratedSummary({ count: rowCount, format, fileName });
     } catch (error) {
       console.error(error);
       const raw = error instanceof Error ? error.message : "";
@@ -2707,6 +2739,44 @@ export default function BuilderClient() {
     );
   };
 
+  const createNewDraft = () => {
+    const nextId = `letter-${Date.now()}`;
+    localStorage.setItem(CURRENT_DRAFT_ID_KEY, nextId);
+    localStorage.removeItem(DRAFT_KEY);
+    window.location.reload();
+  };
+
+  const openDraft = (id: string) => {
+    const raw = localStorage.getItem(draftStorageKey(id));
+    if (!raw) {
+      setToast({ message: "That saved letter is no longer available.", variant: "error" });
+      return;
+    }
+    localStorage.setItem(CURRENT_DRAFT_ID_KEY, id);
+    window.location.reload();
+  };
+
+  const duplicateDraft = (sourceId = draftId) => {
+    const raw = localStorage.getItem(draftStorageKey(sourceId)) ?? localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const source = JSON.parse(raw) as LetterDraft;
+      const nextId = `letter-${Date.now()}`;
+      const copy = { ...source, title: `${source.title || "Untitled letter"} copy` };
+      const serialized = JSON.stringify(copy);
+      localStorage.setItem(draftStorageKey(nextId), serialized);
+      localStorage.setItem(CURRENT_DRAFT_ID_KEY, nextId);
+      const next = upsertDraftSummary(
+        draftSummaries,
+        createDraftSummary(nextId, copy.title)
+      );
+      localStorage.setItem(DRAFT_INDEX_KEY, JSON.stringify(next));
+      window.location.reload();
+    } catch {
+      setToast({ message: "This letter could not be duplicated.", variant: "error" });
+    }
+  };
+
   const letterWritten =
     Object.values(bodyContentByPage).some((html) => {
       const text = stripInlineControls(html ?? "").replace(/<[^>]*>/g, "").trim();
@@ -2748,17 +2818,12 @@ export default function BuilderClient() {
         onExport={handleExportWord}
         onManageLibrary={() => setShowManageLibrary(true)}
         onAiSettings={() => setShowAiSettings(true)}
-        onPreview={openPreviewGuarded}
-        onGenerate={() => {
-          if (spreadsheetRows.length === 0) {
-            setInspectorTab("data");
-            setToast({ message: "Upload a data file first — the Data panel is on the right.", variant: "info" });
-          } else {
-            runPreflightThenGenerate(outputFormat);
-          }
-        }}
-        generating={generating || preflightRunning}
-        generateDisabled={generating || preflightRunning}
+        onPreviewCreate={openPreviewGuarded}
+        creating={generating || preflightRunning}
+        createDisabled={generating || preflightRunning}
+        onNewDraft={createNewDraft}
+        onOpenDrafts={() => setShowDraftManager(true)}
+        onDuplicateDraft={() => duplicateDraft()}
       />
 
       <div className="builder-body">
@@ -3393,7 +3458,10 @@ export default function BuilderClient() {
               mailingFields={mailingFields}
               onMailingFieldsChange={setMailingFields}
               spreadsheetNotPersisted={spreadsheetNotPersisted}
+              activeSection={dataSection}
+              onSectionChange={setDataSection}
               onAiAutomap={aiSettings ? runAiAutomap : undefined}
+              onConfigureAi={() => setShowAiSettings(true)}
               aiMapLoading={aiMapLoading}
               aiSuggestions={aiSettings ? visibleAiSuggestions : undefined}
               onApplySuggestion={applyAutoMatch}
@@ -3624,6 +3692,15 @@ export default function BuilderClient() {
           onClose={() => setShowAiSettings(false)}
         />
       )}
+      {showDraftManager && (
+        <DraftManager
+          drafts={draftSummaries}
+          currentDraftId={draftId}
+          onOpen={openDraft}
+          onDuplicate={duplicateDraft}
+          onClose={() => setShowDraftManager(false)}
+        />
+      )}
       {preflightReport && (
         <PreflightModal
           issues={preflightReport.issues}
@@ -3632,6 +3709,16 @@ export default function BuilderClient() {
           rowCount={preflightReport.rowCount}
           checkedRowCount={preflightReport.checkedRowCount}
           onCancel={() => setPreflightReport(null)}
+          onReviewIssue={(issue) => {
+            const field = issue.field.toLowerCase();
+            setDataSection(
+              field.includes("mailing") || field.includes("addr") || field.includes("name")
+                ? "tle"
+                : "placeholders"
+            );
+            setInspectorTab("data");
+            setPreflightReport(null);
+          }}
           onConfirm={() => {
             const { format } = preflightReport;
             setPreflightReport(null);
@@ -3839,7 +3926,10 @@ export default function BuilderClient() {
           }
           outputFormat={outputFormat}
           onFormatChange={(fmt) => setOutputFormat(fmt as "afp" | "pdf")}
-          onGenerate={() => { handleGenerate(outputFormat); setShowMergePreview(false); }}
+          onGenerate={() => {
+            setShowMergePreview(false);
+            void runPreflightThenGenerate(outputFormat);
+          }}
           onClose={() => setShowMergePreview(false)}
         />
       )}
@@ -3958,13 +4048,20 @@ export default function BuilderClient() {
               {generatedSummary.count} letter{generatedSummary.count !== 1 ? "s" : ""} created
             </h3>
             <p className="success-sub">
-              {generatedSummary.format === "pdf"
-                ? "Your PDF is in your Downloads folder — open it to print."
-                : "Your AFP file is in your Downloads folder — send it to the mail house."}
+              Downloaded <strong>{generatedSummary.fileName}</strong>.
             </p>
-            <button className="primary" onClick={() => setGeneratedSummary(null)}>
-              Done
-            </button>
+            <div className="success-actions">
+              <button
+                className="btn-outline-sm"
+                onClick={() => {
+                  setGeneratedSummary(null);
+                  setShowMergePreview(true);
+                }}
+              >
+                Return to preview
+              </button>
+              <button className="primary" onClick={() => setGeneratedSummary(null)}>Done</button>
+            </div>
           </div>
         </div>
       )}

@@ -19,6 +19,7 @@ type PreflightModalProps = {
   checkedRowCount?: number;
   onCancel: () => void;
   onConfirm: () => void;
+  onReviewIssue: (issue: PreflightIssue) => void;
 };
 
 export function PreflightModal({
@@ -29,6 +30,7 @@ export function PreflightModal({
   checkedRowCount,
   onCancel,
   onConfirm,
+  onReviewIssue,
 }: PreflightModalProps) {
   const errorCount = issues.filter((issue) => issue.severity === "error").length;
   const warningCount = issues.length - errorCount;
@@ -94,6 +96,13 @@ export function PreflightModal({
                 {issue.source === "ai" && (
                   <span className="preflight-ai-badge">AI</span>
                 )}
+                <button
+                  type="button"
+                  className="preflight-review-btn"
+                  onClick={() => onReviewIssue(issue)}
+                >
+                  Review
+                </button>
               </li>
             ))}
           </ul>
@@ -103,7 +112,7 @@ export function PreflightModal({
             <button type="button" className="btn-ghost-sm" onClick={onCancel}>
               Cancel
             </button>
-            <button type="button" className="btn-accent" onClick={onConfirm}>
+            <button type="button" className="btn-outline-sm" onClick={onConfirm}>
               {errorCount > 0 ? "Generate anyway" : "Generate"}
             </button>
           </div>

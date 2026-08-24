@@ -156,7 +156,7 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
               size={16}
               style={{ display: "inline", marginRight: 6, verticalAlign: "middle" }}
             />
-            AI Settings
+            Settings
           </h2>
           <button
             type="button"
@@ -190,6 +190,10 @@ export function AiSettingsModal({ onSaved, onClose }: AiSettingsModalProps) {
 
           {status === "ready" && (
             <>
+              <div className="settings-section-heading">
+                <span>AI assistance</span>
+                <p>Optional mapping and preflight suggestions.</p>
+              </div>
               {/* Step 1 — provider + key */}
               <div className="modal-field">
                 <label className="modal-field-label" htmlFor="ai-provider">

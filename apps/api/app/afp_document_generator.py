@@ -941,7 +941,7 @@ def generate_afp_with_resources(
 
 # ============== Exstream 22.3 Compatible Output ==============
 
-EXSTREAM_BANNER = "CREATED IN OPENTEXT EXSTREAM 22.3 OUTPUT FORMAT (MO:DCA)"
+EXSTREAM_BANNER = "Created by PSD in-house AFP Print Adhoc Studio."
 
 
 def _build_pgd_std(width: int, height: int, resolution: int) -> bytes:

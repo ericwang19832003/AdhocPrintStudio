@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Upload, CheckCircle2, AlertTriangle, Sparkles, Loader2 } from "lucide-react";
+import { useRef } from "react";
+import { Upload, CheckCircle2, AlertTriangle, Sparkles, Loader2, Circle } from "lucide-react";
 import { mailingTemplates, resolveMailingLine, type MailingFields } from "@/lib/mailing";
+import { buildReadinessItems, type DataSection } from "@/lib/ux";
 
 export type PlaceholderMapping = Record<string, string>; // placeholder → column name (empty = unmapped)
 
@@ -30,6 +31,9 @@ type DataPanelProps = {
   aiSuggestions?: AiSuggestion[];
   onApplySuggestion?: (placeholder: string, column: string) => void;
   onApplyAllAiSuggestions?: () => void;
+  onConfigureAi?: () => void;
+  activeSection: DataSection;
+  onSectionChange: (section: DataSection) => void;
 };
 
 export function DataPanel({
@@ -48,10 +52,10 @@ export function DataPanel({
   aiSuggestions,
   onApplySuggestion,
   onApplyAllAiSuggestions,
+  onConfigureAi,
+  activeSection,
+  onSectionChange,
 }: DataPanelProps) {
-  const [activeSection, setActiveSection] = useState<"placeholders" | "tle" | "preview">(
-    "placeholders"
-  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const allMapped =
@@ -62,6 +66,17 @@ export function DataPanel({
   const highConfidenceAiCount = pendingAiSuggestions.filter(
     (s) => s.confidence === "high"
   ).length;
+  const templates = mailingTemplates(mailingFields);
+  const mailingComplete = Boolean(
+    templates.mailing_name && templates.mailing_addr1 && templates.mailing_addr3
+  );
+  const readinessItems = buildReadinessItems({
+    recipientCount: rows.length,
+    mappedFieldCount: mappedCount,
+    totalFieldCount: placeholders.length,
+    mailingComplete,
+  });
+  const ready = readinessItems.every((item) => item.complete);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,6 +132,23 @@ export function DataPanel({
 
       {spreadsheetName && (
         <>
+          <div className={`readiness-summary${ready ? " ready" : ""}`}>
+            <div className="readiness-summary-title">
+              {ready ? "Ready to create" : "Finish setup"}
+            </div>
+            {readinessItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`readiness-item${item.complete ? " complete" : ""}`}
+                onClick={() => onSectionChange(item.target)}
+              >
+                {item.complete ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Section tabs */}
           <div className="data-section-tabs">
             {(["placeholders", "tle", "preview"] as const).map((s) => (
@@ -124,7 +156,7 @@ export function DataPanel({
                 key={s}
                 type="button"
                 className={`data-section-tab${activeSection === s ? " active" : ""}`}
-                onClick={() => setActiveSection(s)}
+                onClick={() => onSectionChange(s)}
               >
                 {s === "placeholders"
                   ? "Fill-in fields"
@@ -162,6 +194,11 @@ export function DataPanel({
                     <Sparkles size={13} />
                   )}
                   {aiMapLoading ? "Mapping with AI…" : "Auto-map with AI"}
+                </button>
+              )}
+              {!onAiAutomap && onConfigureAi && hasUnmapped && (
+                <button type="button" className="ai-automap-btn" onClick={onConfigureAi}>
+                  <Sparkles size={13} /> Improve mapping with AI
                 </button>
               )}
               {pendingAiSuggestions.length > 0 && (
@@ -250,7 +287,6 @@ export function DataPanel({
                 </select>
               </label>
             );
-            const templates = mailingTemplates(mailingFields);
             const previewRow = rows[0];
             const previewLines = previewRow
               ? [

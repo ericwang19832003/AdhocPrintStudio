@@ -89,8 +89,8 @@ class TestExstreamStructure:
         fields = parse_fields(generate_afp_exstream(make_pages(1)))
         name, data = fields[1]
         assert name == "NOP"
-        comment = data[3:].decode("cp500")
-        assert "EXSTREAM 22.3" in comment
+        comment = data[3:].decode("cp500").rstrip()
+        assert comment == "Created by PSD in-house AFP Print Adhoc Studio."
 
     def test_banner_can_be_disabled(self):
         names = [n for n, _ in parse_fields(
